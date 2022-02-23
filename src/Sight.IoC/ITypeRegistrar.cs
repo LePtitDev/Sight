@@ -2,6 +2,6 @@
 {
     public interface ITypeRegistrar
     {
-        public void Register(Type type, ResolveDelegate provider);
+        public void Register(Type type, ResolveDelegate resolver);
     }
 }

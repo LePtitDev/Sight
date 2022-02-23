@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.32112.339
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sight.IoC", "src\Sight.IoC\Sight.IoC.csproj", "{27C82824-03C6-456A-8E4E-2FC36A3F8CC2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sight.Linq", "src\Sight.Linq\Sight.Linq.csproj", "{D67C3935-D8C9-442A-8922-C7342849A9CE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sight.Linq", "src\Sight.Linq\Sight.Linq.csproj", "{D67C3935-D8C9-442A-8922-C7342849A9CE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C080A13A-B602-4534-9F7D-EDE8D2D62B7D}"
 	ProjectSection(SolutionItems) = preProject
@@ -28,7 +28,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F66AA6A0-A09
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{80890CE1-D50C-4521-9280-15C4D07EDBAC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sight.IoC.Tests", "tests\Sight.IoC.Tests\Sight.IoC.Tests.csproj", "{11ACA528-C767-4FDB-B12E-7DAA54D747C6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sight.IoC.Tests", "tests\Sight.IoC.Tests\Sight.IoC.Tests.csproj", "{11ACA528-C767-4FDB-B12E-7DAA54D747C6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

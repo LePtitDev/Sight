@@ -2,6 +2,11 @@
 {
     public static class IoCExtensions
     {
+        public static ITypeResolver AsImmutable(this ITypeResolver resolver)
+        {
+            return new TypeResolver(resolver.Registrations.ToArray(), syncRoot: null, isImmutable: true);
+        }
+
         public static bool IsRegistered<T>(this ITypeResolver typeResolver)
         {
             return typeResolver.IsRegistered(typeof(T));
