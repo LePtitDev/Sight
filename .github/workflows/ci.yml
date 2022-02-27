@@ -38,6 +38,9 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
+      - name: Test echo
+        run: for f in "${{ github.workspace }}/src/**/*.csproj"; do echo "$f"; done
+        shell: bash
       - name: Package Source Projects
         run: for f in "${{ github.workspace }}/src/**/*.csproj"; do dotnet pack "$f" --configuration Release --output ${{ env.CI_NUGET_OUTPUT }}; done
         shell: bash
