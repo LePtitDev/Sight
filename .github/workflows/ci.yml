@@ -1,0 +1,32 @@
+name: CI/CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+env:
+  CI_DOTNET_VERSION: 6.0.x
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET ${{ env.CI_DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build solution
+        run: dotnet build --configuration Release
+        run: dotnet restore
+      - name: Test solution
+        run: dotnet test --configuration Release --logger nunit
