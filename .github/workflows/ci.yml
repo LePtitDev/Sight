@@ -65,7 +65,6 @@ jobs:
         with:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Publish NuGet Packages
-        run: for f in ${{ env.CI_NUGET_OUTPUT }}/*.nupkg; do dotnet nuget push "$f" --api-key "$env:CI_NUGET_API_KEY" --skip-duplicate; done
-        shell: bash
+        run: for f in ${{ env.CI_NUGET_OUTPUT }}/*.nupkg; do dotnet nuget push "$f" --api-key "$env:CI_NUGET_API_KEY" --source "https://api.nuget.org/v3/index.json" --skip-duplicate; done
         env:
           CI_NUGET_API_KEY: ${{ secrets.CI_NUGET_API_KEY }}
