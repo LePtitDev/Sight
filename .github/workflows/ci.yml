@@ -29,7 +29,6 @@ jobs:
         run: dotnet build --configuration Release
       - name: Test solution
         run: dotnet test --configuration Release --logger nunit
-  # TODO: Create and validate packages packages
   package:
     runs-on: ubuntu-latest
     steps:
@@ -41,7 +40,6 @@ jobs:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Package Source Projects
         run: for f in "${{ github.workspace }}/src/**/*.csproj"; do dotnet pack "$f" --configuration Release --output ${{ env.CI_NUGET_OUTPUT }}; done
-          dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Validate Packages
         run: for f in "${{ env.CI_NUGET_OUTPUT }}/*.nupkg"; do dotnet validate package local "$f"; done
       - name: Upload Artifacts
