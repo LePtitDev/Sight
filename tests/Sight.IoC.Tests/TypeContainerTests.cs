@@ -27,7 +27,7 @@
                 }
             });
 
-            Assert.AreEqual("test-02", testClass.Value);
+            Assert.AreEqual("test-02", testClass!.Value);
         }
 
         [Test]

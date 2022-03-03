@@ -15,9 +15,9 @@
             _registrations = registrations;
         }
 
-        public void Register(Type type, ResolveDelegate resolver)
+        public void Register(Registration registration)
         {
-            EnsureSync(() => _registrations.Add(new Registration(type, resolver)));
+            EnsureSync(() => _registrations.Add(registration));
         }
     }
 }

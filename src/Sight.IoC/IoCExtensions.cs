@@ -34,12 +34,17 @@
             return typeResolver.Resolve(type, resolveOptions)!;
         }
 
+        public static void Register(this ITypeRegistrar typeRegistrar, Type type, ResolveDelegate resolver)
+        {
+            typeRegistrar.Register(new Registration(type, resolver));
+        }
+
         public static void Register(this ITypeRegistrar typeRegistrar, Type type, object value)
         {
             if (!type.IsInstanceOfType(value))
                 throw new IoCException($"Value is not instance of type '{type}' (Current: {value})");
 
-            typeRegistrar.Register(type, (t, o) => value);
+            typeRegistrar.Register(type, (_, _) => value);
         }
 
         public static void Register<T>(this ITypeRegistrar typeRegistrar, T value) where T : class
