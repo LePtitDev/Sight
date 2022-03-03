@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>0.0.1-beta</Version>
+    <Description>Dependency injection library.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sight.Linq\Sight.Linq.csproj" />

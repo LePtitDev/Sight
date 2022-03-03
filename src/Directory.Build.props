@@ -5,6 +5,15 @@
     <CopyDependencies>false</CopyDependencies>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Arthur Ferre</Authors>
+    <RepositoryUrl>https://github.com/LePtitDev/Sight.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/LePtitDev/Sight</PackageProjectUrl>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright © Arthur Ferre 2022</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <Using Include="System" />

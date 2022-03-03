@@ -5,17 +5,26 @@ using Sight.Linq;
 
 namespace Sight.IoC
 {
+    /// <summary>
+    /// Implementation of <see cref="ITypeResolver"/>
+    /// </summary>
     public class TypeResolver : ITypeResolver
     {
         private readonly Func<IEnumerable<Registration>> _registrationsFunc;
         private readonly object? _syncRoot;
         private readonly bool _isImmutable;
 
+        /// <summary>
+        /// Initialize a new instance of <see cref="TypeResolver"/> class
+        /// </summary>
         public TypeResolver(IEnumerable<Registration> registrations, object? syncRoot = null, bool isImmutable = false)
             : this(() => registrations, syncRoot ?? (isImmutable ? null : (registrations as ICollection)?.SyncRoot), isImmutable)
         {
         }
 
+        /// <summary>
+        /// Initialize a new instance of <see cref="TypeResolver"/> class
+        /// </summary>
         public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc, object? syncRoot = null, bool isImmutable = false)
         {
             _registrationsFunc = registrationsFunc;
@@ -23,18 +32,22 @@ namespace Sight.IoC
             _isImmutable = isImmutable;
         }
 
+        /// <inheritdoc />
         public IEnumerable<Registration> Registrations => _registrationsFunc();
 
+        /// <inheritdoc />
         public bool IsRegistered(Type type)
         {
             return EnsureSync(() => Registrations.Any(x => x.Type == type));
         }
 
+        /// <inheritdoc />
         public bool IsResolvable(Type type, ResolveOptions resolveOptions)
         {
             return TryResolveActivator(type, resolveOptions, out _);
         }
 
+        /// <inheritdoc />
         public object? Resolve(Type type, ResolveOptions resolveOptions)
         {
             if (TryResolveActivator(type, resolveOptions, out var activator))
@@ -46,6 +59,9 @@ namespace Sight.IoC
             throw new IoCException($"Cannot resolve type '{type}'");
         }
 
+        /// <summary>
+        /// Ensure to lock collection if needed when calling action
+        /// </summary>
         protected void EnsureSync(Action func)
         {
             _ = EnsureSync(() =>
@@ -55,6 +71,9 @@ namespace Sight.IoC
             });
         }
 
+        /// <summary>
+        /// Ensure to lock collection if needed when calling action
+        /// </summary>
         protected T EnsureSync<T>(Func<T> func)
         {
             if (_syncRoot == null)
