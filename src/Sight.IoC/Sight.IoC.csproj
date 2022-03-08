@@ -6,4 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sight.Linq\Sight.Linq.csproj" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
+  </ItemGroup>
 </Project>

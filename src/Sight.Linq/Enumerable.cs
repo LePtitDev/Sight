@@ -24,5 +24,14 @@ namespace Sight.Linq
             item = default;
             return false;
         }
+
+#if !NET5_0_OR_GREATER
+        private class NotNullWhenAttribute : Attribute
+        {
+            public NotNullWhenAttribute(bool returnValue)
+            {
+            }
+        }
+#endif
     }
 }
