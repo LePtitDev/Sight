@@ -11,14 +11,13 @@ namespace Sight.IoC
     public class TypeResolver : ITypeResolver
     {
         private readonly Func<IEnumerable<Registration>> _registrationsFunc;
-        private readonly object? _syncRoot;
         private readonly bool _isImmutable;
 
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
         /// </summary>
         public TypeResolver(IEnumerable<Registration> registrations, object? syncRoot = null, bool isImmutable = false)
-            : this(() => registrations, syncRoot ?? (isImmutable ? null : (registrations as ICollection)?.SyncRoot), isImmutable)
+            : this(() => registrations, syncRoot, isImmutable)
         {
         }
 
@@ -28,12 +27,15 @@ namespace Sight.IoC
         public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc, object? syncRoot = null, bool isImmutable = false)
         {
             _registrationsFunc = registrationsFunc;
-            _syncRoot = syncRoot;
             _isImmutable = isImmutable;
+            SyncRoot = syncRoot;
         }
 
         /// <inheritdoc />
         public IEnumerable<Registration> Registrations => _registrationsFunc();
+
+        /// <inheritdoc />
+        public object? SyncRoot { get; }
 
         /// <inheritdoc />
         public bool IsRegistered(Type type)
@@ -76,12 +78,12 @@ namespace Sight.IoC
         /// </summary>
         protected T EnsureSync<T>(Func<T> func)
         {
-            if (_syncRoot == null)
+            if (SyncRoot == null)
             {
                 return func();
             }
 
-            lock (_syncRoot)
+            lock (SyncRoot)
             {
                 return func();
             }

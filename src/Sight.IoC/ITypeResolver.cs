@@ -11,6 +11,11 @@
         public IEnumerable<Registration> Registrations { get; }
 
         /// <summary>
+        /// Object that can be used to synchronize registration access
+        /// </summary>
+        public object? SyncRoot { get; }
+
+        /// <summary>
         /// Indicates if a service is registered
         /// </summary>
         public bool IsRegistered(Type type);

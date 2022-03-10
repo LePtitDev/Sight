@@ -10,7 +10,8 @@
         /// </summary>
         public static ITypeResolver AsImmutable(this ITypeResolver resolver)
         {
-            return new TypeResolver(resolver.Registrations.ToArray(), syncRoot: null, isImmutable: true);
+            var registrations = SafeGetRegistrations(resolver);
+            return new TypeResolver(registrations, syncRoot: null, isImmutable: true);
         }
 
         /// <summary>
@@ -113,6 +114,32 @@
                 throw new IoCException($"Type '{type}' is not a generic definition");
 
             typeRegistrar.Register(type, (t, _) => provider(t.GetGenericArguments()));
+        }
+
+        /// <summary>
+        /// Get a copy of registrations by locking collection if required
+        /// </summary>
+        public static Registration[] SafeGetRegistrations(ITypeResolver resolver)
+        {
+            Registration[] registrations;
+            if (resolver.SyncRoot == null)
+            {
+                registrations = GetRegistrations(resolver);
+            }
+            else
+            {
+                lock (resolver.SyncRoot)
+                {
+                    registrations = GetRegistrations(resolver);
+                }
+            }
+
+            return registrations;
+
+            static Registration[] GetRegistrations(ITypeResolver resolver)
+            {
+                return resolver.Registrations.ToArray();
+            }
         }
     }
 }
