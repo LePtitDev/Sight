@@ -6,7 +6,7 @@ namespace Sight.Linq
     /// <summary>
     /// Extension methods for <see cref="IEnumerable{T}"/>
     /// </summary>
-    public static class Enumerable
+    public static class EnumerableExt
     {
         /// <summary>
         /// Invoke delegate for each element in source
