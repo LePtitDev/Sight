@@ -10,16 +10,16 @@
         /// <summary>
         /// Initialize a new instance of <see cref="TypeContainer"/> class
         /// </summary>
-        public TypeContainer()
-            : this(new List<Registration>(), new object())
+        public TypeContainer(RegistrationPredicate? registrationPredicate = null)
+            : this(new List<Registration>(), new object(), registrationPredicate)
         {
         }
 
         /// <summary>
-        /// Initialize a new instance of <see cref="TypeContainer"/> class with a specific registrations collection
+        /// Initialize a new instance of <see cref="TypeContainer"/> class
         /// </summary>
-        public TypeContainer(ICollection<Registration> registrations, object? syncRoot = null)
-            : base(registrations, syncRoot)
+        public TypeContainer(ICollection<Registration> registrations, object? syncRoot = null, RegistrationPredicate? registrationPredicate = null)
+            : base(registrations, syncRoot, registrationPredicate: registrationPredicate)
         {
             _registrations = registrations;
         }

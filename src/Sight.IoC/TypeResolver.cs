@@ -12,22 +12,24 @@ namespace Sight.IoC
     {
         private readonly Func<IEnumerable<Registration>> _registrationsFunc;
         private readonly bool _isImmutable;
+        private readonly RegistrationPredicate _registrationPredicate;
 
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
         /// </summary>
-        public TypeResolver(IEnumerable<Registration> registrations, object? syncRoot = null, bool isImmutable = false)
-            : this(() => registrations, syncRoot, isImmutable)
+        public TypeResolver(IEnumerable<Registration> registrations, object? syncRoot = null, bool isImmutable = false, RegistrationPredicate? registrationPredicate = null)
+            : this(() => registrations, syncRoot, isImmutable, registrationPredicate)
         {
         }
 
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
         /// </summary>
-        public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc, object? syncRoot = null, bool isImmutable = false)
+        public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc, object? syncRoot = null, bool isImmutable = false, RegistrationPredicate? registrationPredicate = null)
         {
             _registrationsFunc = registrationsFunc;
             _isImmutable = isImmutable;
+            _registrationPredicate = registrationPredicate ?? IsRegistrationForType;
             SyncRoot = syncRoot;
         }
 
@@ -107,7 +109,7 @@ namespace Sight.IoC
         private bool TryResolveActivator(Type type, ResolveOptions resolveOptions, out Func<object>? activator)
         {
             var dictionary = EnsureSync(GetImmutableRegistrations);
-            if (dictionary.TryGet(x => x.Type == type, out var item))
+            if (dictionary.TryGet(x => _registrationPredicate(x, type, resolveOptions), out var item))
             {
                 activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                 return true;
@@ -250,6 +252,11 @@ namespace Sight.IoC
                 throw new IoCException($"Cannot resolve '{type}' from resolve provider");
 
             return value;
+        }
+
+        private static bool IsRegistrationForType(Registration registration, Type type, ResolveOptions resolveOptions)
+        {
+            return registration.Type == type;
         }
     }
 }
