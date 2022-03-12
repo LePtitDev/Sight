@@ -50,19 +50,19 @@ namespace Sight.IoC
         public RegistrationPredicate Predicate { get; }
 
         /// <inheritdoc />
-        public bool IsRegistered(RegistrationIdentifier identifier)
+        public bool IsRegistered(RegistrationId identifier)
         {
             return EnsureSync(() => Registrations.Any(x => Predicate(x, identifier)));
         }
 
         /// <inheritdoc />
-        public bool IsResolvable(RegistrationIdentifier identifier, ResolveOptions resolveOptions)
+        public bool IsResolvable(RegistrationId identifier, ResolveOptions resolveOptions)
         {
             return TryResolveActivator(identifier, resolveOptions, out _);
         }
 
         /// <inheritdoc />
-        public object? Resolve(RegistrationIdentifier identifier, ResolveOptions resolveOptions)
+        public object? Resolve(RegistrationId identifier, ResolveOptions resolveOptions)
         {
             if (TryResolveActivator(identifier, resolveOptions, out var activator))
                 return activator!();
@@ -116,7 +116,7 @@ namespace Sight.IoC
             };
         }
 
-        private bool TryResolveActivator(RegistrationIdentifier identifier, ResolveOptions resolveOptions, out Func<object>? activator)
+        private bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator)
         {
             var type = identifier.Type;
             var dictionary = EnsureSync(GetImmutableRegistrations);
@@ -129,7 +129,7 @@ namespace Sight.IoC
             if (type.IsConstructedGenericType)
             {
                 var genericType = type.GetGenericTypeDefinition();
-                var genericIdentifier = new RegistrationIdentifier(genericType) { Name = identifier.Name };
+                var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
                 if (dictionary.TryGet(x => Predicate(x, genericIdentifier), out item))
                 {
                     activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
@@ -178,7 +178,7 @@ namespace Sight.IoC
             return TryCreateActivator(dictionary, type, resolveOptions, out activator);
         }
 
-        private IReadOnlyList<object> ResolveAll(RegistrationIdentifier identifier, ResolveOptions resolveOptions)
+        private IReadOnlyList<object> ResolveAll(RegistrationId identifier, ResolveOptions resolveOptions)
         {
             return EnsureSync(() => Registrations.Where(x => Predicate(x, identifier)).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray());
         }
@@ -264,7 +264,7 @@ namespace Sight.IoC
             return value;
         }
 
-        private static bool IsRegistrationForType(Registration registration, RegistrationIdentifier identifier)
+        private static bool IsRegistrationForType(Registration registration, RegistrationId identifier)
         {
             return registration.Type == identifier.Type && string.Equals(registration.Name, identifier.Name);
         }

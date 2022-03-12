@@ -3,12 +3,12 @@
     /// <summary>
     /// Describe a service registration only for identification
     /// </summary>
-    public class RegistrationIdentifier
+    public class RegistrationId
     {
         /// <summary>
-        /// Initialize a new instance of <see cref="RegistrationIdentifier"/> class
+        /// Initialize a new instance of <see cref="RegistrationId"/> class
         /// </summary>
-        public RegistrationIdentifier(Type type)
+        public RegistrationId(Type type)
         {
             Type = type;
         }
@@ -32,6 +32,6 @@
         /// <summary>
         /// Convert type to registration identifier
         /// </summary>
-        public static implicit operator RegistrationIdentifier(Type type) => new RegistrationIdentifier(type);
+        public static implicit operator RegistrationId(Type type) => new RegistrationId(type);
     }
 }

@@ -3,7 +3,7 @@
     /// <summary>
     /// Describe a service registration
     /// </summary>
-    public class Registration : RegistrationIdentifier
+    public class Registration : RegistrationId
     {
         /// <summary>
         /// Initialize a new instance of <see cref="Registration"/> class

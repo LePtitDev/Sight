@@ -23,7 +23,7 @@
         /// </summary>
         public static bool IsRegistered(this ITypeResolver typeResolver, Type type, string? name)
         {
-            return typeResolver.IsRegistered(new RegistrationIdentifier(type) { Name = name });
+            return typeResolver.IsRegistered(new RegistrationId(type) { Name = name });
         }
 
         /// <inheritdoc cref="IsRegistered"/>
@@ -38,7 +38,7 @@
         /// <exception cref="IoCException"/>
         public static bool IsResolvable(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.IsResolvable(new RegistrationIdentifier(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+            return typeResolver.IsResolvable(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
         }
 
         /// <inheritdoc cref="IsResolvable"/>
@@ -53,7 +53,7 @@
         /// <exception cref="IoCException"/>
         public static object? Resolve(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.Resolve(new RegistrationIdentifier(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+            return typeResolver.Resolve(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
         }
 
         /// <inheritdoc cref="Resolve(ITypeResolver,Type,string?,ResolveOptions?)"/>
