@@ -21,103 +21,97 @@
         /// <summary>
         /// Indicates if a typed service is registered in the resolver
         /// </summary>
-        public static bool IsRegistered<T>(this ITypeResolver typeResolver)
+        public static bool IsRegistered(this ITypeResolver typeResolver, Type type, string? name)
         {
-            return typeResolver.IsRegistered(typeof(T));
+            return typeResolver.IsRegistered(new RegistrationIdentifier(type) { Name = name });
+        }
+
+        /// <inheritdoc cref="IsRegistered"/>
+        public static bool IsRegistered<T>(this ITypeResolver typeResolver, string? name = null)
+        {
+            return IsRegistered(typeResolver, typeof(T), name);
         }
 
         /// <summary>
         /// Indicates if a typed service is resolvable with some options
         /// </summary>
         /// <exception cref="IoCException"/>
-        public static bool IsResolvable<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions)
+        public static bool IsResolvable(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.IsResolvable(typeof(T), resolveOptions);
+            return typeResolver.IsResolvable(new RegistrationIdentifier(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
         }
 
-        /// <summary>
-        /// Resolve a typed service with some options
-        /// </summary>
-        /// <exception cref="IoCException"/>
-        public static T? Resolve<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions) where T : class
+        /// <inheritdoc cref="IsResolvable"/>
+        public static bool IsResolvable<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return (T?)typeResolver.Resolve(typeof(T), resolveOptions);
-        }
-
-        /// <summary>
-        /// Resolve a typed service
-        /// </summary>
-        /// <exception cref="IoCException"/>
-        public static T Resolve<T>(this ITypeResolver typeResolver, params object[] additionalParameters)
-        {
-            return (T)Resolve(typeResolver, typeof(T), additionalParameters);
+            return IsResolvable(typeResolver, typeof(T), name, resolveOptions ?? ResolveOptions.Empty);
         }
 
         /// <summary>
         /// Resolve a typed service
         /// </summary>
         /// <exception cref="IoCException"/>
-        public static object Resolve(this ITypeResolver typeResolver, Type type, params object[] additionalParameters)
+        public static object? Resolve(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            var resolveOptions = new ResolveOptions();
-            resolveOptions.AdditionalParameters.AddRange(additionalParameters);
-            return typeResolver.Resolve(type, resolveOptions)!;
+            return typeResolver.Resolve(new RegistrationIdentifier(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+        }
+
+        /// <inheritdoc cref="Resolve(ITypeResolver,Type,string?,ResolveOptions?)"/>
+        public static T? Resolve<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null) where T : class
+        {
+            return (T?)Resolve(typeResolver, typeof(T), name, resolveOptions);
         }
 
         /// <summary>
         /// Register a service resolver
         /// </summary>
-        public static void Register(this ITypeRegistrar typeRegistrar, Type type, ResolveDelegate resolver)
+        public static void Register(this ITypeRegistrar typeRegistrar, Type type, ResolveDelegate resolver, string? name = null)
         {
-            typeRegistrar.Register(new Registration(type, resolver));
+            typeRegistrar.Register(new Registration(type, resolver) { Name = name });
         }
 
         /// <summary>
         /// Register a service instance
         /// </summary>
-        public static void Register(this ITypeRegistrar typeRegistrar, Type type, object value)
+        public static void RegisterInstance(this ITypeRegistrar typeRegistrar, Type type, object value, string? name = null)
         {
             if (!type.IsInstanceOfType(value))
                 throw new IoCException($"Value is not instance of type '{type}' (Current: {value})");
 
-            typeRegistrar.Register(type, (_, _) => value);
+            Register(typeRegistrar, type, (_, _) => value, name);
         }
 
-        /// <summary>
-        /// Register a service instance
-        /// </summary>
-        public static void Register<T>(this ITypeRegistrar typeRegistrar, T value) where T : class
+        /// <inheritdoc cref="RegisterInstance"/>
+        public static void RegisterInstance<T>(this ITypeRegistrar typeRegistrar, T value, string? name = null) where T : class
         {
-            Register(typeRegistrar, typeof(T), value);
+            RegisterInstance(typeRegistrar, typeof(T), value, name);
         }
 
         /// <summary>
         /// Register a service resolver with instance storing
         /// </summary>
-        public static void RegisterLazy(this ITypeRegistrar typeRegistrar, Type type, Func<object> provider)
+        public static void RegisterLazy(this ITypeRegistrar typeRegistrar, Type type, Func<object> provider, string? name = null)
         {
             var lazy = new Lazy<object>(provider);
-            typeRegistrar.Register(type, (_, _) => lazy.Value);
+            Register(typeRegistrar, type, (_, _) => lazy.Value, name);
         }
 
-        /// <summary>
-        /// Register a service resolver with instance storing
-        /// </summary>
-        public static void RegisterLazy<T>(this ITypeRegistrar typeRegistrar, Func<T> provider) where T : class
+        /// <inheritdoc cref="RegisterLazy"/>
+        public static void RegisterLazy<T>(this ITypeRegistrar typeRegistrar, Func<T> provider, string? name = null) where T : class
         {
             var lazy = new Lazy<T>(provider);
-            typeRegistrar.Register(typeof(T), (_, _) => lazy.Value);
+            Register(typeRegistrar, typeof(T), (_, _) => lazy.Value, name);
         }
 
         /// <summary>
         /// Register a service resolver with generic parameters
         /// </summary>
-        public static void RegisterGeneric(this ITypeRegistrar typeRegistrar, Type type, Func<Type[], object> provider)
+        public static void RegisterGeneric(this ITypeRegistrar typeRegistrar, Type type, Func<Type[], object> provider, string? name = null)
         {
             if (!type.IsGenericTypeDefinition)
                 throw new IoCException($"Type '{type}' is not a generic definition");
 
-            typeRegistrar.Register(type, (t, _) => provider(t.GetGenericArguments()));
+            Register(typeRegistrar, type, (t, _) => provider(t.GetGenericArguments()), name);
         }
 
         /// <summary>

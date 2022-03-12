@@ -3,5 +3,5 @@
     /// <summary>
     /// Registration predicate
     /// </summary>
-    public delegate bool RegistrationPredicate(Registration registration, Type type, ResolveOptions resolveOptions);
+    public delegate bool RegistrationPredicate(Registration registration, RegistrationIdentifier identifier);
 }

@@ -8,6 +8,8 @@
         private List<object>? _additionalParameters;
         private Dictionary<string, object>? _namedParameters;
 
+        internal static ResolveOptions Empty { get; } = new ResolveOptions();
+
         /// <summary>
         /// Parameters that can be used to resolve a service but are not registered in resolver
         /// </summary>

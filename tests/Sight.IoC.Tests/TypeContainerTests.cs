@@ -6,7 +6,7 @@
         public void Test_type_container_can_resolve_registered_type()
         {
             var container = new TypeContainer();
-            container.Register<ITestInterface01>(new TestClass01("test-01"));
+            container.RegisterInstance<ITestInterface01>(new TestClass01("test-01"));
 
             var testClass = container.Resolve<ITestInterface01>();
 
@@ -18,7 +18,7 @@
         public void Test_type_container_can_auto_resolve_class()
         {
             var container = new TypeContainer();
-            var testClass = container.Resolve<TestClass01>(new ResolveOptions
+            var testClass = container.Resolve<TestClass01>(resolveOptions: new ResolveOptions
             {
                 AutoResolve = true,
                 AdditionalParameters =

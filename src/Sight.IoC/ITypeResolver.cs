@@ -23,18 +23,18 @@
         /// <summary>
         /// Indicates if a service is registered
         /// </summary>
-        public bool IsRegistered(Type type);
+        public bool IsRegistered(RegistrationIdentifier identifier);
 
         /// <summary>
         /// Indicates if a service is resolvable
         /// </summary>
         /// <exception cref="IoCException"/>
-        public bool IsResolvable(Type type, ResolveOptions resolveOptions);
+        public bool IsResolvable(RegistrationIdentifier identifier, ResolveOptions resolveOptions);
 
         /// <summary>
         /// Resolve a service
         /// </summary>
         /// <exception cref="IoCException"/>
-        public object? Resolve(Type type, ResolveOptions resolveOptions);
+        public object? Resolve(RegistrationIdentifier identifier, ResolveOptions resolveOptions);
     }
 }

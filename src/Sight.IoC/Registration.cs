@@ -3,21 +3,16 @@
     /// <summary>
     /// Describe a service registration
     /// </summary>
-    public class Registration
+    public class Registration : RegistrationIdentifier
     {
         /// <summary>
         /// Initialize a new instance of <see cref="Registration"/> class
         /// </summary>
         public Registration(Type type, ResolveDelegate resolver)
+            : base(type)
         {
-            Type = type;
             Resolver = resolver;
         }
-
-        /// <summary>
-        /// Service type
-        /// </summary>
-        public Type Type { get; }
 
         /// <summary>
         /// Resolution method
