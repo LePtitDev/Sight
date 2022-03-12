@@ -11,7 +11,7 @@
         public static ITypeResolver AsImmutable(this ITypeResolver resolver)
         {
             var registrations = SafeGetRegistrations(resolver);
-            return new TypeResolver(registrations, syncRoot: null, isImmutable: true);
+            return new TypeResolver(new TypeResolver.CreateOptions(registrations) { IsImmutable = true });
         }
 
         /// <summary>

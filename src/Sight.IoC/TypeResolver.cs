@@ -17,20 +17,28 @@ namespace Sight.IoC
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
         /// </summary>
-        public TypeResolver(IEnumerable<Registration> registrations, object? syncRoot = null, bool isImmutable = false, RegistrationPredicate? registrationPredicate = null)
-            : this(() => registrations, syncRoot, isImmutable, registrationPredicate)
+        public TypeResolver(IEnumerable<Registration> registrations)
+            : this(new CreateOptions(registrations))
         {
         }
 
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
         /// </summary>
-        public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc, object? syncRoot = null, bool isImmutable = false, RegistrationPredicate? registrationPredicate = null)
+        public TypeResolver(Func<IEnumerable<Registration>> registrationsFunc)
+            : this(new CreateOptions(registrationsFunc))
         {
-            _registrationsFunc = registrationsFunc;
-            _isImmutable = isImmutable;
-            _registrationPredicate = registrationPredicate ?? IsRegistrationForType;
-            SyncRoot = syncRoot;
+        }
+
+        /// <summary>
+        /// Initialize a new instance of <see cref="TypeResolver"/> class
+        /// </summary>
+        public TypeResolver(CreateOptions createOptions)
+        {
+            _registrationsFunc = createOptions.RegistrationsFunc;
+            _isImmutable = createOptions.IsImmutable;
+            _registrationPredicate = createOptions.RegistrationPredicate ?? IsRegistrationForType;
+            SyncRoot = createOptions.SyncRoot;
         }
 
         /// <inheritdoc />
@@ -257,6 +265,48 @@ namespace Sight.IoC
         private static bool IsRegistrationForType(Registration registration, Type type, ResolveOptions resolveOptions)
         {
             return registration.Type == type;
+        }
+
+        /// <summary>
+        /// Describes initialization options of <see cref="TypeResolver"/>
+        /// </summary>
+        public class CreateOptions
+        {
+            /// <summary>
+            /// Initialize a new instance of <see cref="CreateOptions"/> class with a registrations collection
+            /// </summary>
+            public CreateOptions(IEnumerable<Registration> registrations)
+                : this(() => registrations)
+            {
+            }
+
+            /// <summary>
+            /// Initialize a new instance of <see cref="CreateOptions"/> class with a registrations provider
+            /// </summary>
+            public CreateOptions(Func<IEnumerable<Registration>> registrationsFunc)
+            {
+                RegistrationsFunc = registrationsFunc;
+            }
+
+            /// <summary>
+            /// Provider of registrations
+            /// </summary>
+            public Func<IEnumerable<Registration>> RegistrationsFunc { get; }
+
+            /// <summary>
+            /// Object used to synchronize registrations
+            /// </summary>
+            public object? SyncRoot { get; set; }
+
+            /// <summary>
+            /// Indicates if registrations are immutable
+            /// </summary>
+            public bool IsImmutable { get; set; }
+
+            /// <summary>
+            /// Registration predicate for service search
+            /// </summary>
+            public RegistrationPredicate? RegistrationPredicate { get; set; }
         }
     }
 }
