@@ -18,7 +18,12 @@
         /// <summary>
         /// Registration predicate for service search
         /// </summary>
-        public RegistrationPredicate Predicate { get; }
+        public RegistrationPredicate? Predicate { get; }
+
+        /// <summary>
+        /// Resolution fallback when no registration found
+        /// </summary>
+        public ResolveFallback? Fallback { get; }
 
         /// <summary>
         /// Indicates if a service is registered

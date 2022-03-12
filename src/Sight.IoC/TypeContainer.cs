@@ -30,7 +30,8 @@
             : base(new TypeResolver.CreateOptions(createOptions.Registrations)
             {
                 SyncRoot = createOptions.SyncRoot,
-                Predicate = createOptions.Predicate
+                Predicate = createOptions.Predicate,
+                Fallback = createOptions.Fallback
             })
         {
             _registrations = createOptions.Registrations;
@@ -70,6 +71,11 @@
             /// Registration predicate for service search
             /// </summary>
             public RegistrationPredicate? Predicate { get; set; }
+
+            /// <summary>
+            /// Resolution fallback when no registration found
+            /// </summary>
+            public ResolveFallback? Fallback { get; set; }
         }
     }
 }

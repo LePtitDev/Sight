@@ -36,8 +36,9 @@ namespace Sight.IoC
         {
             _provider = createOptions.Provider;
             _isImmutable = createOptions.IsImmutable;
-            Predicate = createOptions.Predicate ?? IsRegistrationForType;
+            Predicate = createOptions.Predicate;
             SyncRoot = createOptions.SyncRoot;
+            Fallback = createOptions.Fallback;
         }
 
         /// <inheritdoc />
@@ -47,12 +48,15 @@ namespace Sight.IoC
         public object? SyncRoot { get; }
 
         /// <inheritdoc />
-        public RegistrationPredicate Predicate { get; }
+        public RegistrationPredicate? Predicate { get; }
+
+        /// <inheritdoc />
+        public ResolveFallback? Fallback { get; }
 
         /// <inheritdoc />
         public bool IsRegistered(RegistrationId identifier)
         {
-            return EnsureSync(() => Registrations.Any(x => Predicate(x, identifier)));
+            return EnsureSync(() => Registrations.Any(x => IsRegistrationForType(x, identifier)));
         }
 
         /// <inheritdoc />
@@ -120,7 +124,7 @@ namespace Sight.IoC
         {
             var type = identifier.Type;
             var dictionary = EnsureSync(GetImmutableRegistrations);
-            if (dictionary.TryGet(x => Predicate(x, identifier), out var item))
+            if (dictionary.TryGet(x => IsRegistrationForType(x, identifier), out var item))
             {
                 activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                 return true;
@@ -130,17 +134,11 @@ namespace Sight.IoC
             {
                 var genericType = type.GetGenericTypeDefinition();
                 var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGet(x => Predicate(x, genericIdentifier), out item))
+                if (dictionary.TryGet(x => IsRegistrationForType(x, genericIdentifier), out item))
                 {
                     activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                     return true;
                 }
-            }
-
-            if (!resolveOptions.AutoResolve)
-            {
-                activator = null;
-                return false;
             }
 
             if (type.IsArray && type.GetArrayRank() == 1)
@@ -175,12 +173,29 @@ namespace Sight.IoC
                 return true;
             }
 
+            if (Fallback != null && Fallback.Predicate(type, resolveOptions))
+            {
+                activator = () => Fallback.Resolver(type, resolveOptions);
+                return true;
+            }
+
+            if (!resolveOptions.AutoResolve)
+            {
+                activator = null;
+                return false;
+            }
+
             return TryCreateActivator(dictionary, type, resolveOptions, out activator);
         }
 
         private IReadOnlyList<object> ResolveAll(RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return EnsureSync(() => Registrations.Where(x => Predicate(x, identifier)).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray());
+            return EnsureSync(() => Registrations.Where(x => IsRegistrationForType(x, identifier)).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray());
+        }
+
+        private bool IsRegistrationForType(Registration registration, RegistrationId identifier)
+        {
+            return Predicate?.Invoke(registration, identifier) ?? registration.Type == identifier.Type && string.Equals(registration.Name, identifier.Name);
         }
 
         private static bool TryCreateActivator(IReadOnlyCollection<Registration> dictionary, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
@@ -252,6 +267,7 @@ namespace Sight.IoC
 
                 return constructor.Invoke(parameters.ToArray());
             };
+
             return true;
         }
 
@@ -262,11 +278,6 @@ namespace Sight.IoC
                 throw new IoCException($"Cannot resolve '{type}' from resolve provider");
 
             return value;
-        }
-
-        private static bool IsRegistrationForType(Registration registration, RegistrationId identifier)
-        {
-            return registration.Type == identifier.Type && string.Equals(registration.Name, identifier.Name);
         }
 
         /// <summary>
@@ -309,6 +320,11 @@ namespace Sight.IoC
             /// Registration predicate for service search
             /// </summary>
             public RegistrationPredicate? Predicate { get; set; }
+
+            /// <summary>
+            /// Resolution fallback when no registration found
+            /// </summary>
+            public ResolveFallback? Fallback { get; set; }
         }
     }
 }

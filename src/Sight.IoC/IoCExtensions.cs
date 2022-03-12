@@ -14,7 +14,8 @@
             return new TypeResolver(new TypeResolver.CreateOptions(registrations)
             {
                 IsImmutable = true,
-                Predicate = resolver.Predicate
+                Predicate = resolver.Predicate,
+                Fallback = resolver.Fallback
             });
         }
 
