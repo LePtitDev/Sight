@@ -6,6 +6,19 @@
     public static class IoCExtensions
     {
         /// <summary>
+        /// Initialize a <see cref="ITypeResolver"/> with from container
+        /// </summary>
+        public static ITypeResolver AsReadOnly(this ITypeContainer container)
+        {
+            return new TypeResolver(new TypeResolver.CreateOptions(() => container.Registrations)
+            {
+                IsImmutable = true,
+                Predicate = container.Predicate,
+                Fallback = container.Fallback
+            });
+        }
+
+        /// <summary>
         /// Initialize a <see cref="ITypeResolver"/> with an immutable copy of registrations from input resolver
         /// </summary>
         public static ITypeResolver AsImmutable(this ITypeResolver resolver)
