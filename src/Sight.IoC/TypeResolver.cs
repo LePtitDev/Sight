@@ -10,9 +10,8 @@ namespace Sight.IoC
     /// </summary>
     public class TypeResolver : ITypeResolver
     {
-        private readonly Func<IEnumerable<Registration>> _registrationsFunc;
+        private readonly Func<IEnumerable<Registration>> _provider;
         private readonly bool _isImmutable;
-        private readonly RegistrationPredicate _registrationPredicate;
 
         /// <summary>
         /// Initialize a new instance of <see cref="TypeResolver"/> class
@@ -35,17 +34,20 @@ namespace Sight.IoC
         /// </summary>
         public TypeResolver(CreateOptions createOptions)
         {
-            _registrationsFunc = createOptions.RegistrationsFunc;
+            _provider = createOptions.Provider;
             _isImmutable = createOptions.IsImmutable;
-            _registrationPredicate = createOptions.RegistrationPredicate ?? IsRegistrationForType;
+            Predicate = createOptions.Predicate ?? IsRegistrationForType;
             SyncRoot = createOptions.SyncRoot;
         }
 
         /// <inheritdoc />
-        public IEnumerable<Registration> Registrations => _registrationsFunc();
+        public IEnumerable<Registration> Registrations => _provider();
 
         /// <inheritdoc />
         public object? SyncRoot { get; }
+
+        /// <inheritdoc />
+        public RegistrationPredicate Predicate { get; }
 
         /// <inheritdoc />
         public bool IsRegistered(Type type)
@@ -117,7 +119,7 @@ namespace Sight.IoC
         private bool TryResolveActivator(Type type, ResolveOptions resolveOptions, out Func<object>? activator)
         {
             var dictionary = EnsureSync(GetImmutableRegistrations);
-            if (dictionary.TryGet(x => _registrationPredicate(x, type, resolveOptions), out var item))
+            if (dictionary.TryGet(x => Predicate(x, type, resolveOptions), out var item))
             {
                 activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                 return true;
@@ -283,18 +285,18 @@ namespace Sight.IoC
             /// <summary>
             /// Initialize a new instance of <see cref="CreateOptions"/> class with a registrations provider
             /// </summary>
-            public CreateOptions(Func<IEnumerable<Registration>> registrationsFunc)
+            public CreateOptions(Func<IEnumerable<Registration>> provider)
             {
-                RegistrationsFunc = registrationsFunc;
+                Provider = provider;
             }
 
             /// <summary>
             /// Provider of registrations
             /// </summary>
-            public Func<IEnumerable<Registration>> RegistrationsFunc { get; }
+            public Func<IEnumerable<Registration>> Provider { get; }
 
             /// <summary>
-            /// Object used to synchronize registrations
+            /// Object that can be used to synchronize registration access
             /// </summary>
             public object? SyncRoot { get; set; }
 
@@ -306,7 +308,7 @@ namespace Sight.IoC
             /// <summary>
             /// Registration predicate for service search
             /// </summary>
-            public RegistrationPredicate? RegistrationPredicate { get; set; }
+            public RegistrationPredicate? Predicate { get; set; }
         }
     }
 }

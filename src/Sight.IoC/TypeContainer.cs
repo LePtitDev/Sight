@@ -30,7 +30,7 @@
             : base(new TypeResolver.CreateOptions(createOptions.Registrations)
             {
                 SyncRoot = createOptions.SyncRoot,
-                RegistrationPredicate = createOptions.RegistrationPredicate
+                Predicate = createOptions.Predicate
             })
         {
             _registrations = createOptions.Registrations;
@@ -62,14 +62,14 @@
             public ICollection<Registration> Registrations { get; }
 
             /// <summary>
-            /// Object used to synchronize registrations
+            /// Object that can be used to synchronize registration access
             /// </summary>
             public object? SyncRoot { get; set; }
 
             /// <summary>
             /// Registration predicate for service search
             /// </summary>
-            public RegistrationPredicate? RegistrationPredicate { get; set; }
+            public RegistrationPredicate? Predicate { get; set; }
         }
     }
 }

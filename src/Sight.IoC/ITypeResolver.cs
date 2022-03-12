@@ -16,6 +16,11 @@
         public object? SyncRoot { get; }
 
         /// <summary>
+        /// Registration predicate for service search
+        /// </summary>
+        public RegistrationPredicate Predicate { get; }
+
+        /// <summary>
         /// Indicates if a service is registered
         /// </summary>
         public bool IsRegistered(Type type);
