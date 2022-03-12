@@ -79,7 +79,44 @@
         /// <summary>
         /// Register a service resolver
         /// </summary>
-        public static void Register(this ITypeRegistrar typeRegistrar, Type type, ResolveDelegate resolver, string? name = null)
+        public static void RegisterType(this ITypeContainer typeContainer, Type type, Type? asType = null, string? name = null, bool lazy = false)
+        {
+            if (asType == null)
+            {
+                asType = type;
+            }
+            else if (!asType.IsAssignableFrom(type))
+            {
+                throw new IoCException($"'{asType}' is not assignable from '{type}'");
+            }
+
+            if (lazy)
+            {
+                object? instance = null;
+                RegisterTypeImpl(typeContainer, type, asType, name, _ => type, () => instance != null, () => instance!);
+            }
+            else
+            {
+                RegisterTypeImpl(typeContainer, type, asType, name, _ => type, () => false, () => default!);
+            }
+        }
+
+        /// <inheritdoc cref="RegisterType"/>
+        public static void RegisterType<T>(this ITypeContainer typeContainer, string? name = null, bool lazy = false)
+        {
+            RegisterType(typeContainer, typeof(T), null, name, lazy);
+        }
+
+        /// <inheritdoc cref="RegisterType"/>
+        public static void RegisterType<TBase, T>(this ITypeContainer typeContainer, string? name = null, bool lazy = false)
+        {
+            RegisterType(typeContainer, typeof(T), typeof(TBase), name, lazy);
+        }
+
+        /// <summary>
+        /// Register a service resolver
+        /// </summary>
+        public static void RegisterProvider(this ITypeRegistrar typeRegistrar, Type type, ResolveDelegate resolver, string? name = null)
         {
             typeRegistrar.Register(new Registration(type, resolver) { Name = name });
         }
@@ -92,7 +129,7 @@
             if (!type.IsInstanceOfType(value))
                 throw new IoCException($"Value is not instance of type '{type}' (Current: {value})");
 
-            Register(typeRegistrar, type, (_, _) => value, name);
+            RegisterProvider(typeRegistrar, type, (_, _) => value, name);
         }
 
         /// <inheritdoc cref="RegisterInstance"/>
@@ -107,25 +144,59 @@
         public static void RegisterLazy(this ITypeRegistrar typeRegistrar, Type type, Func<object> provider, string? name = null)
         {
             var lazy = new Lazy<object>(provider);
-            Register(typeRegistrar, type, (_, _) => lazy.Value, name);
+            RegisterProvider(typeRegistrar, type, (_, _) => lazy.Value, name);
         }
 
         /// <inheritdoc cref="RegisterLazy"/>
         public static void RegisterLazy<T>(this ITypeRegistrar typeRegistrar, Func<T> provider, string? name = null) where T : class
         {
             var lazy = new Lazy<T>(provider);
-            Register(typeRegistrar, typeof(T), (_, _) => lazy.Value, name);
+            RegisterProvider(typeRegistrar, typeof(T), (_, _) => lazy.Value, name);
         }
 
         /// <summary>
         /// Register a service resolver with generic parameters
         /// </summary>
-        public static void RegisterGeneric(this ITypeRegistrar typeRegistrar, Type type, Func<Type[], object> provider, string? name = null)
+        public static void RegisterGenericType(this ITypeContainer typeContainer, Type type, Type? asType = null, string? name = null, bool lazy = false)
         {
             if (!type.IsGenericTypeDefinition)
                 throw new IoCException($"Type '{type}' is not a generic definition");
 
-            Register(typeRegistrar, type, (t, _) => provider(t.GetGenericArguments()), name);
+            if (asType == null)
+            {
+                asType = type;
+            }
+            else
+            {
+                if (!asType.IsGenericTypeDefinition)
+                    throw new IoCException($"Type '{asType}' is not a generic definition");
+
+                if (!type.GetInterfaces().Any(x => x.GetGenericTypeDefinition() == asType))
+                    throw new IoCException($"Type '{asType}' is not assignable from '{type}'");
+            }
+
+            if (lazy)
+            {
+                object? instance = null;
+                RegisterTypeImpl(typeContainer, type, asType, name, MakeType, () => instance != null, () => instance!);
+            }
+            else
+            {
+                RegisterTypeImpl(typeContainer, type, asType, name, MakeType, () => false, () => default!);
+            }
+
+            Type MakeType(Type baseType) => type.MakeGenericType(baseType.GetGenericArguments());
+        }
+
+        /// <summary>
+        /// Register a service resolver with generic parameters
+        /// </summary>
+        public static void RegisterGenericProvider(this ITypeRegistrar typeRegistrar, Type type, Func<Type[], object> provider, string? name = null)
+        {
+            if (!type.IsGenericTypeDefinition)
+                throw new IoCException($"Type '{type}' is not a generic definition");
+
+            RegisterProvider(typeRegistrar, type, (t, _) => provider(t.GetGenericArguments()), name);
         }
 
         /// <summary>
@@ -151,6 +222,26 @@
             static Registration[] GetRegistrations(ITypeResolver resolver)
             {
                 return resolver.Registrations.ToArray();
+            }
+        }
+
+        private static void RegisterTypeImpl(this ITypeContainer typeContainer, Type type, Type asType, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver)
+        {
+            typeContainer.Register(new Registration(asType, ResolveDelegate, ResolvePredicate) { Name = name });
+
+            bool ResolvePredicate(Type t, ResolveOptions options)
+            {
+                return predicate() || TypeResolver.TryCreateActivator(SafeGetRegistrations(typeContainer), typeResolver(t), options, out _);
+            }
+
+            object ResolveDelegate(Type t, ResolveOptions options)
+            {
+                if (predicate())
+                    return resolver();
+
+                return TypeResolver.TryCreateActivator(SafeGetRegistrations(typeContainer), typeResolver(t), options, out var activator)
+                    ? activator!()
+                    : throw new IoCException($"Cannot auto resolve '{type}'");
             }
         }
     }
