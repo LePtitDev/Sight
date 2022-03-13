@@ -11,7 +11,7 @@ namespace Sight.Linq
         /// <summary>
         /// Get attribute of member
         /// </summary>
-        public static T? GetAttribute<T>(this MemberInfo member, bool inherit = true) where T : Attribute
+        public static T? GetAttribute<T>(this ICustomAttributeProvider member, bool inherit = true) where T : Attribute
         {
             return GetAttributes<T>(member, inherit).FirstOrDefault();
         }
@@ -19,7 +19,7 @@ namespace Sight.Linq
         /// <summary>
         /// Get attributes of member
         /// </summary>
-        public static T[] GetAttributes<T>(this MemberInfo member, bool inherit = true) where T : Attribute
+        public static T[] GetAttributes<T>(this ICustomAttributeProvider member, bool inherit = true) where T : Attribute
         {
             return (T[])member.GetCustomAttributes(typeof(T), inherit);
         }
@@ -27,7 +27,7 @@ namespace Sight.Linq
         /// <summary>
         /// Indicates if member has an attribute
         /// </summary>
-        public static bool HasAttribute(this MemberInfo member, Type attributeType, bool inherit = true)
+        public static bool HasAttribute(this ICustomAttributeProvider member, Type attributeType, bool inherit = true)
         {
             return member.GetCustomAttributes(attributeType, inherit).Any();
         }
@@ -35,9 +35,21 @@ namespace Sight.Linq
         /// <summary>
         /// Indicates if member has an attribute
         /// </summary>
-        public static bool HasAttribute<T>(this MemberInfo member, bool inherit = true) where T : Attribute
+        public static bool HasAttribute<T>(this ICustomAttributeProvider member, bool inherit = true) where T : Attribute
         {
             return GetAttributes<T>(member, inherit).Any();
+        }
+
+        /// <summary>
+        /// Get types of assembly that implement base type
+        /// </summary>
+        public static IEnumerable<Type> GetTypesOf(this Assembly assembly, Type baseType, bool withAbstract = true)
+        {
+            var types = assembly.GetTypes().Where(baseType.IsAssignableFrom).Except(baseType);
+            if (withAbstract)
+                types = types.Where(x => !x.IsAbstract);
+
+            return types;
         }
     }
 }
