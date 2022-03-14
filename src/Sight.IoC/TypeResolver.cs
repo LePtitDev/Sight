@@ -145,7 +145,8 @@ namespace Sight.IoC
             {
                 activator = () =>
                 {
-                    var items = ResolveAll(identifier, resolveOptions);
+                    var elementType = type.GetElementType();
+                    var items = ResolveAll(new RegistrationId(elementType!), resolveOptions);
                     var arr = Array.CreateInstance(type.GetElementType()!, items.Count);
                     for (var i = 0; i < items.Count; i++)
                     {
@@ -161,7 +162,8 @@ namespace Sight.IoC
             {
                 activator = () =>
                 {
-                    var activators = ResolveAll(identifier, resolveOptions);
+                    var elementType = type.GetGenericArguments()[0];
+                    var activators = ResolveAll(new RegistrationId(elementType), resolveOptions);
                     var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(type.GetGenericArguments()))!;
                     foreach (var value in activators)
                     {
@@ -195,7 +197,7 @@ namespace Sight.IoC
 
         private bool IsRegistrationFor(Registration registration, RegistrationId identifier)
         {
-            return Predicate?.Invoke(registration, identifier) ?? registration.Type == identifier.Type && string.Equals(registration.Name, identifier.Name);
+            return Predicate?.Invoke(registration, identifier) ?? registration.Type == identifier.Type && (identifier.Name == null || string.Equals(registration.Name, identifier.Name));
         }
 
         private bool IsRegistrationFor(Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)

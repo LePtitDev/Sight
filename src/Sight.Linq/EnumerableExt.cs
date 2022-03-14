@@ -159,6 +159,14 @@ namespace Sight.Linq
         }
 
         /// <summary>
+        /// Convert an element to enumerable of one item
+        /// </summary>
+        public static IEnumerable<T> ToEnumerable<T>(this T item)
+        {
+            yield return item;
+        }
+
+        /// <summary>
         /// Try to found an element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
         /// </summary>
         public static bool TryGet<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull

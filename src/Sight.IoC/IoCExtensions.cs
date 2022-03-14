@@ -1,4 +1,6 @@
-﻿namespace Sight.IoC
+﻿using Sight.Linq;
+
+namespace Sight.IoC
 {
     /// <summary>
     /// Extension methods for <see cref="ITypeResolver"/>, <see cref="ITypeRegistrar"/> and <see cref="ITypeContainer"/>
@@ -83,33 +85,43 @@
         /// <exception cref="IoCException"/>
         public static void RegisterType(this ITypeContainer typeContainer, Type type, Type? asType = null, string? name = null, bool lazy = false)
         {
-            if (asType == null)
-            {
-                asType = type;
-            }
-            else if (!asType.IsAssignableFrom(type))
-            {
-                throw new IoCException($"'{asType}' is not assignable from '{type}'");
-            }
+            RegisterType(typeContainer, type, (asType ?? type).ToEnumerable(), name, lazy);
+        }
 
+        /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
+        public static void RegisterType(this ITypeContainer typeContainer, Type type, IEnumerable<Type> asTypes, string? name = null, bool lazy = false)
+        {
             if (lazy)
             {
                 object? instance = null;
-                RegisterTypeImpl(typeContainer, type, asType, name, _ => type, () => instance != null, () => instance!, x => instance = x);
+                RegisterTypes(typeContainer, type, asTypes, name, () => instance != null, () => instance!, x => instance = x);
             }
             else
             {
-                RegisterTypeImpl(typeContainer, type, asType, name, _ => type, () => false, () => default!, null);
+                RegisterTypes(typeContainer, type, asTypes, name, () => false, () => default!, null);
+            }
+
+            static void RegisterTypes(ITypeContainer typeContainer, Type type, IEnumerable<Type> asTypes, string? name, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
+            {
+                foreach (var asType in asTypes)
+                {
+                    if (!asType.IsAssignableFrom(type))
+                    {
+                        throw new IoCException($"'{asType}' is not assignable from '{type}'");
+                    }
+
+                    RegisterTypeImpl(typeContainer, type, asType, name, _ => type, predicate, resolver, onResolved);
+                }
             }
         }
 
-        /// <inheritdoc cref="RegisterType"/>
+        /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
         public static void RegisterType<T>(this ITypeContainer typeContainer, string? name = null, bool lazy = false)
         {
-            RegisterType(typeContainer, typeof(T), null, name, lazy);
+            RegisterType(typeContainer, typeof(T), (Type?)null, name, lazy);
         }
 
-        /// <inheritdoc cref="RegisterType"/>
+        /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
         public static void RegisterType<TBase, T>(this ITypeContainer typeContainer, string? name = null, bool lazy = false)
         {
             RegisterType(typeContainer, typeof(T), typeof(TBase), name, lazy);

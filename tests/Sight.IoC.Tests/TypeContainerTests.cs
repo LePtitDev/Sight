@@ -3,7 +3,7 @@
     public class TypeContainerTests
     {
         [Test]
-        public void Test_type_container_can_resolve_registered_type()
+        public void Test_can_resolve_registered_type()
         {
             var container = new TypeContainer();
             container.RegisterInstance<ITestInterface01>(new TestClass01("test-01"));
@@ -15,7 +15,7 @@
         }
 
         [Test]
-        public void Test_type_container_instantiate_lazy_once()
+        public void Test_instantiate_lazy_once()
         {
             var container = new TypeContainer();
             container.RegisterProvider((_, _) => new TestClass01(Guid.NewGuid().ToString("D")), lazy: true);
@@ -31,7 +31,7 @@
         }
 
         [Test]
-        public void Test_type_container_instantiate_not_lazy_each_time()
+        public void Test_instantiate_not_lazy_each_time()
         {
             var container = new TypeContainer();
             container.RegisterProvider((_, _) => new TestClass01(Guid.NewGuid().ToString("D")), lazy: false);
@@ -47,7 +47,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_auto_resolve_class()
+        public void Test_can_auto_resolve_class()
         {
             var container = new TypeContainer();
             var testClass = container.Resolve<TestClass01>(resolveOptions: new ResolveOptions
@@ -63,7 +63,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_resolve_generic_type()
+        public void Test_can_resolve_generic_type()
         {
             var called = false;
             var container = new TypeContainer();
@@ -80,7 +80,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_register_concrete_type_without_provider()
+        public void Test_can_register_concrete_type_without_provider()
         {
             var container = new TypeContainer();
             container.RegisterType<TestClass03>();
@@ -91,7 +91,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_register_concrete_type_with_base_type_without_provider()
+        public void Test_can_register_concrete_type_with_base_type_without_provider()
         {
             var container = new TypeContainer();
             container.RegisterType<ITestInterface01, TestClass03>();
@@ -102,7 +102,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_register_generic_type_without_provider()
+        public void Test_can_register_generic_type_without_provider()
         {
             var container = new TypeContainer();
             container.RegisterGenericType(typeof(TestClass02<>));
@@ -113,7 +113,7 @@
         }
 
         [Test]
-        public void Test_type_container_can_register_generic_type_with_base_type_without_provider()
+        public void Test_can_register_generic_type_with_base_type_without_provider()
         {
             var container = new TypeContainer();
             container.RegisterGenericType(typeof(TestClass02<>), typeof(ITestInterface02<>));
@@ -200,7 +200,7 @@
         }
 
         [Test]
-        public void Test_container_can_resolve_type_when_dependency_found()
+        public void Test_can_resolve_type_when_dependency_found()
         {
             var container = new TypeContainer();
             container.RegisterType<TestClass03>();
@@ -212,7 +212,7 @@
         }
 
         [Test]
-        public void Test_container_cannot_resolve_type_when_no_dependency_found()
+        public void Test_cannot_resolve_type_when_no_dependency_found()
         {
             var container = new TypeContainer();
             container.RegisterType<TestClass04>();
@@ -221,7 +221,7 @@
         }
 
         [Test]
-        public void Test_container_can_auto_resolve_type_when_dependency_found()
+        public void Test_can_auto_resolve_type_when_dependency_found()
         {
             var container = new TypeContainer();
             container.RegisterType<TestClass03>();
@@ -232,7 +232,7 @@
         }
 
         [Test]
-        public void Test_container_do_not_throw_when_cannot_resolve_type()
+        public void Test_do_not_throw_when_cannot_resolve_type()
         {
             var container = new TypeContainer();
             container.RegisterType<TestClass04>();
@@ -243,7 +243,7 @@
         }
 
         [Test]
-        public void Test_container_resolve_named_service_correctly()
+        public void Test_resolve_named_service_correctly()
         {
             var container = new TypeContainer();
             container.RegisterProvider((_, _) => new TestClass01("test 01"), "TEST01");
@@ -288,6 +288,19 @@
             container.RegisterType<TestClass04>();
 
             Assert.Throws<IoCException>(() => resolver.Resolve<TestClass04>());
+        }
+
+        [Test]
+        public void Test_can_resolve_multiple_services()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider<ITestInterface01>((_, _) => new TestClass01(string.Empty));
+            container.RegisterProvider<ITestInterface01>((_, _) => new TestClass03());
+
+            var testClasses = container.Resolve<ITestInterface01[]>();
+
+            Assert.NotNull(testClasses);
+            Assert.AreEqual(2, testClasses.Length, "testClasses.Length == 2");
         }
 
         private interface ITestInterface01
