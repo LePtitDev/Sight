@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Immutable;
-using System.Reflection;
+﻿using System.Collections.Immutable;
 using Sight.Linq;
 
 namespace Sight.IoC
@@ -250,7 +248,7 @@ namespace Sight.IoC
 
             bool ResolvePredicate(Type t, ResolveOptions options)
             {
-                return predicate() || TryCreateActivator(typeContainer, typeResolver(t), options, out _);
+                return predicate() || IoCHelpers.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
             }
 
             object ResolveDelegate(Type t, ResolveOptions options)
@@ -258,201 +256,12 @@ namespace Sight.IoC
                 if (predicate())
                     return resolver();
 
-                var instance = TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
+                var instance = IoCHelpers.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
                     ? activator!()
                     : throw new IoCException($"Cannot auto resolve '{type}'");
                 onResolved?.Invoke(instance);
                 return instance;
             }
-        }
-
-        /// <summary>
-        /// Try to resolve a delegate that can initialize a new instance of the registration
-        /// </summary>
-        public static bool TryResolveActivator(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator)
-        {
-            var type = identifier.Type;
-            var dictionary = typeResolver.SafeGetRegistrations();
-            if (dictionary.TryGet(x => IsRegistrationFor(typeResolver, x, identifier, resolveOptions), out var item))
-            {
-                activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
-                return true;
-            }
-
-            if (type.IsConstructedGenericType)
-            {
-                var genericType = type.GetGenericTypeDefinition();
-                var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGet(x => IsRegistrationFor(typeResolver, x, genericIdentifier, resolveOptions), out item))
-                {
-                    activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
-                    return true;
-                }
-            }
-
-            if (type.IsArray && type.GetArrayRank() == 1)
-            {
-                activator = () =>
-                {
-                    var elementType = type.GetElementType();
-                    var items = ResolveAll(typeResolver, new RegistrationId(elementType!), resolveOptions);
-                    var arr = Array.CreateInstance(type.GetElementType()!, items.Count);
-                    for (var i = 0; i < items.Count; i++)
-                    {
-                        arr.SetValue(items[i], i);
-                    }
-
-                    return arr;
-                };
-                return true;
-            }
-
-            if (type.IsGenericType && type.IsAssignableFrom(typeof(List<>)))
-            {
-                activator = () =>
-                {
-                    var elementType = type.GetGenericArguments()[0];
-                    var activators = ResolveAll(typeResolver, new RegistrationId(elementType), resolveOptions);
-                    var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(type.GetGenericArguments()))!;
-                    foreach (var value in activators)
-                    {
-                        list.Add(value);
-                    }
-
-                    return list;
-                };
-                return true;
-            }
-
-            if (typeResolver.Fallback != null && typeResolver.Fallback.Predicate(type, resolveOptions))
-            {
-                activator = () => typeResolver.Fallback.Resolver(type, resolveOptions);
-                return true;
-            }
-
-            if (!resolveOptions.AutoResolve)
-            {
-                activator = null;
-                return false;
-            }
-
-            return TryCreateActivator(typeResolver, type, resolveOptions, out activator);
-        }
-
-        private static IReadOnlyList<object> ResolveAll(ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions)
-        {
-            return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier, resolveOptions)).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray();
-        }
-
-        internal static bool IsRegistrationFor(this ITypeResolver typeResolver, Registration registration, RegistrationId identifier)
-        {
-            return typeResolver.Predicate?.Invoke(registration, identifier) ?? registration.Type == identifier.Type && (identifier.Name == null || string.Equals(registration.Name, identifier.Name));
-        }
-
-        private static bool IsRegistrationFor(this ITypeResolver typeResolver, Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
-        {
-            return IsRegistrationFor(typeResolver, registration, identifier) && (registration.Predicate == null || registration.Predicate(registration.Type, resolveOptions));
-        }
-
-        private static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
-        {
-            if (!type.IsClass || type.IsAbstract)
-            {
-                activator = null;
-                return false;
-            }
-
-            foreach (var constructor in type.GetConstructors())
-            {
-                if (TryCreateActivator(typeResolver, constructor, resolveOptions, out activator))
-                    return true;
-            }
-
-            activator = null;
-            return false;
-        }
-
-        private static bool TryCreateActivator(ITypeResolver typeResolver, ConstructorInfo constructor, ResolveOptions resolveOptions, out Func<object>? activator)
-        {
-            var parameters = new List<object?>();
-            var parameterInfos = constructor.GetParameters();
-            var parameterResolveOptions = new ResolveOptions
-            {
-                AutoResolve = resolveOptions.AutoWiring,
-                AutoWiring = resolveOptions.AutoWiring
-            };
-
-            foreach (var parameter in parameterInfos)
-            {
-                if (resolveOptions.NamedParameters.TryGetValue(parameter.Name!, out var value))
-                {
-                    if (!parameter.ParameterType.IsInstanceOfType(value))
-                    {
-                        activator = null;
-                        return false;
-                    }
-
-                    parameters.Add(value);
-                    continue;
-                }
-
-                if (resolveOptions.TypedParameters.TryGetValue(parameter.ParameterType, out value))
-                {
-                    if (!parameter.ParameterType.IsInstanceOfType(value))
-                    {
-                        activator = null;
-                        return false;
-                    }
-
-                    parameters.Add(value);
-                    continue;
-                }
-
-                if (resolveOptions.AdditionalParameters.TryGet(x => parameter.ParameterType.IsInstanceOfType(x), out value))
-                {
-                    parameters.Add(value);
-                    continue;
-                }
-
-                var registrationId = new RegistrationId(parameter.ParameterType);
-                if (TryResolveActivator(typeResolver, registrationId, parameterResolveOptions, out var parameterActivator))
-                {
-                    parameters.Add(parameterActivator);
-                }
-                else if (parameter.DefaultValue != DBNull.Value)
-                {
-                    parameters.Add(parameter.DefaultValue);
-                }
-                else
-                {
-                    activator = null;
-                    return false;
-                }
-            }
-
-            activator = () =>
-            {
-                for (var i = 0; i < parameters.Count; i++)
-                {
-                    if (parameters[i] is Func<object> provider)
-                    {
-                        parameters[i] = provider();
-                    }
-                }
-
-                return constructor.Invoke(parameters.ToArray());
-            };
-
-            return true;
-        }
-
-        private static object ResolveFromProvider(Type type, ResolveOptions resolveOptions, ResolveDelegate provider)
-        {
-            var value = provider(type, resolveOptions);
-            if (!type.IsInstanceOfType(value))
-                throw new IoCException($"Cannot resolve '{type}' from resolve provider");
-
-            return value;
         }
     }
 }

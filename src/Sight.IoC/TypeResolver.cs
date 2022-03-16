@@ -49,19 +49,19 @@
         /// <inheritdoc />
         public bool IsRegistered(RegistrationId identifier)
         {
-            return EnsureSync(() => Registrations.Any(x => this.IsRegistrationFor(x, identifier)));
+            return EnsureSync(() => Registrations.Any(x => IoCHelpers.IsRegistrationFor(this, x, identifier)));
         }
 
         /// <inheritdoc />
         public bool IsResolvable(RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return this.TryResolveActivator(identifier, resolveOptions, out _);
+            return IoCHelpers.TryResolveActivator(this, identifier, resolveOptions, out _);
         }
 
         /// <inheritdoc />
         public object? Resolve(RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            if (this.TryResolveActivator(identifier, resolveOptions, out var activator))
+            if (IoCHelpers.TryResolveActivator(this, identifier, resolveOptions, out var activator))
                 return activator!();
 
             if (resolveOptions.IsOptional)
