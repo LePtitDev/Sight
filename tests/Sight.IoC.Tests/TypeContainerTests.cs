@@ -303,6 +303,20 @@
             Assert.AreEqual(2, testClasses.Length, "testClasses.Length == 2");
         }
 
+        [Test]
+        public void Test_can_auto_wire_constructor_parameters()
+        {
+            var container = new TypeContainer();
+
+            var testClass = container.Resolve<TestClass04>(resolveOptions: new ResolveOptions
+            {
+                AutoResolve = true,
+                AutoWiring = true
+            });
+
+            Assert.NotNull(testClass, "testClass != null");
+        }
+
         private interface ITestInterface01
         {
             public string Value { get; }
