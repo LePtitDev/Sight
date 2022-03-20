@@ -81,7 +81,7 @@ namespace Sight.Linq
         }
 
         /// <summary>
-        /// Find index of item that pass predicate
+        /// Find index of an item that pass predicate
         /// </summary>
         public static int IndexOf<T>(this IEnumerable<T> source, Func<T, bool> predicate)
         {
@@ -98,7 +98,7 @@ namespace Sight.Linq
         }
 
         /// <summary>
-        /// Find index of item that pass predicate
+        /// Find index of an item that pass predicate
         /// </summary>
         public static int IndexOf<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
         {
@@ -115,7 +115,7 @@ namespace Sight.Linq
         }
 
         /// <summary>
-        /// Append elements at the end of the collection
+        /// Insert elements in the collection
         /// </summary>
         public static IEnumerable<T> Insert<T>(this IEnumerable<T> source, int index, params T[] items)
         {

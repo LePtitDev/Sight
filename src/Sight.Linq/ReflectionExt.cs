@@ -4,7 +4,7 @@ using System.Reflection;
 namespace Sight.Linq
 {
     /// <summary>
-    /// Extension methods for <see cref="MemberInfo"/>
+    /// Extension methods for reflection classes
     /// </summary>
     public static class ReflectionExt
     {
@@ -46,7 +46,7 @@ namespace Sight.Linq
         public static IEnumerable<Type> GetTypesOf(this Assembly assembly, Type baseType, bool withAbstract = true)
         {
             var types = assembly.GetTypes().Where(baseType.IsAssignableFrom).Except(baseType);
-            if (withAbstract)
+            if (!withAbstract)
                 types = types.Where(x => !x.IsAbstract);
 
             return types;

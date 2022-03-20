@@ -25,6 +25,14 @@ namespace Sight.Linq
         }
 
         /// <summary>
+        /// Add items to collection
+        /// </summary>
+        public static void AddRange<T>(this ICollection<T> collection, params T[] items)
+        {
+            AddRange(collection, (IEnumerable<T>)items);
+        }
+
+        /// <summary>
         /// Insert items to collection at specified index
         /// </summary>
         public static void InsertRange<T>(this IList<T> collection, int index, IEnumerable<T> items)
@@ -36,13 +44,11 @@ namespace Sight.Linq
         }
 
         /// <summary>
-        /// Remove each duplicated item from collection
+        /// Insert items to collection at specified index
         /// </summary>
-        public static void RemoveAll<T>(this ICollection<T> collection, T item)
+        public static void InsertRange<T>(this IList<T> collection, int index, params T[] items)
         {
-            while (collection.Remove(item))
-            {
-            }
+            InsertRange(collection, index, (IEnumerable<T>)items);
         }
 
         /// <summary>
@@ -52,8 +58,18 @@ namespace Sight.Linq
         {
             foreach (var item in items)
             {
-                RemoveAll(collection, item);
+                while (collection.Remove(item))
+                {
+                }
             }
+        }
+
+        /// <summary>
+        /// Remove each duplicated items from collection
+        /// </summary>
+        public static void RemoveAll<T>(this ICollection<T> collection, params T[] items)
+        {
+            RemoveAll(collection, (IEnumerable<T>)items);
         }
 
         /// <summary>
@@ -64,6 +80,7 @@ namespace Sight.Linq
             if (collection is List<T> list)
             {
                 list.RemoveAll(predicate);
+                return;
             }
 
             foreach (var item in collection.ToArray())
@@ -98,6 +115,14 @@ namespace Sight.Linq
             {
                 collection.Remove(item);
             }
+        }
+
+        /// <summary>
+        /// Remove items from collection
+        /// </summary>
+        public static void RemoveRange<T>(this ICollection<T> collection, params T[] items)
+        {
+            RemoveRange(collection, (IEnumerable<T>)items);
         }
     }
 }
