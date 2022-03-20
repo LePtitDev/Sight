@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using Sight.Linq;
 
 namespace Sight.IoC
 {
@@ -84,33 +83,28 @@ namespace Sight.IoC
         /// <exception cref="IoCException"/>
         public static void RegisterType(this ITypeContainer typeContainer, Type type, Type? asType = null, string? name = null, bool lazy = false)
         {
-            RegisterType(typeContainer, type, (asType ?? type).ToEnumerable(), name, lazy);
+            RegisterType(typeContainer, type, new[] { asType ?? type }, name, lazy);
         }
 
         /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
-        public static void RegisterType(this ITypeContainer typeContainer, Type type, IEnumerable<Type> asTypes, string? name = null, bool lazy = false)
+        public static void RegisterType(this ITypeContainer typeContainer, Type type, Type[] asTypes, string? name = null, bool lazy = false)
         {
+            foreach (var asType in asTypes)
+            {
+                if (!asType.IsAssignableFrom(type))
+                {
+                    throw new IoCException($"'{asType}' is not assignable from '{type}'");
+                }
+            }
+
             if (lazy)
             {
                 object? instance = null;
-                RegisterTypes(typeContainer, type, asTypes, name, () => instance != null, () => instance!, x => instance = x);
+                RegisterTypeImpl(typeContainer, type, asTypes, name, _ => type, () => instance != null, () => instance!, x => instance = x);
             }
             else
             {
-                RegisterTypes(typeContainer, type, asTypes, name, () => false, () => default!, null);
-            }
-
-            static void RegisterTypes(ITypeContainer typeContainer, Type type, IEnumerable<Type> asTypes, string? name, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
-            {
-                foreach (var asType in asTypes)
-                {
-                    if (!asType.IsAssignableFrom(type))
-                    {
-                        throw new IoCException($"'{asType}' is not assignable from '{type}'");
-                    }
-
-                    RegisterTypeImpl(typeContainer, type, asType, name, _ => type, predicate, resolver, onResolved);
-                }
+                RegisterTypeImpl(typeContainer, type, asTypes, name, _ => type, () => false, () => default!, null);
             }
         }
 
@@ -134,11 +128,11 @@ namespace Sight.IoC
             if (lazy)
             {
                 object? instance = null;
-                typeRegistrar.Register(new Registration(type, (t, o) => instance ??= resolver(t, o)) { Name = name });
+                typeRegistrar.Register(new Registration(type, (t, o) => instance ??= resolver(t, o), name));
             }
             else
             {
-                typeRegistrar.Register(new Registration(type, resolver) { Name = name });
+                typeRegistrar.Register(new Registration(type, resolver, name));
             }
         }
 
@@ -191,11 +185,11 @@ namespace Sight.IoC
             if (lazy)
             {
                 object? instance = null;
-                RegisterTypeImpl(typeContainer, type, asType, name, MakeType, () => instance != null, () => instance!, x => instance = x);
+                RegisterTypeImpl(typeContainer, type, new[] { asType }, name, MakeType, () => instance != null, () => instance!, x => instance = x);
             }
             else
             {
-                RegisterTypeImpl(typeContainer, type, asType, name, MakeType, () => false, () => default!, null);
+                RegisterTypeImpl(typeContainer, type, new[] { asType }, name, MakeType, () => false, () => default!, null);
             }
 
             Type MakeType(Type baseType) => type.MakeGenericType(baseType.GetGenericArguments());
@@ -242,9 +236,9 @@ namespace Sight.IoC
             }
         }
 
-        private static void RegisterTypeImpl(this ITypeContainer typeContainer, Type type, Type asType, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
+        private static void RegisterTypeImpl(this ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
         {
-            typeContainer.Register(new Registration(asType, ResolveDelegate, ResolvePredicate) { Name = name });
+            typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
 
             bool ResolvePredicate(Type t, ResolveOptions options)
             {

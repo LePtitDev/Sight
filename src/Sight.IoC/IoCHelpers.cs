@@ -62,7 +62,7 @@ namespace Sight.IoC
                         activator = () =>
                         {
                             var elementType = genericTypes[0];
-                            var activators = ResolveAll(typeResolver, new RegistrationId(elementType!), resolveOptions);
+                            var activators = ResolveAll(typeResolver, new RegistrationId(elementType), resolveOptions);
                             var list = (IList)Activator.CreateInstance(listType)!;
                             foreach (var value in activators)
                             {
@@ -201,22 +201,22 @@ namespace Sight.IoC
 
         private static IReadOnlyList<object> ResolveAll(ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier) && (!resolveOptions.IsOptional || IsRegistrationResolvable(x, resolveOptions))).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray();
+            return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier) && (!resolveOptions.IsOptional || IsRegistrationResolvable(x, identifier, resolveOptions))).Select(x => ResolveFromProvider(identifier.Type, resolveOptions, x.Resolver)).ToArray();
         }
 
         internal static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier)
         {
-            return typeResolver.Predicate?.Invoke(registration, identifier) ?? registration.Type == identifier.Type && (identifier.Name == null || string.Equals(registration.Name, identifier.Name));
+            return typeResolver.Predicate?.Invoke(registration, identifier) ?? registration.Types.Contains(identifier.Type) && (identifier.Name == null || string.Equals(registration.Name, identifier.Name));
         }
 
         private static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, resolveOptions);
+            return IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, identifier, resolveOptions);
         }
 
-        private static bool IsRegistrationResolvable(Registration registration, ResolveOptions resolveOptions)
+        private static bool IsRegistrationResolvable(Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return registration.Predicate == null || registration.Predicate(registration.Type, resolveOptions);
+            return registration.Predicate == null || registration.Predicate(identifier.Type, resolveOptions);
         }
 
         internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
