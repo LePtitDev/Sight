@@ -317,6 +317,45 @@
             Assert.NotNull(testClass, "testClass != null");
         }
 
+        [Test]
+        public void Test_can_resolve_all_registered_services()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider<ITestInterface01>((_, _) => new TestClass01(string.Empty));
+            container.RegisterProvider<ITestInterface01>((_, _) => new TestClass03());
+
+            var testClasses = container.Resolve<IReadOnlyList<ITestInterface01>>();
+
+            Assert.NotNull(testClasses, "testClasses != null");
+            Assert.AreEqual(2, testClasses.Count);
+            Assert.IsTrue(testClasses.OfType<TestClass01>().Any(), "testClasses.OfType<TestClass01>().Any()");
+            Assert.IsTrue(testClasses.OfType<TestClass03>().Any(), "testClasses.OfType<TestClass03>().Any()");
+        }
+
+        [Test]
+        public void Test_cannot_resolve_registered_services_if_one_not_resolvable()
+        {
+            var container = new TypeContainer();
+            container.RegisterType<ITestInterface01, TestClass01>();
+            container.RegisterType<ITestInterface01, TestClass03>();
+
+            Assert.Throws<IoCException>(() => container.Resolve<IReadOnlyList<ITestInterface01>>());
+        }
+
+        [Test]
+        public void Test_can_resolve_registered_services_if_one_not_resolvable_but_is_optional()
+        {
+            var container = new TypeContainer();
+            container.RegisterType<ITestInterface01, TestClass01>();
+            container.RegisterType<ITestInterface01, TestClass03>();
+
+            var testClasses = container.Resolve<IReadOnlyList<ITestInterface01>>(resolveOptions: new ResolveOptions { IsOptional = true });
+
+            Assert.NotNull(testClasses, "testClasses != null");
+            Assert.AreEqual(1, testClasses.Count);
+            Assert.IsTrue(testClasses[0] is TestClass03, "testClasses[0] is TestClass03");
+        }
+
         private interface ITestInterface01
         {
             public string Value { get; }

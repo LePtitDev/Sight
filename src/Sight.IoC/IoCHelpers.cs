@@ -51,21 +51,30 @@ namespace Sight.IoC
                 return true;
             }
 
-            if (type.IsGenericType && type.IsAssignableFrom(typeof(List<>)))
+            if (type.IsGenericType)
             {
-                activator = () =>
+                var genericTypes = type.GetGenericArguments();
+                if (genericTypes.Length == 1)
                 {
-                    var elementType = type.GetGenericArguments()[0];
-                    var activators = ResolveAll(typeResolver, new RegistrationId(elementType), resolveOptions);
-                    var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(type.GetGenericArguments()))!;
-                    foreach (var value in activators)
+                    var listType = typeof(List<>).MakeGenericType(genericTypes);
+                    if (type.IsAssignableFrom(listType))
                     {
-                        list.Add(value);
-                    }
+                        activator = () =>
+                        {
+                            var elementType = genericTypes[0];
+                            var activators = ResolveAll(typeResolver, new RegistrationId(elementType!), resolveOptions);
+                            var list = (IList)Activator.CreateInstance(listType)!;
+                            foreach (var value in activators)
+                            {
+                                list.Add(value);
+                            }
 
-                    return list;
-                };
-                return true;
+                            return list;
+                        };
+
+                        return true;
+                    }
+                }
             }
 
             if (typeResolver.Fallback != null && typeResolver.Fallback.Predicate(type, resolveOptions))
@@ -131,6 +140,24 @@ namespace Sight.IoC
         }
 
         /// <summary>
+        /// Try to resolve a delegate that can invoke a method with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"/>
+        public static bool TryResolveInvoker(ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions resolveOptions, out Func<object?>? invoke)
+        {
+            if (instance != null && (method.DeclaringType == null || !method.DeclaringType.IsInstanceOfType(instance)))
+                throw new IoCException("Instance not assignable to declaring type of method");
+
+            return TryCreateInvoker(typeResolver, method, resolveOptions, p => method.Invoke(instance, p), out invoke);
+        }
+
+        /// <inheritdoc cref="TryResolveInvoker(ITypeResolver,MethodInfo,object?,ResolveOptions,out Func{object?}?)"/>
+        public static bool TryResolveInvoker(ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions, out Func<object?>? invoke)
+        {
+            return TryResolveInvoker(typeResolver, method, null, resolveOptions, out invoke);
+        }
+
+        /// <summary>
         /// Initialize a new instance of the registration
         /// </summary>
         /// <exception cref="IoCException"/>
@@ -154,9 +181,27 @@ namespace Sight.IoC
             return (T)ResolveInstance(typeResolver, typeof(T), resolveOptions);
         }
 
+        /// <summary>
+        /// Invoke a method with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"></exception>
+        public static object? Invoke(ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions resolveOptions)
+        {
+            if (!TryResolveInvoker(typeResolver, method, instance, resolveOptions, out var invoker))
+                throw new IoCException($"Cannot invoke '{method}' with current state");
+
+            return invoker!();
+        }
+
+        /// <inheritdoc cref="Invoke(ITypeResolver,MethodInfo,object?,ResolveOptions)"/>
+        public static object? Invoke(ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions)
+        {
+            return Invoke(typeResolver, method, null, resolveOptions);
+        }
+
         private static IReadOnlyList<object> ResolveAll(ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier, resolveOptions)).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray();
+            return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier) && (!resolveOptions.IsOptional || IsRegistrationResolvable(x, resolveOptions))).Select(x => ResolveFromProvider(x.Type, resolveOptions, x.Resolver)).ToArray();
         }
 
         internal static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier)
@@ -166,7 +211,12 @@ namespace Sight.IoC
 
         private static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return IsRegistrationFor(typeResolver, registration, identifier) && (registration.Predicate == null || registration.Predicate(registration.Type, resolveOptions));
+            return IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, resolveOptions);
+        }
+
+        private static bool IsRegistrationResolvable(Registration registration, ResolveOptions resolveOptions)
+        {
+            return registration.Predicate == null || registration.Predicate(registration.Type, resolveOptions);
         }
 
         internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
@@ -179,7 +229,7 @@ namespace Sight.IoC
 
             foreach (var constructor in type.GetConstructors())
             {
-                if (TryCreateActivator(typeResolver, constructor, resolveOptions, out activator))
+                if (TryCreateInvoker(typeResolver, constructor, resolveOptions, p => constructor.Invoke(p), out activator!))
                     return true;
             }
 
@@ -187,10 +237,10 @@ namespace Sight.IoC
             return false;
         }
 
-        private static bool TryCreateActivator(ITypeResolver typeResolver, ConstructorInfo constructor, ResolveOptions resolveOptions, out Func<object>? activator)
+        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, out Func<object?>? activator)
         {
             var parameters = new List<object?>();
-            var parameterInfos = constructor.GetParameters();
+            var parameterInfos = method.GetParameters();
             var parameterResolveOptions = new ResolveOptions
             {
                 AutoResolve = resolveOptions.AutoWiring,
@@ -255,7 +305,7 @@ namespace Sight.IoC
                     }
                 }
 
-                return constructor.Invoke(parameters.ToArray());
+                return invoker(parameters.ToArray());
             };
 
             return true;
