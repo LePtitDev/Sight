@@ -67,10 +67,10 @@
         {
             var called = false;
             var container = new TypeContainer();
-            container.RegisterGenericProvider(typeof(TestClass02<>), types =>
+            container.RegisterProvider(typeof(TestClass02<>), (type, _) =>
             {
                 called = true;
-                return Activator.CreateInstance(typeof(TestClass02<>).MakeGenericType(types));
+                return Activator.CreateInstance(typeof(TestClass02<>).MakeGenericType(type.GetGenericArguments()));
             });
 
             var testClass = container.Resolve<TestClass02<string>>();
@@ -105,7 +105,7 @@
         public void Test_can_register_generic_type_without_provider()
         {
             var container = new TypeContainer();
-            container.RegisterGenericType(typeof(TestClass02<>));
+            container.RegisterType(typeof(TestClass02<>));
 
             var testClass = container.Resolve<TestClass02<string>>();
 
@@ -116,7 +116,7 @@
         public void Test_can_register_generic_type_with_base_type_without_provider()
         {
             var container = new TypeContainer();
-            container.RegisterGenericType(typeof(TestClass02<>), typeof(ITestInterface02<>));
+            container.RegisterType(typeof(TestClass02<>), typeof(ITestInterface02<>));
 
             var testClass = container.Resolve<ITestInterface02<string>>();
 
@@ -165,7 +165,7 @@
         public void Test_resolved_generic_type_as_lazy_instanced_once()
         {
             var container = new TypeContainer();
-            container.RegisterGenericType(typeof(TestClass02<>), lazy: true);
+            container.RegisterType(typeof(TestClass02<>), lazy: true);
 
             var testClass1 = container.Resolve<TestClass02<string>>();
 
@@ -184,7 +184,7 @@
         public void Test_resolved_generic_type_as_not_lazy_instanced_each_time()
         {
             var container = new TypeContainer();
-            container.RegisterGenericType(typeof(TestClass02<>), lazy: false);
+            container.RegisterType(typeof(TestClass02<>), lazy: false);
 
             var testClass1 = container.Resolve<TestClass02<string>>();
 

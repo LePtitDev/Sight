@@ -217,22 +217,62 @@ namespace Sight.IoC
         /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
         public static void RegisterType(this ITypeContainer typeContainer, Type type, Type[] asTypes, string? name = null, bool lazy = false)
         {
+            if (type.IsAbstract)
+                throw new IoCException($"Cannot register abstract type '{type}'");
+
             foreach (var asType in asTypes)
             {
-                if (!asType.IsAssignableFrom(type))
+                if (type == asType)
+                    continue;
+
+                if (asType.IsGenericTypeDefinition)
                 {
-                    throw new IoCException($"'{asType}' is not assignable from '{type}'");
+                    if (!type.IsGenericTypeDefinition)
+                        throw new IoCException($"Type '{type}' cannot be registered as generic type '{asType}'");
+
+                    if ((type.BaseType == null || !type.BaseType.IsGenericType || type.BaseType.GetGenericTypeDefinition() != asType) && type.GetInterfaces().Where(x => x.IsGenericType).All(x => x.GetGenericTypeDefinition() != asType))
+                        throw new IoCException($"Type '{asType}' is not assignable from '{type}'");
+                }
+                else
+                {
+                    if (type.IsGenericTypeDefinition)
+                        throw new IoCException($"Generic type '{type}' cannot be registered as type '{asType}'");
+
+                    if (!asType.IsAssignableFrom(type))
+                        throw new IoCException($"'{asType}' is not assignable from '{type}'");
                 }
             }
 
             if (lazy)
             {
                 object? instance = null;
-                RegisterTypeImpl(typeContainer, type, asTypes, name, _ => type, () => instance != null, () => instance!, x => instance = x);
+                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, () => instance != null, () => instance!, x => instance = x);
             }
             else
             {
-                RegisterTypeImpl(typeContainer, type, asTypes, name, _ => type, () => false, () => default!, null);
+                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, () => false, () => default!, null);
+            }
+
+            static void RegisterTypeImpl(ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
+            {
+                typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
+
+                bool ResolvePredicate(Type t, ResolveOptions options)
+                {
+                    return predicate() || TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
+                }
+
+                object ResolveDelegate(Type t, ResolveOptions options)
+                {
+                    if (predicate())
+                        return resolver();
+
+                    var instance = TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
+                        ? activator!()
+                        : throw new IoCException($"Cannot auto resolve '{type}'");
+                    onResolved?.Invoke(instance);
+                    return instance;
+                }
             }
         }
 
@@ -289,53 +329,6 @@ namespace Sight.IoC
         }
 
         /// <summary>
-        /// Register a service resolver with generic parameters
-        /// </summary>
-        /// <exception cref="IoCException"/>
-        public static void RegisterGenericType(this ITypeContainer typeContainer, Type type, Type? asType = null, string? name = null, bool lazy = false)
-        {
-            if (!type.IsGenericTypeDefinition)
-                throw new IoCException($"Type '{type}' is not a generic definition");
-
-            if (asType == null)
-            {
-                asType = type;
-            }
-            else
-            {
-                if (!asType.IsGenericTypeDefinition)
-                    throw new IoCException($"Type '{asType}' is not a generic definition");
-
-                if (type.GetInterfaces().All(x => x.GetGenericTypeDefinition() != asType))
-                    throw new IoCException($"Type '{asType}' is not assignable from '{type}'");
-            }
-
-            if (lazy)
-            {
-                object? instance = null;
-                RegisterTypeImpl(typeContainer, type, new[] { asType }, name, MakeType, () => instance != null, () => instance!, x => instance = x);
-            }
-            else
-            {
-                RegisterTypeImpl(typeContainer, type, new[] { asType }, name, MakeType, () => false, () => default!, null);
-            }
-
-            Type MakeType(Type baseType) => type.MakeGenericType(baseType.GetGenericArguments());
-        }
-
-        /// <summary>
-        /// Register a service resolver with generic parameters
-        /// </summary>
-        /// <exception cref="IoCException"/>
-        public static void RegisterGenericProvider(this ITypeRegistrar typeRegistrar, Type type, Func<Type[], object> provider, string? name = null)
-        {
-            if (!type.IsGenericTypeDefinition)
-                throw new IoCException($"Type '{type}' is not a generic definition");
-
-            RegisterProvider(typeRegistrar, type, (t, _) => provider(t.GetGenericArguments()), name);
-        }
-
-        /// <summary>
         /// Get a copy of registrations by locking collection if required
         /// </summary>
         public static IReadOnlyList<Registration> SafeGetRegistrations(this ITypeResolver resolver)
@@ -361,31 +354,6 @@ namespace Sight.IoC
                 return registrations is Registration[] or ImmutableArray<Registration> or IImmutableList<Registration> 
                     ? (IReadOnlyList<Registration>)registrations
                     : registrations.ToArray();
-            }
-        }
-
-        private static void RegisterTypeImpl(this ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
-        {
-            if (type.IsAbstract)
-                throw new IoCException($"{nameof(RegisterType)}() cannot register abstract types");
-
-            typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
-
-            bool ResolvePredicate(Type t, ResolveOptions options)
-            {
-                return predicate() || TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
-            }
-
-            object ResolveDelegate(Type t, ResolveOptions options)
-            {
-                if (predicate())
-                    return resolver();
-
-                var instance = TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
-                    ? activator!()
-                    : throw new IoCException($"Cannot auto resolve '{type}'");
-                onResolved?.Invoke(instance);
-                return instance;
             }
         }
     }
