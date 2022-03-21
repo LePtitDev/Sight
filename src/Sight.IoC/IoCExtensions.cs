@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Reflection;
 
 namespace Sight.IoC
 {
@@ -48,33 +49,160 @@ namespace Sight.IoC
         }
 
         /// <summary>
-        /// Indicates if a typed service is resolvable with some options
+        /// Indicates if a service is resolvable
         /// </summary>
         /// <exception cref="IoCException"/>
-        public static bool IsResolvable(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
+        public static bool IsResolvable(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return typeResolver.IsResolvable(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+            return typeResolver.TryResolveActivator(identifier, resolveOptions, out _);
         }
 
-        /// <inheritdoc cref="IsResolvable"/>
+        /// <inheritdoc cref="IsResolvable(ITypeResolver,RegistrationId,ResolveOptions)"/>
+        public static bool IsResolvable(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
+        {
+            return IsResolvable(typeResolver, new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+        }
+
+        /// <inheritdoc cref="IsResolvable(ITypeResolver,RegistrationId,ResolveOptions)"/>
         public static bool IsResolvable<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null)
         {
             return IsResolvable(typeResolver, typeof(T), name, resolveOptions ?? ResolveOptions.Empty);
         }
 
         /// <summary>
+        /// Indicates if a method is invokable with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"/>
+        public static bool IsInvokable(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions resolveOptions)
+        {
+            return typeResolver.TryResolveInvoker(method, instance, resolveOptions, out _);
+        }
+
+        /// <inheritdoc cref="IsInvokable(ITypeResolver,MethodInfo,object?,ResolveOptions)"/>
+        public static bool IsInvokable(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions)
+        {
+            return typeResolver.TryResolveInvoker(method, null, resolveOptions, out _);
+        }
+
+        /// <inheritdoc cref="ITypeResolver.TryResolveActivator"/>
+        public static bool TryResolveActivator(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
+        {
+            return typeResolver.TryResolveActivator(new RegistrationId(type), resolveOptions, out activator);
+        }
+
+        /// <inheritdoc cref="ITypeResolver.TryResolveActivator"/>
+        public static bool TryResolveActivator<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, out Func<object>? activator)
+        {
+            return typeResolver.TryResolveActivator(new RegistrationId(typeof(T)), resolveOptions, out activator);
+        }
+
+        /// <inheritdoc cref="ITypeResolver.TryResolveInvoker"/>
+        public static bool TryResolveInvoker(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions, out Func<object?>? invoke)
+        {
+            return typeResolver.TryResolveInvoker(method, null, resolveOptions, out invoke);
+        }
+
+        /// <summary>
+        /// Try to initialize a new instance of the registration
+        /// </summary>
+        /// <exception cref="IoCException"/>
+        public static bool TryResolve(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions, out object? instance)
+        {
+            if (typeResolver.TryResolveActivator(identifier, resolveOptions, out var activator))
+            {
+                instance = activator!();
+                return true;
+            }
+
+            instance = null;
+            return false;
+        }
+
+        /// <inheritdoc cref="TryResolve(ITypeResolver,RegistrationId,ResolveOptions,out object?)"/>
+        public static bool TryResolve(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out object? instance)
+        {
+            return TryResolve(typeResolver, new RegistrationId(type), resolveOptions, out instance);
+        }
+
+        /// <inheritdoc cref="TryResolve(ITypeResolver,RegistrationId,ResolveOptions,out object?)"/>
+        public static bool TryResolve<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, out T? instance)
+        {
+            if (TryResolve(typeResolver, typeof(T), resolveOptions, out var i))
+            {
+                instance = (T?)i;
+                return true;
+            }
+
+            instance = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Try to invoke a method with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"/>
+        public static bool TryInvoke(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions resolveOptions, out object? returnValue)
+        {
+            if (typeResolver.TryResolveInvoker(method, instance, resolveOptions, out var invoker))
+            {
+                returnValue = invoker!();
+                return true;
+            }
+
+            returnValue = null;
+            return false;
+        }
+
+        /// <inheritdoc cref="TryInvoke(ITypeResolver,MethodInfo,object?,ResolveOptions,out object?)"/>
+        public static bool TryInvoke(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions, out object? returnValue)
+        {
+            return TryInvoke(typeResolver, method, null, resolveOptions, out returnValue);
+        }
+
+        /// <summary>
         /// Resolve a typed service
         /// </summary>
         /// <exception cref="IoCException"/>
+        public static object? Resolve(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions? resolveOptions = null)
+        {
+            resolveOptions ??= ResolveOptions.Empty;
+            if (typeResolver.TryResolveActivator(identifier, resolveOptions, out var activator))
+                return activator!();
+
+            if (resolveOptions.IsOptional)
+                return null;
+
+            throw new IoCException($"Cannot resolve {identifier}");
+        }
+
+        /// <inheritdoc cref="Resolve(ITypeResolver,RegistrationId,ResolveOptions?)"/>
         public static object? Resolve(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
             return typeResolver.Resolve(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
         }
 
-        /// <inheritdoc cref="Resolve(ITypeResolver,Type,string?,ResolveOptions?)"/>
+        /// <inheritdoc cref="Resolve(ITypeResolver,RegistrationId,ResolveOptions?)"/>
         public static T? Resolve<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null) where T : notnull
         {
             return (T?)Resolve(typeResolver, typeof(T), name, resolveOptions);
+        }
+
+        /// <summary>
+        /// Invoke a method with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"></exception>
+        public static object? Invoke(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions resolveOptions)
+        {
+            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions, out var invoker))
+                throw new IoCException($"Cannot invoke '{method}' with current state");
+
+            return invoker!();
+        }
+
+        /// <inheritdoc cref="Invoke(ITypeResolver,MethodInfo,object?,ResolveOptions)"/>
+        public static object? Invoke(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions)
+        {
+            return Invoke(typeResolver, method, null, resolveOptions);
         }
 
         /// <summary>
@@ -238,11 +366,14 @@ namespace Sight.IoC
 
         private static void RegisterTypeImpl(this ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
         {
+            if (type.IsAbstract)
+                throw new IoCException($"{nameof(RegisterType)}() cannot register abstract types");
+
             typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
 
             bool ResolvePredicate(Type t, ResolveOptions options)
             {
-                return predicate() || IoCHelpers.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
+                return predicate() || TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
             }
 
             object ResolveDelegate(Type t, ResolveOptions options)
@@ -250,7 +381,7 @@ namespace Sight.IoC
                 if (predicate())
                     return resolver();
 
-                var instance = IoCHelpers.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
+                var instance = TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
                     ? activator!()
                     : throw new IoCException($"Cannot auto resolve '{type}'");
                 onResolved?.Invoke(instance);

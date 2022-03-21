@@ -1,4 +1,6 @@
-﻿namespace Sight.IoC
+﻿using System.Reflection;
+
+namespace Sight.IoC
 {
     /// <summary>
     /// Describe a container that can resolve services
@@ -31,15 +33,15 @@
         public bool IsRegistered(RegistrationId identifier);
 
         /// <summary>
-        /// Indicates if a service is resolvable
+        /// Try to resolve a delegate that can initialize a new instance of the registration
         /// </summary>
         /// <exception cref="IoCException"/>
-        public bool IsResolvable(RegistrationId identifier, ResolveOptions resolveOptions);
+        public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator);
 
         /// <summary>
-        /// Resolve a service
+        /// Try to resolve a delegate that can invoke a method with dependency injection
         /// </summary>
         /// <exception cref="IoCException"/>
-        public object? Resolve(RegistrationId identifier, ResolveOptions resolveOptions);
+        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, out Func<object?>? invoker);
     }
 }
