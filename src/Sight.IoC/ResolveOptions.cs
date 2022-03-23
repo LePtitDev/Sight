@@ -9,7 +9,10 @@
         private Dictionary<string, object>? _namedParameters;
         private Dictionary<Type, object>? _typedParameters;
 
-        internal static ResolveOptions Empty { get; } = new ResolveOptions();
+        /// <summary>
+        /// Default resolution options
+        /// </summary>
+        public static ResolveOptions Default { get; } = new ResolveOptions();
 
         /// <summary>
         /// Parameters that can be used to resolve a service but are not registered in resolver

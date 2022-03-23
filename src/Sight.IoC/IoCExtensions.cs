@@ -54,19 +54,19 @@ namespace Sight.IoC
         /// <exception cref="IoCException"/>
         public static bool IsResolvable(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.TryResolveActivator(identifier, resolveOptions ?? ResolveOptions.Empty, out _);
+            return typeResolver.TryResolveActivator(identifier, resolveOptions ?? ResolveOptions.Default, out _);
         }
 
         /// <inheritdoc cref="IsResolvable(ITypeResolver,RegistrationId,ResolveOptions?)"/>
         public static bool IsResolvable(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return IsResolvable(typeResolver, new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+            return IsResolvable(typeResolver, new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Default);
         }
 
         /// <inheritdoc cref="IsResolvable(ITypeResolver,RegistrationId,ResolveOptions)"/>
         public static bool IsResolvable<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return IsResolvable(typeResolver, typeof(T), name, resolveOptions ?? ResolveOptions.Empty);
+            return IsResolvable(typeResolver, typeof(T), name, resolveOptions ?? ResolveOptions.Default);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace Sight.IoC
         /// <exception cref="IoCException"/>
         public static bool IsInvokable(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Empty, out _);
+            return typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out _);
         }
 
         /// <inheritdoc cref="IsInvokable(ITypeResolver,MethodInfo,object?,ResolveOptions?)"/>
@@ -165,7 +165,7 @@ namespace Sight.IoC
         /// <exception cref="IoCException"/>
         public static object? Resolve(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions? resolveOptions = null)
         {
-            resolveOptions ??= ResolveOptions.Empty;
+            resolveOptions ??= ResolveOptions.Default;
             if (typeResolver.TryResolveActivator(identifier, resolveOptions, out var activator))
                 return activator!();
 
@@ -178,7 +178,7 @@ namespace Sight.IoC
         /// <inheritdoc cref="Resolve(ITypeResolver,RegistrationId,ResolveOptions?)"/>
         public static object? Resolve(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
         {
-            return typeResolver.Resolve(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Empty);
+            return typeResolver.Resolve(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Default);
         }
 
         /// <inheritdoc cref="Resolve(ITypeResolver,RegistrationId,ResolveOptions?)"/>
@@ -193,7 +193,7 @@ namespace Sight.IoC
         /// <exception cref="IoCException"></exception>
         public static object? Invoke(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions? resolveOptions = null)
         {
-            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Empty, out var invoker))
+            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out var invoker))
                 throw new IoCException($"Cannot invoke '{method}' with current state");
 
             return invoker!();

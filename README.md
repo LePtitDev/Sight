@@ -9,4 +9,4 @@ Sight is a light C# framework that implement some services and helpers for tools
 | Name | Version | Description |
 | --- | --- | --- |
 | Sight.Linq | [![](https://img.shields.io/nuget/v/Sight.Linq.svg)](https://www.nuget.org/packages/Sight.Linq/) | Extension methods for common classes ([see more](src/Sight.Linq/README.md)) |
-| Sight.IoC | [![](https://img.shields.io/nuget/v/Sight.IoC.svg)](https://www.nuget.org/packages/Sight.IoC/) | Dependency injection library |
+| Sight.IoC | [![](https://img.shields.io/nuget/v/Sight.IoC.svg)](https://www.nuget.org/packages/Sight.IoC/) | Dependency injection library ([see more](src/Sight.IoC/README.md)) |
