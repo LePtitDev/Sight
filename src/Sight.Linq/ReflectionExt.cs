@@ -43,13 +43,22 @@ namespace Sight.Linq
         /// <summary>
         /// Get types of assembly that implement base type
         /// </summary>
-        public static IEnumerable<Type> GetTypesOf(this Assembly assembly, Type baseType, bool withAbstract = true)
+        public static IEnumerable<Type> GetTypesOf(this Assembly assembly, Type baseType, bool withAbstract = true, bool withGeneric = true)
         {
             var types = assembly.GetTypes().Where(baseType.IsAssignableFrom).Except(baseType);
             if (!withAbstract)
                 types = types.Where(x => !x.IsAbstract);
 
+            if (!withGeneric)
+                types = types.Where(x => !x.IsGenericType);
+
             return types;
+        }
+
+        /// <inheritdoc cref="GetTypesOf"/>
+        public static IEnumerable<Type> GetTypesOf<TBase>(this Assembly assembly, bool withAbstract = true, bool withGeneric = true)
+        {
+            return GetTypesOf(assembly, typeof(TBase), withAbstract, withGeneric);
         }
     }
 }

@@ -71,7 +71,7 @@ namespace Sight.IoC
             {
                 var genericType = type.GetGenericTypeDefinition();
                 var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGet(x => IsRegistrationFor(this, x, genericIdentifier, resolveOptions), out item))
+                if (dictionary.TryGet(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
                 {
                     activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                     return true;
@@ -95,7 +95,7 @@ namespace Sight.IoC
                 return true;
             }
 
-            if (type.IsGenericType)
+            if (type.IsConstructedGenericType)
             {
                 var genericTypes = type.GetGenericArguments();
                 if (genericTypes.Length == 1)
@@ -204,7 +204,7 @@ namespace Sight.IoC
 
         internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
         {
-            if (!type.IsClass || type.IsAbstract)
+            if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
             {
                 activator = null;
                 return false;

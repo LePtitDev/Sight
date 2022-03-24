@@ -356,6 +356,19 @@
             Assert.IsTrue(testClasses[0] is TestClass03, "testClasses[0] is TestClass03");
         }
 
+        [Test]
+        public void Test_lazy_generic_can_resolve_multiple_type_parameters()
+        {
+            var container = new TypeContainer();
+            container.RegisterType(typeof(TestClass02<>), typeof(ITestInterface02<>), lazy: true);
+
+            var testClass1 = container.Resolve<ITestInterface02<TestClass01>>();
+            var testClass2 = container.Resolve<ITestInterface02<TestClass03>>();
+
+            Assert.IsNotNull(testClass1);
+            Assert.IsNotNull(testClass2);
+        }
+
         private interface ITestInterface01
         {
             public string Value { get; }

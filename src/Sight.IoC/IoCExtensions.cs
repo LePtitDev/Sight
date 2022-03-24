@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
 
 namespace Sight.IoC
@@ -246,33 +247,64 @@ namespace Sight.IoC
             if (lazy)
             {
                 object? instance = null;
-                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, () => instance != null, () => instance!, x => instance = x);
+                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, t => GetLazyInstance(type, t, instance) != null, t => GetLazyInstance(type, t, instance)!, (t, x) => AddOrUpdateInstance(type, t, ref instance, x));
             }
             else
             {
-                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, () => false, () => default!, null);
+                RegisterTypeImpl(typeContainer, type, asTypes, name, type.IsGenericTypeDefinition ? baseType => type.MakeGenericType(baseType.GetGenericArguments()) : _ => type, _ => false, _ => default!, null);
             }
 
-            static void RegisterTypeImpl(ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<bool> predicate, Func<object> resolver, Action<object>? onResolved)
+            static void RegisterTypeImpl(ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<Type, bool> predicate, Func<Type, object> resolver, Action<Type, object>? onResolved)
             {
                 typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
 
                 bool ResolvePredicate(Type t, ResolveOptions options)
                 {
-                    return predicate() || TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out _);
+                    var resolvedType = typeResolver(t);
+                    return predicate(resolvedType) || TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out _);
                 }
 
                 object ResolveDelegate(Type t, ResolveOptions options)
                 {
-                    if (predicate())
-                        return resolver();
+                    var resolvedType = typeResolver(t);
+                    if (predicate(resolvedType))
+                        return resolver(resolvedType);
 
-                    var instance = TypeResolver.TryCreateActivator(typeContainer, typeResolver(t), options, out var activator)
+                    var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out var activator)
                         ? activator!()
                         : throw new IoCException($"Cannot auto resolve '{type}'");
-                    onResolved?.Invoke(instance);
+                    onResolved?.Invoke(resolvedType, instance);
                     return instance;
                 }
+            }
+
+            static object? GetLazyInstance(Type type, Type resolvedType, object? instance)
+            {
+                if (instance == null)
+                    return null;
+
+                if (!type.IsGenericTypeDefinition)
+                    return instance;
+
+                return ((ConcurrentDictionary<string, object>)instance).TryGetValue(GetLazyKey(resolvedType), out var value) ? value : null;
+            }
+
+            static void AddOrUpdateInstance(Type type, Type resolvedType, ref object? instance, object value)
+            {
+                if (!type.IsGenericTypeDefinition)
+                {
+                    instance = value;
+                }
+                else
+                {
+                    var dict = instance ??= new ConcurrentDictionary<string, object>();
+                    ((ConcurrentDictionary<string, object>)dict).AddOrUpdate(GetLazyKey(resolvedType), value, (_, _) => value);
+                }
+            }
+
+            static string GetLazyKey(Type resolvedType)
+            {
+                return string.Join(";", resolvedType.GetGenericArguments().Select(x => x.FullName));
             }
         }
 
