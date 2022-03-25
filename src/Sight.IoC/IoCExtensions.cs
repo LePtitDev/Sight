@@ -315,7 +315,7 @@ namespace Sight.IoC
         }
 
         /// <inheritdoc cref="RegisterType(ITypeContainer,Type,Type?,string?,bool)"/>
-        public static void RegisterType<TBase, T>(this ITypeContainer typeContainer, string? name = null, bool lazy = false)
+        public static void RegisterType<T, TBase>(this ITypeContainer typeContainer, string? name = null, bool lazy = false) where T : TBase
         {
             RegisterType(typeContainer, typeof(T), typeof(TBase), name, lazy);
         }

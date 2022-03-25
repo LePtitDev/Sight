@@ -11,7 +11,7 @@ You can inject and resolve your services by using the `TypeContainer`.
 **Example:**
 ```csharp
 var container = new TypeContainer();
-container.RegisterType<IService, MyService>();
+container.RegisterType<MyService, IService>();
 
 var service = container.Resolve<IService>(); // = MyService
 ```
@@ -38,7 +38,7 @@ class MyService : IService
 }
 
 // In this example IDependency is already injected in container
-container.RegisterType<IService, MyService>();
+container.RegisterType<MyService, IService>();
 
 // The container will initialize the service with the registered dependency
 var service = container.Resolve<IService>();
