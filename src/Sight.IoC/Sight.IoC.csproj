@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.8-beta</Version>
+    <Version>0.1.0</Version>
     <Description>Dependency injection library.</Description>
   </PropertyGroup>
   <ItemGroup>

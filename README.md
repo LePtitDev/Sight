@@ -4,7 +4,7 @@
 
 Sight is a light C# framework that implement some services and helpers for tools and applications.
 
-# Projects (*work in progress*)
+# Projects
 
 | Name | Version | Description |
 | --- | --- | --- |
