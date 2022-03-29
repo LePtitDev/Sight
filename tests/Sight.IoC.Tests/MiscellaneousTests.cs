@@ -33,5 +33,16 @@ namespace Sight.IoC.Tests
 
             Assert.Throws<IoCException>(() => resolver.Resolve<SimpleClassWithDependency>());
         }
+
+        [Test]
+        public void Test_fallback_provider()
+        {
+            var fallback = new ResolveFallback((_, _) => true, (_, _) => new SimpleClass());
+            var container = new TypeContainer(new TypeContainer.CreateOptions { Fallback = fallback });
+
+            var testClass = container.Resolve<SimpleClass>();
+
+            Assert.NotNull(testClass, "testClass != null");
+        }
     }
 }

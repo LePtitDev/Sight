@@ -19,7 +19,7 @@
         /// Initialize a new instance of <see cref="TypeContainer"/> class
         /// </summary>
         public TypeContainer(ICollection<Registration> registrations)
-            : this(new CreateOptions(registrations) { SyncRoot = new object() })
+            : this(new CreateOptions(registrations, new object()))
         {
         }
 
@@ -51,10 +51,18 @@
             /// <summary>
             /// Initialize a new instance of <see cref="CreateOptions"/> class
             /// </summary>
-            /// <param name="registrations"></param>
-            public CreateOptions(ICollection<Registration> registrations)
+            public CreateOptions()
+                : this(new List<Registration>(), new object())
+            {
+            }
+
+            /// <summary>
+            /// Initialize a new instance of <see cref="CreateOptions"/> class
+            /// </summary>
+            public CreateOptions(ICollection<Registration> registrations, object? syncRoot = null)
             {
                 Registrations = registrations;
+                SyncRoot = syncRoot;
             }
 
             /// <summary>
