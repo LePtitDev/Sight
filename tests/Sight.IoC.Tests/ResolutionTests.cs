@@ -207,5 +207,70 @@ namespace Sight.IoC.Tests
             Assert.AreEqual(1, testClasses.Count);
             Assert.IsTrue(testClasses[0] is SimpleClassWithInterface, "testClasses[0] is SimpleClassWithInterface");
         }
+
+        [Test]
+        public void Test_used_constructor_is_the_most_complex()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithInterface>((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithDependency>((_, _) => new SimpleClassWithDependency(new SimpleClass()));
+            container.RegisterProvider<ISimpleClassWithStringDependency>((_, _) => new SimpleClassWithStringDependency(string.Empty));
+            container.RegisterProvider<IGenericClassWithInterface<string>>((_, _) => new GenericClassWithInterface<string>());
+
+            var testClass = container.Resolve<ClassWithMultipleConstructors>(resolveOptions: new ResolveOptions { AutoResolve = true });
+
+            Assert.IsNotNull(testClass);
+            Assert.AreEqual("ClassWithMultipleConstructors(ISimpleClassWithInterface simpleClass1, ISimpleClassWithDependency simpleClass2, IGenericClassWithInterface<string> simpleClass3)", testClass.UsedConstructor);
+        }
+
+        [Test]
+        public void Test_used_constructor_is_with_less_default_values()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithInterface>((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithDependency>((_, _) => new SimpleClassWithDependency(new SimpleClass()));
+            container.RegisterProvider<ISimpleClassWithStringDependency>((_, _) => new SimpleClassWithStringDependency(string.Empty));
+
+            var testClass = container.Resolve<ClassWithMultipleConstructors>(resolveOptions: new ResolveOptions { AutoResolve = true });
+
+            Assert.IsNotNull(testClass);
+            Assert.AreEqual("ClassWithMultipleConstructors(ISimpleClassWithInterface simpleClass1, ISimpleClassWithStringDependency simpleClass2)", testClass.UsedConstructor);
+        }
+
+        [Test]
+        public void Test_used_constructor_is_with_better_corresponding_resolve_options()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithInterface>((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithStringDependency>((_, _) => new SimpleClassWithStringDependency(string.Empty));
+
+            var testClass = container.Resolve<ClassWithMultipleConstructors>(resolveOptions: new ResolveOptions
+            {
+                AutoResolve = true,
+                TypedParameters =
+                {
+                    { typeof(ISimpleClassWithDependency), new SimpleClassWithDependency(new SimpleClass()) }
+                }
+            });
+
+            Assert.IsNotNull(testClass);
+            Assert.AreEqual("ClassWithMultipleConstructors(ISimpleClassWithInterface simpleClass1, ISimpleClassWithDependency simpleClass2 = null)", testClass.UsedConstructor);
+        }
+
+        [Test]
+        public void Test_used_constructor_is_with_more_interface_services()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider((_, _) => new SimpleClassWithInterface());
+            container.RegisterProvider<ISimpleClassWithStringDependency>((_, _) => new SimpleClassWithStringDependency(string.Empty));
+
+            var testClass = container.Resolve<ClassWithMultipleConstructors>(resolveOptions: new ResolveOptions { AutoResolve = true });
+
+            Assert.IsNotNull(testClass);
+            Assert.AreEqual("ClassWithMultipleConstructors(ISimpleClassWithStringDependency simpleClass)", testClass.UsedConstructor);
+        }
     }
 }

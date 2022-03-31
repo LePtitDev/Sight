@@ -215,7 +215,7 @@ namespace Sight.IoC
                 return false;
             }
 
-            foreach (var constructor in type.GetConstructors())
+            foreach (var constructor in OrderConstructors(type.GetConstructors(), resolveOptions))
             {
                 if (TryCreateInvoker(typeResolver, constructor, resolveOptions, p => constructor.Invoke(p), out activator!))
                     return true;
@@ -223,6 +223,47 @@ namespace Sight.IoC
 
             activator = null;
             return false;
+
+            // Order constructors by complexity, so we try to inject maximum of services
+            static IEnumerable<ConstructorInfo> OrderConstructors(IReadOnlyCollection<ConstructorInfo> constructors, ResolveOptions resolveOptions)
+            {
+                if (constructors.Count < 2)
+                    return constructors;
+
+                return constructors.OrderByDescending(x =>
+                {
+                    var parameters = x.GetParameters();
+                    if (parameters.Length == 0)
+                        return 0;
+
+                    // Compute a score constructor complexity
+                    double notDefaultFactor = parameters.Length + 1;
+                    var abstractFactor = notDefaultFactor * notDefaultFactor;
+                    var score = parameters.Length +
+                           parameters.Count(p => !p.HasDefaultValue) / notDefaultFactor +
+                           parameters.Count(p => p.ParameterType.IsAbstract) / abstractFactor;
+
+                    // Increase score with corresponding named parameters (high)
+                    foreach (var parameter in resolveOptions.NamedParameters)
+                    {
+                        score += 100 * parameters.Count(p => p.Name == parameter.Key);
+                    }
+
+                    // Increase score with corresponding typed parameters (normal)
+                    foreach (var parameter in resolveOptions.TypedParameters)
+                    {
+                        score += 10 * parameters.Count(p => p.ParameterType == parameter.Key);
+                    }
+
+                    // Increase score with assignable additional parameters (low)
+                    foreach (var parameter in resolveOptions.AdditionalParameters)
+                    {
+                        score += parameters.Count(p => p.ParameterType.IsInstanceOfType(parameter));
+                    }
+
+                    return score;
+                });
+            }
         }
 
         private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, out Func<object?>? activator)
