@@ -9,6 +9,11 @@ namespace Sight.IoC
     /// </summary>
     public class TypeResolver : ITypeResolver
     {
+        private static readonly Type[] ExcludedTypesForAutoResolve =
+        {
+            typeof(string)
+        };
+
         private readonly Func<IEnumerable<Registration>> _provider;
 
         /// <summary>
@@ -204,7 +209,7 @@ namespace Sight.IoC
 
         internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
         {
-            if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
+            if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition || type.IsValueType || ExcludedTypesForAutoResolve.Contains(type))
             {
                 activator = null;
                 return false;
