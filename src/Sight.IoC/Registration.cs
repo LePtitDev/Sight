@@ -48,18 +48,18 @@ namespace Sight.IoC
         public override string ToString()
         {
             var bld = new StringBuilder();
-            bld.Append("{ Types: [");
-            bld.Append(string.Join(", ", Types.Select(x => x.FullName)));
-            bld.Append(']');
+            bld.Append("{ ");
 
             if (!string.IsNullOrEmpty(Name))
             {
-                bld.Append(", Name: '");
+                bld.Append("Name: '");
                 bld.Append(Name);
-                bld.Append("'");
+                bld.Append("', ");
             }
 
-            bld.Append(", Resolver: ");
+            bld.Append("Types: [");
+            bld.Append(string.Join(", ", Types.Select(x => x.FullName)));
+            bld.Append("], Resolver: ");
             bld.Append(Resolver.Method);
 
             if (Predicate != null)
