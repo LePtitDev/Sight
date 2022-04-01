@@ -109,6 +109,16 @@ var arr = new[] { 1, 2, 3, 4, 5 };
 var result = arr.TryGet(x => x > 2, out var val); // = true (val: 3)
 ```
 
+### TryGetLast
+
+> Try to found the last element that match the predicate
+
+**Example:**
+```csharp
+var arr = new[] { 1, 2, 3, 4, 5 };
+var result = arr.TryGetLast(x => x < 4, out var val); // = true (val: 3)
+```
+
 ### WhereNot
 
 > Filter elements from a predicate
