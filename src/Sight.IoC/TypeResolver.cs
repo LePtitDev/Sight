@@ -66,7 +66,7 @@ namespace Sight.IoC
         {
             var type = identifier.Type;
             var dictionary = this.SafeGetRegistrations();
-            if (dictionary.TryGet(x => IsRegistrationFor(this, x, identifier, resolveOptions), out var item))
+            if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, identifier, resolveOptions), out var item))
             {
                 activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                 return true;
@@ -76,7 +76,7 @@ namespace Sight.IoC
             {
                 var genericType = type.GetGenericTypeDefinition();
                 var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGet(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
+                if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
                 {
                     activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                     return true;
@@ -302,7 +302,7 @@ namespace Sight.IoC
                     continue;
                 }
 
-                if (resolveOptions.AdditionalParameters.TryGet(x => parameter.ParameterType.IsInstanceOfType(x), out value))
+                if (resolveOptions.AdditionalParameters.TryGetLast(x => parameter.ParameterType.IsInstanceOfType(x), out value))
                 {
                     parameters.Add(value);
                     continue;

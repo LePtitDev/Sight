@@ -185,6 +185,25 @@ namespace Sight.Linq
         }
 
         /// <summary>
+        /// Try to found the last element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
+        /// </summary>
+        public static bool TryGetLast<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull
+        {
+            item = default;
+            var found = false;
+            foreach (var elem in source)
+            {
+                if (predicate(elem))
+                {
+                    item = elem;
+                    found = true;
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>
         /// Filter elements from a predicate
         /// </summary>
         public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> source, Func<T, bool> predicate)
