@@ -54,13 +54,29 @@ arr.ForEach(x => counter += x); // counter = 15
 **Examples:**
 ```csharp
 var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.ForEach(4); // = 3
+var result = arr.IndexOf(4); // = 3
 ```
 
 *or*
 ```csharp
 var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.ForEach(x => x > 2); // = 2
+var result = arr.IndexOf(x => x > 2); // = 2
+```
+
+### IndexOfLast
+
+> Find index of the last item
+
+**Examples:**
+```csharp
+var arr = new[] { 1, 4, 3, 4, 5 };
+var result = arr.IndexOfLast(4); // = 3
+```
+
+*or*
+```csharp
+var arr = new[] { 1, 2, 3, 4, 5 };
+var result = arr.IndexOfLast(x => x < 4); // = 2
 ```
 
 ### Insert
