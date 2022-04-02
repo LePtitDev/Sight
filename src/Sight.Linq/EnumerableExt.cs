@@ -115,6 +115,25 @@ namespace Sight.Linq
         }
 
         /// <summary>
+        /// Find index of item
+        /// </summary>
+        public static int IndexOfLast<T>(this IEnumerable<T> source, T item, IEqualityComparer<T>? comparer = null)
+        {
+            comparer ??= EqualityComparer<T>.Default;
+            var index = 0;
+            var result = -1;
+            foreach (var e in source)
+            {
+                if (comparer.Equals(e, item))
+                    result = index;
+
+                index++;
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Find index of the last item that pass predicate
         /// </summary>
         public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, bool> predicate)
