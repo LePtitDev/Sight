@@ -115,6 +115,42 @@ namespace Sight.Linq
         }
 
         /// <summary>
+        /// Find index of the last item that pass predicate
+        /// </summary>
+        public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+        {
+            var index = 0;
+            var result = -1;
+            foreach (var item in source)
+            {
+                if (predicate(item))
+                    result = index;
+
+                index++;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Find index of the last item that pass predicate
+        /// </summary>
+        public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
+        {
+            var index = 0;
+            var result = -1;
+            foreach (var item in source)
+            {
+                if (predicate(item, index))
+                    result = index;
+
+                index++;
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Insert elements in the collection
         /// </summary>
         public static IEnumerable<T> Insert<T>(this IEnumerable<T> source, int index, params T[] items)
