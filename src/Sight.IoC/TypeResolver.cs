@@ -280,7 +280,7 @@ namespace Sight.IoC
             {
                 if (resolveOptions.NamedParameters.TryGetValue(parameter.Name!, out var value))
                 {
-                    if (!parameter.ParameterType.IsInstanceOfType(value))
+                    if (!IsInstanceOrNull(parameter.ParameterType, value))
                     {
                         activator = null;
                         return false;
@@ -292,7 +292,7 @@ namespace Sight.IoC
 
                 if (resolveOptions.TypedParameters.TryGetValue(parameter.ParameterType, out value))
                 {
-                    if (!parameter.ParameterType.IsInstanceOfType(value))
+                    if (!IsInstanceOrNull(parameter.ParameterType, value))
                     {
                         activator = null;
                         return false;
@@ -338,6 +338,11 @@ namespace Sight.IoC
             };
 
             return true;
+
+            static bool IsInstanceOrNull(Type type, object? instance)
+            {
+                return instance == null ? !type.IsValueType : type.IsInstanceOfType(instance);
+            }
         }
 
         /// <summary>
