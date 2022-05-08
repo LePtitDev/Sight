@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <CopyDependencies>true</CopyDependencies>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Text" />
+    <Using Include="System.Threading.Tasks" />
+    <Using Include="BenchmarkDotNet.Attributes" />
+    <Using Include="BenchmarkDotNet.Jobs" />
+    <Using Include="BenchmarkDotNet.Running" />
+    <Using Include="Sight.Benchmarks" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="$(SolutionDir)benchmarks\Shared\**\*.cs">
+      <Link>Shared\%(RecursiveDir)/%(FileName)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+</Project>
