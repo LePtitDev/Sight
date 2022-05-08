@@ -16,6 +16,27 @@ container.RegisterType<MyService, IService>();
 var service = container.Resolve<IService>(); // = MyService
 ```
 
+## Benchmarks
+
+A simple senario with 3 dependencies was made to compare `Sight.IoC 0.1.3`, `DryIoc 5.0.1`, `Autofac 6.3.0` and `Microsoft.Extensions.DependencyInjection 6.0.0`.
+
+```md
+BenchmarkDotNet=v0.13.1, OS=Windows 10.0.19044.1645 (21H2)
+Intel Core i7-6700 CPU 3.40GHz (Skylake), 1 CPU, 8 logical and 4 physical cores
+.NET SDK=6.0.202
+  [Host]   : .NET 6.0.4 (6.0.422.16404), X64 RyuJIT
+  .NET 6.0 : .NET 6.0.4 (6.0.422.16404), X64 RyuJIT
+
+Job=.NET 6.0  Runtime=.NET 6.0
+
+|  Method |      Mean |     Error |    StdDev |    Median |
+|-------- |----------:|----------:|----------:|----------:|
+|   Sight |  2.659 us | 0.0254 us | 0.0212 us |  2.655 us |
+|  DryIoc |  2.287 us | 0.0456 us | 0.1202 us |  2.258 us |
+| Autofac | 44.154 us | 0.7919 us | 1.8975 us | 43.286 us |
+|    MsDI |  6.367 us | 0.5149 us | 1.5182 us |  6.159 us |
+```
+
 ## Registration
 
 You can register service with a provider that will return you service. It allow you to initialize your instance with custom code.
