@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Logging library.</Description>
+  </PropertyGroup>
+</Project>

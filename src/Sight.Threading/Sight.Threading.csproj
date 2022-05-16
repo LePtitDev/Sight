@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Threading components with multi-target support.</Description>
+  </PropertyGroup>
+</Project>
