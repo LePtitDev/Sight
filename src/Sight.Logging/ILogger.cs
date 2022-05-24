@@ -1,4 +1,7 @@
-﻿namespace Sight.Logging
+﻿using Sight.Logging.Fields;
+using Sight.Logging.Messages;
+
+namespace Sight.Logging
 {
     /// <summary>
     /// Logger
@@ -6,12 +9,16 @@
     public interface ILogger
     {
         /// <summary>
+        /// Indicates if log level is enabled
+        /// </summary>
+        bool IsEnabled(LogLevel level);
+
+        /// <summary>
         /// Log a message
         /// </summary>
-        /// <param name="eventId">ID to a specific event (-1 if no event)</param>
         /// <param name="level">Log level</param>
-        /// <param name="message">The message</param>
-        /// <param name="attachment">Additional attached object</param>
-        void Log(long eventId, LogLevel level, string message, object? attachment);
+        /// <param name="message">Formatted message</param>
+        /// <param name="fields">Additional fields</param>
+        void Log(LogLevel level, LogPart message, LogField[] fields);
     }
 }

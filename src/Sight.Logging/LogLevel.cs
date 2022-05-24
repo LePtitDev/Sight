@@ -8,11 +8,6 @@
         /// <summary>
         /// Most detailed
         /// </summary>
-        Trace,
-
-        /// <summary>
-        /// Investigation
-        /// </summary>
         Debug,
 
         /// <summary>
@@ -28,11 +23,6 @@
         /// <summary>
         /// Error
         /// </summary>
-        Error,
-
-        /// <summary>
-        /// Unhandlable critical error
-        /// </summary>
-        Critical
+        Error
     }
 }
