@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Sight.Logging.Fields;
-using Sight.Logging.Messages;
+using Sight.Logging.Logs;
 
 namespace Sight.Logging
 {
@@ -18,10 +18,7 @@ namespace Sight.Logging
         /// </summary>
         public static void LogDebug(this ILogger logger, string message, params object[] @params)
         {
-            if (logger.IsEnabled(LogLevel.Information))
-            {
-                LogImpl(logger, LogLevel.Information, "… debug", LogColor.LowOpacity, message, @params);
-            }
+            LogImpl(logger, LogLevels.Information, "… debug", LogColors.LowOpacity, message, @params);
         }
 
         /// <summary>
@@ -29,10 +26,7 @@ namespace Sight.Logging
         /// </summary>
         public static void LogInformation(this ILogger logger, string message, params object[] @params)
         {
-            if (logger.IsEnabled(LogLevel.Information))
-            {
-                LogImpl(logger, LogLevel.Information, "  info", LogColor.Default, message, @params);
-            }
+            LogImpl(logger, LogLevels.Information, "  info", LogColors.Default, message, @params);
         }
 
         /// <summary>
@@ -40,10 +34,7 @@ namespace Sight.Logging
         /// </summary>
         public static void LogWarning(this ILogger logger, string message, params object[] @params)
         {
-            if (logger.IsEnabled(LogLevel.Warning))
-            {
-                LogImpl(logger, LogLevel.Warning, "# warning", LogColor.Warning, message, @params);
-            }
+            LogImpl(logger, LogLevels.Warning, "# warning", LogColors.Warning, message, @params);
         }
 
         /// <summary>
@@ -51,10 +42,7 @@ namespace Sight.Logging
         /// </summary>
         public static void LogError(this ILogger logger, string message, params object[] @params)
         {
-            if (logger.IsEnabled(LogLevel.Error))
-            {
-                LogImpl(logger, LogLevel.Error, "X error", LogColor.Error, message, @params);
-            }
+            LogImpl(logger, LogLevels.Error, "X error", LogColors.Error, message, @params);
         }
 
         /// <summary>
@@ -62,19 +50,16 @@ namespace Sight.Logging
         /// </summary>
         public static void LogError(this ILogger logger, Exception exception, string? message = null, params object[] @params)
         {
-            if (logger.IsEnabled(LogLevel.Error))
-            {
-                LogImpl(logger, LogLevel.Error, "X error", LogColor.Error, string.IsNullOrEmpty(message) ? "%e" : $"{message}: %e", @params.Length > 0 ? @params.Append(exception).ToArray() : new object[] { exception });
-            }
+            LogImpl(logger, LogLevels.Error, "X error", LogColors.Error, string.IsNullOrEmpty(message) ? "%e" : $"{message}: %e", @params.Length > 0 ? @params.Append(exception).ToArray() : new object[] { exception });
         }
 
-        private static void LogImpl(ILogger logger, LogLevel level, string type, LogColor typeColor, string message, params object[] @params)
+        private static void LogImpl(ILogger logger, LogLevels level, string type, LogColor typeColor, string message, params object[] @params)
         {
-            var chain = new LogChain();
-            chain.Append(new LogColoredPart(typeColor, new LogString(type)));
+            var parts = new List<object>();
+            parts.Add(Log.ColoredLog(typeColor, Log.TextLog(type)));
 
             var availableSize = Math.Max(0, TypeColumnSize - type.Length);
-            chain.Append(new LogString(new string(' ', availableSize + 2)));
+            parts.Add(Log.TextLog(new string(' ', availableSize + 2)));
 
             if (@params.Length > 0)
             {
@@ -91,12 +76,12 @@ namespace Sight.Logging
                             continue;
                         }
 
-                        chain.Append(new LogString(bld.ToString()));
+                        parts.Add(Log.TextLog(bld.ToString()));
                         bld.Clear();
 
                         if (c == 'e' && @params[index] is Exception ex)
                         {
-                            chain.Append(new LogColoredPart(LogColor.LowOpacity, new LogString(ex.ToString())));
+                            parts.Add(Log.ColoredLog(LogColors.LowOpacity, Log.TextLog(ex.ToString())));
                         }
                         else
                         {
@@ -118,15 +103,15 @@ namespace Sight.Logging
 
                 if (bld.Length > 0)
                 {
-                    chain.Append(new LogString(bld.ToString()));
+                    parts.Add(Log.TextLog(bld.ToString()));
                 }
             }
             else
             {
-                chain.Append(new LogString(message));
+                parts.Add(Log.TextLog(message));
             }
 
-            logger.Log(level, chain, Array.Empty<LogField>());
+            logger.Log(Log.LeveledLog(level, Log.RichLog(parts)));
         }
     }
 }

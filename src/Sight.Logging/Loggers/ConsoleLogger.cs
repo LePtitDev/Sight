@@ -1,8 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using Sight.Logging.Fields;
-using Sight.Logging.Messages;
+using Sight.Logging.Logs;
 
 namespace Sight.Logging.Loggers
 {
@@ -16,63 +15,61 @@ namespace Sight.Logging.Loggers
             Console.OutputEncoding = Encoding.UTF8;
         }
 
-        /// <summary>
-        /// Initialize a new instance of the class <see cref="ConsoleLogger"/>
-        /// </summary>
-        /// <param name="category"></param>
-        public ConsoleLogger(string? category = null)
-        {
-            Category = category;
-        }
-
-        /// <summary>
-        /// Logger category
-        /// </summary>
-        public string? Category { get; set; }
-
-        /// <inheritdoc />s
-        public bool IsEnabled(LogLevel level)
-        {
-            return true;
-        }
-
         /// <inheritdoc />
-        public void Log(LogLevel level, LogPart message, LogField[] fields)
+        public void Log(object message)
         {
-            LogImpl(level >= LogLevel.Error ? Console.Error : Console.Out, message);
-            Console.WriteLine();
+            var writer = ResolveLogLevel(message) >= LogLevels.Error ? Console.Error : Console.Out;
+            LogImpl(writer, message);
+            writer.WriteLine();
         }
 
-        private static void LogImpl(TextWriter writer, LogPart message)
+        private static void LogImpl(TextWriter writer, object message)
         {
             switch (message)
             {
-                case LogColoredPart coloredPart:
+                case IColoredLog { Color: var color } coloredLog:
                     var baseColor = Console.ForegroundColor;
-                    Console.ForegroundColor = coloredPart.Color switch
+                    if (color.IsDefined)
                     {
-                        LogColor.LowOpacity => ConsoleColor.DarkGray,
-                        LogColor.Highlight => ConsoleColor.DarkCyan,
-                        LogColor.Success => ConsoleColor.DarkGreen,
-                        LogColor.Warning => ConsoleColor.DarkYellow,
-                        LogColor.Error => ConsoleColor.DarkRed,
-                        _ => ConsoleColor.Gray
-                    };
+                        Console.ForegroundColor = color.DefinedColor switch
+                        {
+                            LogColors.LowOpacity => ConsoleColor.DarkGray,
+                            LogColors.Highlight => ConsoleColor.DarkCyan,
+                            LogColors.Success => ConsoleColor.DarkGreen,
+                            LogColors.Warning => ConsoleColor.DarkYellow,
+                            LogColors.Error => ConsoleColor.DarkRed,
+                            _ => ConsoleColor.Gray
+                        };
+                    }
 
-                    LogImpl(writer, coloredPart.InnerPart);
+                    LogImpl(writer, coloredLog.Content);
                     Console.ForegroundColor = baseColor;
                     break;
-                case LogChain chain:
-                    foreach (var part in chain.Parts)
+                case IRichLog richLog:
+                    foreach (var part in richLog)
                     {
                         LogImpl(writer, part);
                     }
 
                     break;
+                case IContentLog contentLog:
+                    LogImpl(writer, contentLog.Content);
+                    break;
                 default:
                     writer.Write(message);
                     break;
             }
+        }
+
+        private static LogLevels ResolveLogLevel(object message)
+        {
+            if (message is ILeveledLog { Level: var level })
+                return level.IsDefined ? (LogLevels)level.DefinedLevel! : LogLevels.Information;
+
+            if (message is IContentLog log)
+                return ResolveLogLevel(log.Content);
+
+            return LogLevels.Information;
         }
     }
 }
