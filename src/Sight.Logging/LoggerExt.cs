@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Sight.Logging.Logs;
@@ -53,6 +54,23 @@ namespace Sight.Logging
             LogImpl(logger, LogLevels.Error, "X error", LogColors.Error, string.IsNullOrEmpty(message) ? "%e" : $"{message}: %e", @params.Length > 0 ? @params.Append(exception).ToArray() : new object[] { exception });
         }
 
+        /// <summary>
+        /// Log message that indicates a record start
+        /// </summary>
+        public static Stopwatch LogTimeStart(this ILogger logger, string message, params object[] @params)
+        {
+            LogImpl(logger, LogLevels.Information, "> timer", LogColors.Highlight, message, @params);
+            return Stopwatch.StartNew();
+        }
+
+        /// <summary>
+        /// Log message that indicates a record stop
+        /// </summary>
+        public static void LogTimeStop(this ILogger logger, Stopwatch stopwatch, string message, params object[] @params)
+        {
+            LogImpl(logger, LogLevels.Information, "% timer", LogColors.Highlight, $"{message}: %t", @params.Length > 0 ? @params.Append(stopwatch.Elapsed).ToArray() : new object[] { stopwatch.Elapsed });
+        }
+
         private static void LogImpl(ILogger logger, LogLevels level, string type, LogColor typeColor, string message, params object[] @params)
         {
             var parts = new List<object>();
@@ -79,9 +97,15 @@ namespace Sight.Logging
                         parts.Add(Log.TextLog(bld.ToString()));
                         bld.Clear();
 
-                        if (c == 'e' && @params[index] is Exception ex)
+                        if (c == 'e')
                         {
-                            parts.Add(Log.ColoredLog(LogColors.LowOpacity, Log.TextLog(ex.ToString())));
+                            if (@params[index] is Exception ex)
+                                parts.Add(Log.ColoredLog(LogColors.LowOpacity, Log.TextLog(ex.ToString())));
+                        }
+                        else if (c == 't')
+                        {
+                            if (@params[index] is TimeSpan time)
+                                parts.Add(Log.ColoredLog(LogColors.Highlight, Log.Format(time)));
                         }
                         else
                         {

@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using Sight.Logging.Internal;
 using Sight.Logging.Logs;
 
@@ -45,11 +47,66 @@ namespace Sight.Logging
         public static IColoredLog ColoredLog(LogColor color, object message) => new ColoredLog(color, message);
 
         /// <summary>
+        /// Get a message with a hyperlink
+        /// </summary>
+        public static IHyperlinkLog HyperlinkLog(string href, object message) => new HyperlinkLog(href, message);
+
+        /// <summary>
+        /// Get a message with a record time
+        /// </summary>
+        public static ITimedLog TimedLog(TimeSpan time, object message) => new TimedLog(time, message);
+
+        /// <summary>
         /// Get a message with multiple parts
         /// </summary>
         public static IRichLog RichLog(IEnumerable<object> parts) => new RichLog(parts);
 
         /// <inheritdoc cref="RichLog(IEnumerable{object})"/>
         public static IRichLog RichLog(params object[] parts) => RichLog(parts.Length == 1 && parts[0] is IEnumerable<object> enumerable ? enumerable : parts);
+
+        /// <summary>
+        /// Format time to string
+        /// </summary>
+        public static string Format(TimeSpan time)
+        {
+            var bld = new StringBuilder();
+            if (time.Days > 0)
+                bld.Append(time.Days).Append('d');
+
+            if (time.Hours > 0)
+            {
+                if (bld.Length > 0)
+                    bld.Append(' ');
+
+                bld.Append(time.Hours).Append('h');
+            }
+
+            if (time.Minutes > 0)
+            {
+                if (bld.Length > 0)
+                    bld.Append(' ');
+
+                bld.Append(time.Minutes).Append('m');
+            }
+
+            if (time.Seconds > 0)
+            {
+                if (bld.Length > 0)
+                    bld.Append(' ');
+
+                bld.Append(time.Seconds);
+                if (time.Milliseconds > 0)
+                    bld.Append('.').Append($"{time.Milliseconds}:D3");
+
+                bld.Append('s');
+            }
+
+            if (time.Milliseconds > 0 && bld.Length == 0)
+            {
+                bld.Append(time.Milliseconds).Append("ms");
+            }
+
+            return bld.ToString();
+        }
     }
 }

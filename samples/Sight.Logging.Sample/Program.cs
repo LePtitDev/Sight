@@ -7,6 +7,7 @@ namespace Sight.Logging.Sample
         public static void Main()
         {
             var logger = new ConsoleLogger();
+            var stopwatch = logger.LogTimeStart("Start program");
             logger.LogInformation("Hello World!");
             logger.LogWarning("This logger support warnings");
             logger.LogError("...and errors!");
@@ -21,6 +22,7 @@ namespace Sight.Logging.Sample
             }
 
             logger.LogDebug("Exit sample...");
+            logger.LogTimeStop(stopwatch, "Program finished");
         }
     }
 }
