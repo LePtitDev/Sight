@@ -12,9 +12,9 @@ namespace Sight.Logging
     public static class Log
     {
         /// <summary>
-        /// Get a log level by name
+        /// Get a log level by undefined value
         /// </summary>
-        public static LogLevel Level(string name) => new LogLevel(name);
+        public static LogLevel Level(object value) => new LogLevel(value);
 
         /// <summary>
         /// Get a log level by defined name
@@ -22,14 +22,24 @@ namespace Sight.Logging
         public static LogLevel Level(LogLevels level) => new LogLevel(level);
 
         /// <summary>
-        /// Get a log color by name or hexadecimal value
+        /// Get a log color by undefined value
         /// </summary>
-        public static LogColor Color(string nameOrHex) => new LogColor(nameOrHex);
+        public static LogColor Color(object value) => new LogColor(value);
 
         /// <summary>
         /// Get a log color by defined name
         /// </summary>
         public static LogColor Color(LogColors color) => new LogColor(color);
+
+        /// <summary>
+        /// Get a log icon by undefined value
+        /// </summary>
+        public static LogIcon Icon(object value) => new LogIcon(value);
+
+        /// <summary>
+        /// Get a log icon by defined name
+        /// </summary>
+        public static LogIcon Icon(LogIcons icon) => new LogIcon(icon);
 
         /// <summary>
         /// Get a plain text message

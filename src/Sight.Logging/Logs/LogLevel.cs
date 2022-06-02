@@ -7,24 +7,16 @@ namespace Sight.Logging.Logs
     /// </summary>
     public readonly struct LogLevel
     {
-        private readonly string? _name;
+        private readonly object? _value;
         private readonly LogLevels _level;
 
         /// <summary>
         /// Initialize a new instance of the struct <see cref="LogLevel"/>
         /// </summary>
-        public LogLevel(string name)
+        public LogLevel(object value)
         {
-            if (Enum.TryParse(name, out LogLevels level))
-            {
-                _name = null;
-                _level = level;
-            }
-            else
-            {
-                _name = name;
-                _level = default;
-            }
+            _value = value;
+            _level = default;
         }
 
         /// <summary>
@@ -32,19 +24,19 @@ namespace Sight.Logging.Logs
         /// </summary>
         public LogLevel(LogLevels level)
         {
-            _name = null;
+            _value = null;
             _level = level;
         }
 
         /// <summary>
         /// Indicates if level is from defined name
         /// </summary>
-        public bool IsDefined => _name == null;
+        public bool IsDefined => _value == null;
 
         /// <summary>
-        /// Log level as string
+        /// Log level
         /// </summary>
-        public string Value => _name ?? _level.ToString();
+        public object Value => _value ?? _level;
 
         /// <summary>
         /// Defined level name if available
@@ -54,7 +46,7 @@ namespace Sight.Logging.Logs
         /// <inheritdoc />
         public override string ToString()
         {
-            return Value;
+            return Value.ToString();
         }
 
         /// <summary>

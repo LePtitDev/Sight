@@ -7,24 +7,16 @@ namespace Sight.Logging.Logs
     /// </summary>
     public readonly struct LogColor
     {
-        private readonly string? _nameOrHex;
+        private readonly object? _value;
         private readonly LogColors _color;
 
         /// <summary>
         /// Initialize a new instance of the struct <see cref="LogColor"/>
         /// </summary>
-        public LogColor(string nameOrHex)
+        public LogColor(object value)
         {
-            if (!string.IsNullOrEmpty(nameOrHex) && nameOrHex[0] != '#' && Enum.TryParse(nameOrHex, out LogColors color))
-            {
-                _nameOrHex = null;
-                _color = color;
-            }
-            else
-            {
-                _nameOrHex = nameOrHex;
-                _color = default;
-            }
+            _value = value;
+            _color = default;
         }
 
         /// <summary>
@@ -32,24 +24,19 @@ namespace Sight.Logging.Logs
         /// </summary>
         public LogColor(LogColors color)
         {
-            _nameOrHex = null;
+            _value = null;
             _color = color;
         }
 
         /// <summary>
-        /// Indicates if color is an hexadecimal color
-        /// </summary>
-        public bool IsHex => !string.IsNullOrEmpty(_nameOrHex) && _nameOrHex![0] == '#';
-
-        /// <summary>
         /// Indicates if color is from defined name
         /// </summary>
-        public bool IsDefined => _nameOrHex == null;
+        public bool IsDefined => _value == null;
 
         /// <summary>
-        /// Color value as string
+        /// Color value
         /// </summary>
-        public string Value => _nameOrHex ?? _color.ToString();
+        public object Value => _value ?? _color;
 
         /// <summary>
         /// Defined color name if available
@@ -59,7 +46,7 @@ namespace Sight.Logging.Logs
         /// <inheritdoc />
         public override string ToString()
         {
-            return Value;
+            return Value.ToString();
         }
 
         /// <summary>

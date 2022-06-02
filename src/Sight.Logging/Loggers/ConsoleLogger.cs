@@ -27,6 +27,20 @@ namespace Sight.Logging.Loggers
         {
             switch (message)
             {
+                case LogIcon icon:
+                    writer.Write(icon.DefinedIcon switch
+                    {
+                        LogIcons.Debug => '…',
+                        LogIcons.Information => 'i',
+                        LogIcons.Warning => '#',
+                        LogIcons.Error => 'X',
+                        LogIcons.Start => '>',
+                        LogIcons.Stop => '%',
+                        LogIcons.Hidden => ' ',
+                        _ => '?'
+                    });
+
+                    break;
                 case IColoredLog { Color: var color } coloredLog:
                     var baseColor = Console.ForegroundColor;
                     if (color.IsDefined)
