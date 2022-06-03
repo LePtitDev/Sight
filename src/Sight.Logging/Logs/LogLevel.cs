@@ -46,7 +46,7 @@ namespace Sight.Logging.Logs
         /// <inheritdoc />
         public override string ToString()
         {
-            return Value.ToString();
+            return Value!.ToString()!;
         }
 
         /// <summary>

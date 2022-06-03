@@ -6,7 +6,7 @@ namespace Sight.Logging.Sample
     {
         public static void Main()
         {
-            var logger = new ConsoleLogger();
+            using var logger = new ConsoleLogger(createThread: true);
             var stopwatch = logger.LogTimeStart("Start program");
             logger.LogInformation("Hello World!");
             logger.LogWarning("This logger support warnings");

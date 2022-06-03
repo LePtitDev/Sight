@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Sight.Logging.Logs;
 
 namespace Sight.Logging.Loggers
@@ -8,15 +9,56 @@ namespace Sight.Logging.Loggers
     /// <summary>
     /// Implement logger for console outputs
     /// </summary>
-    public class ConsoleLogger : ILogger
+    public sealed class ConsoleLogger : ILogger, IDisposable
     {
+        private readonly QueueLogger? _queue;
+
         static ConsoleLogger()
         {
             Console.OutputEncoding = Encoding.UTF8;
         }
 
+        /// <summary>
+        /// Initialize a new instance of the class <see cref="ConsoleLogger"/>
+        /// </summary>
+        /// <param name="createThread">Indicates if console will be written in a separated thread</param>
+        public ConsoleLogger(bool createThread = false)
+        {
+            if (createThread)
+            {
+                _queue = new QueueLogger();
+                Task.Run(ProcessMessages);
+            }
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (_queue != null)
+            {
+                _queue.Dispose();
+
+                foreach (var message in _queue.UnsafeMessages)
+                {
+                    LogImpl(message);
+                }
+            }
+        }
+
         /// <inheritdoc />
         public void Log(object message)
+        {
+            if (_queue == null)
+            {
+                LogImpl(message);
+            }
+            else
+            {
+                _queue.Log(message);
+            }
+        }
+
+        private static void LogImpl(object message)
         {
             var writer = ResolveLogLevel(message) >= LogLevels.Error ? Console.Error : Console.Out;
             LogImpl(writer, message);
@@ -72,6 +114,22 @@ namespace Sight.Logging.Loggers
                 default:
                     writer.Write(message);
                     break;
+            }
+        }
+
+        private async Task ProcessMessages()
+        {
+            while (true)
+            {
+                try
+                {
+                    var message = await _queue!.WaitForMessageAsync();
+                    LogImpl(message);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
             }
         }
 

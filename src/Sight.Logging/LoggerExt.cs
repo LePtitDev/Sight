@@ -107,7 +107,7 @@ namespace Sight.Logging
                                 var exception = ex.ToString();
                                 var exceptionParts = new List<object>();
                                 var exceptionIndex = 0;
-                                foreach (Match match in StackTraceRegex.Matches(exception))
+                                foreach (var match in StackTraceRegex.Matches(exception).OfType<Match>())
                                 {
                                     if (exceptionIndex < match.Index)
                                         exceptionParts.Add(exception.Substring(exceptionIndex, match.Index - exceptionIndex));
