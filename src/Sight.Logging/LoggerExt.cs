@@ -30,7 +30,7 @@ namespace Sight.Logging
         /// </summary>
         public static void LogInformation(this ILogger logger, string message, params object[] @params)
         {
-            LogImpl(logger, LogLevels.Information, LogIcons.Hidden, "info", LogColors.Default, message, @params);
+            LogImpl(logger, LogLevels.Information, LogIcons.Information, "info", LogColors.Default, message, @params);
         }
 
         /// <summary>
@@ -125,7 +125,7 @@ namespace Sight.Logging
                         else if (c == 't')
                         {
                             if (@params[index] is TimeSpan time)
-                                parts.Add(Log.ColoredLog(LogColors.Highlight, Log.Format(time)));
+                                parts.Add(Log.ColoredLog(LogColors.Highlight, Log.TimedLog(time, Log.Format(time))));
                         }
                         else
                         {

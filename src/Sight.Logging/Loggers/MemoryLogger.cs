@@ -28,11 +28,6 @@ namespace Sight.Logging.Loggers
         /// </summary>
         public object SyncRoot { get; } = new object();
 
-        /// <summary>
-        /// Messages list, make sure to lock collection with <see cref="SyncRoot"/> before
-        /// </summary>
-        public IReadOnlyCollection<object> Messages => _messages;
-
         /// <inheritdoc />
         public void Log(object message)
         {
@@ -48,12 +43,20 @@ namespace Sight.Logging.Loggers
         /// <summary>
         /// Get messages to immutable array
         /// </summary>
-        public object[] GetMessagesArray()
+        public object[] GetMessages()
         {
             lock (SyncRoot)
             {
                 return _messages.ToArray();
             }
+        }
+
+        /// <summary>
+        /// Messages list, make sure to lock collection with <see cref="SyncRoot"/> before
+        /// </summary>
+        public IReadOnlyCollection<object> GetUnsafeMessages()
+        {
+            return _messages;
         }
     }
 }

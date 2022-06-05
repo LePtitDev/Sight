@@ -75,7 +75,7 @@ namespace Sight.Logging.Loggers
                     writer.Append(icon.DefinedIcon switch
                     {
                         LogIcons.Debug => '…',
-                        LogIcons.Information => 'i',
+                        LogIcons.Information => ' ',
                         LogIcons.Warning => '#',
                         LogIcons.Error => 'X',
                         LogIcons.Start => '>',
