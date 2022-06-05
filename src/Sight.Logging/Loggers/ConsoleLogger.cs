@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Sight.Logging.Logs;
@@ -60,17 +59,20 @@ namespace Sight.Logging.Loggers
 
         private static void LogImpl(object message)
         {
+            var bld = new StringBuilder();
+            LogImpl(bld, message, "\u001b[0m");
+
             var writer = ResolveLogLevel(message) >= LogLevels.Error ? Console.Error : Console.Out;
-            LogImpl(writer, message);
-            writer.WriteLine();
+            writer.WriteLine(bld.ToString());
+            writer.Flush();
         }
 
-        private static void LogImpl(TextWriter writer, object message)
+        private static void LogImpl(StringBuilder writer, object message, string baseColor)
         {
             switch (message)
             {
                 case LogIcon icon:
-                    writer.Write(icon.DefinedIcon switch
+                    writer.Append(icon.DefinedIcon switch
                     {
                         LogIcons.Debug => '…',
                         LogIcons.Information => 'i',
@@ -84,35 +86,46 @@ namespace Sight.Logging.Loggers
 
                     break;
                 case IColoredLog { Color: var color } coloredLog:
-                    var baseColor = Console.ForegroundColor;
+                    string? foregroundColor = null;
                     if (color.IsDefined)
                     {
-                        Console.ForegroundColor = color.DefinedColor switch
+                        foregroundColor = color.DefinedColor switch
                         {
-                            LogColors.LowOpacity => ConsoleColor.DarkGray,
-                            LogColors.Highlight => ConsoleColor.DarkCyan,
-                            LogColors.Success => ConsoleColor.DarkGreen,
-                            LogColors.Warning => ConsoleColor.DarkYellow,
-                            LogColors.Error => ConsoleColor.DarkRed,
-                            _ => ConsoleColor.Gray
+                            LogColors.LowOpacity => "\u001b[90m", // dark gray
+                            LogColors.Highlight => "\u001b[36m", // dark cyan
+                            LogColors.Success => "\u001b[32m", // dark green
+                            LogColors.Warning => "\u001b[33m", // dark yellow
+                            LogColors.Error => "\u001b[31m", // dark red
+                            _ => "\u001b[0m" // default
                         };
+
+                        writer.Append(foregroundColor);
                     }
 
-                    LogImpl(writer, coloredLog.Content);
-                    Console.ForegroundColor = baseColor;
+                    LogImpl(writer, coloredLog.Content, foregroundColor ?? baseColor);
+                    if (color.IsDefined)
+                    {
+                        writer.Append(baseColor);
+                    }
+
+                    break;
+                case IHyperlinkLog hyperlinkLog:
+                    writer.Append("\u001b[4m");
+                    writer.Append(hyperlinkLog.Content);
+                    writer.Append("\u001b[24m");
                     break;
                 case IRichLog richLog:
                     foreach (var part in richLog)
                     {
-                        LogImpl(writer, part);
+                        LogImpl(writer, part, baseColor);
                     }
 
                     break;
                 case IContentLog contentLog:
-                    LogImpl(writer, contentLog.Content);
+                    LogImpl(writer, contentLog.Content, baseColor);
                     break;
                 default:
-                    writer.Write(message);
+                    writer.Append(message);
                     break;
             }
         }
