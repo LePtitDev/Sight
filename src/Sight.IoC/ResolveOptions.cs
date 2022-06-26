@@ -43,5 +43,10 @@
         /// Do not throw if service is not resolved and return null
         /// </summary>
         public bool IsOptional { get; set; }
+
+        /// <summary>
+        /// Bypass registered already registered service and initialize a new instance of the class. This option is not applied for dependencies
+        /// </summary>
+        public bool NewInstance { get; set; }
     }
 }

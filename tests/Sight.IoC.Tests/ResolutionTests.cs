@@ -272,5 +272,24 @@ namespace Sight.IoC.Tests
             Assert.IsNotNull(testClass);
             Assert.AreEqual("ClassWithMultipleConstructors(ISimpleClassWithStringDependency simpleClass)", testClass.UsedConstructor);
         }
+
+        [Test]
+        public void Test_new_instance_option_ignore_registered_services()
+        {
+            var container = new TypeContainer();
+            container.RegisterType<SimpleClass>(lazy: true);
+
+            var testClass1 = container.Resolve<SimpleClass>();
+
+            Assert.NotNull(testClass1, "testClass1 != null");
+
+            var testClass2 = container.Resolve<SimpleClass>(resolveOptions: new ResolveOptions
+            {
+                NewInstance = true
+            });
+
+            Assert.NotNull(testClass2, "testClass2 != null");
+            Assert.AreNotEqual(testClass1, testClass2);
+        }
     }
 }
