@@ -65,77 +65,80 @@ namespace Sight.IoC
         public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator)
         {
             var type = identifier.Type;
-            var dictionary = this.SafeGetRegistrations();
-            if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, identifier, resolveOptions), out var item))
+            if (!resolveOptions.NewInstance)
             {
-                activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
-                return true;
-            }
-
-            if (type.IsConstructedGenericType)
-            {
-                var genericType = type.GetGenericTypeDefinition();
-                var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
+                var dictionary = this.SafeGetRegistrations();
+                if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, identifier, resolveOptions), out var item))
                 {
                     activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                     return true;
                 }
-            }
 
-            if (type.IsArray && type.GetArrayRank() == 1)
-            {
-                activator = () =>
+                if (type.IsConstructedGenericType)
                 {
-                    var elementType = type.GetElementType();
-                    var items = ResolveAll(this, new RegistrationId(elementType!), resolveOptions);
-                    var arr = Array.CreateInstance(type.GetElementType()!, items.Count);
-                    for (var i = 0; i < items.Count; i++)
+                    var genericType = type.GetGenericTypeDefinition();
+                    var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
+                    if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
                     {
-                        arr.SetValue(items[i], i);
-                    }
-
-                    return arr;
-                };
-                return true;
-            }
-
-            if (type.IsConstructedGenericType)
-            {
-                var genericTypes = type.GetGenericArguments();
-                if (genericTypes.Length == 1)
-                {
-                    var listType = typeof(List<>).MakeGenericType(genericTypes);
-                    if (type.IsAssignableFrom(listType))
-                    {
-                        activator = () =>
-                        {
-                            var elementType = genericTypes[0];
-                            var activators = ResolveAll(this, new RegistrationId(elementType), resolveOptions);
-                            var list = (IList)Activator.CreateInstance(listType)!;
-                            foreach (var value in activators)
-                            {
-                                list.Add(value);
-                            }
-
-                            return list;
-                        };
-
+                        activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                         return true;
                     }
                 }
-            }
 
-            if (Fallback != null && Fallback.Predicate(type, resolveOptions))
-            {
-                activator = () => Fallback.Resolver(type, resolveOptions);
-                return true;
-            }
+                if (type.IsArray && type.GetArrayRank() == 1)
+                {
+                    activator = () =>
+                    {
+                        var elementType = type.GetElementType();
+                        var items = ResolveAll(this, new RegistrationId(elementType!), resolveOptions);
+                        var arr = Array.CreateInstance(type.GetElementType()!, items.Count);
+                        for (var i = 0; i < items.Count; i++)
+                        {
+                            arr.SetValue(items[i], i);
+                        }
 
-            if (!resolveOptions.AutoResolve)
-            {
-                activator = null;
-                return false;
+                        return arr;
+                    };
+                    return true;
+                }
+
+                if (type.IsConstructedGenericType)
+                {
+                    var genericTypes = type.GetGenericArguments();
+                    if (genericTypes.Length == 1)
+                    {
+                        var listType = typeof(List<>).MakeGenericType(genericTypes);
+                        if (type.IsAssignableFrom(listType))
+                        {
+                            activator = () =>
+                            {
+                                var elementType = genericTypes[0];
+                                var activators = ResolveAll(this, new RegistrationId(elementType), resolveOptions);
+                                var list = (IList)Activator.CreateInstance(listType)!;
+                                foreach (var value in activators)
+                                {
+                                    list.Add(value);
+                                }
+
+                                return list;
+                            };
+
+                            return true;
+                        }
+                    }
+                }
+
+                if (Fallback != null && Fallback.Predicate(type, resolveOptions))
+                {
+                    activator = () => Fallback.Resolver(type, resolveOptions);
+                    return true;
+                }
+
+                if (!resolveOptions.AutoResolve)
+                {
+                    activator = null;
+                    return false;
+                }
             }
 
             return TryCreateActivator(this, type, resolveOptions, out activator);
@@ -146,6 +149,9 @@ namespace Sight.IoC
         {
             if (instance != null && (method.DeclaringType == null || !method.DeclaringType.IsInstanceOfType(instance)))
                 throw new IoCException("Instance not assignable to declaring type of method");
+
+            if (instance == null && !method.IsStatic)
+                throw new IoCException("Instance not required for not static methods");
 
             return TryCreateInvoker(this, method, resolveOptions, p => method.Invoke(instance, p), out invoker);
         }
