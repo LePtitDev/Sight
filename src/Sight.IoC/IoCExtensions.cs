@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Sight.IoC
 {
@@ -86,32 +88,38 @@ namespace Sight.IoC
         }
 
         /// <inheritdoc cref="ITypeResolver.TryResolveActivator"/>
-        public static bool TryResolveActivator(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
+        public static bool TryResolveActivator(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
             return typeResolver.TryResolveActivator(new RegistrationId(type), resolveOptions, out activator);
         }
 
         /// <inheritdoc cref="ITypeResolver.TryResolveActivator"/>
-        public static bool TryResolveActivator<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, out Func<object>? activator)
+        public static bool TryResolveActivator<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
             return TryResolveActivator(typeResolver, typeof(T), resolveOptions, out activator);
         }
 
         /// <inheritdoc cref="ITypeResolver.TryResolveInvoker"/>
-        public static bool TryResolveInvoker(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions, out Func<object?>? invoke)
+        public static bool TryResolveInvoker(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoke)
         {
             return typeResolver.TryResolveInvoker(method, null, resolveOptions, out invoke);
+        }
+
+        /// <inheritdoc cref="ITypeResolver.TryResolveInvoker"/>
+        public static bool TryResolveInvoker(this ITypeResolver typeResolver, Delegate method, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoke)
+        {
+            return typeResolver.TryResolveInvoker(method.Method, method.Target, resolveOptions, out invoke);
         }
 
         /// <summary>
         /// Try to initialize a new instance of the registration
         /// </summary>
         /// <exception cref="IoCException"/>
-        public static bool TryResolve(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions, out object? instance)
+        public static bool TryResolve(this ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions, [NotNullWhen(true)] out object? instance)
         {
             if (typeResolver.TryResolveActivator(identifier, resolveOptions, out var activator))
             {
-                instance = activator!();
+                instance = activator();
                 return true;
             }
 
@@ -120,17 +128,17 @@ namespace Sight.IoC
         }
 
         /// <inheritdoc cref="TryResolve(ITypeResolver,RegistrationId,ResolveOptions,out object?)"/>
-        public static bool TryResolve(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out object? instance)
+        public static bool TryResolve(this ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, [NotNullWhen(true)] out object? instance)
         {
             return TryResolve(typeResolver, new RegistrationId(type), resolveOptions, out instance);
         }
 
         /// <inheritdoc cref="TryResolve(ITypeResolver,RegistrationId,ResolveOptions,out object?)"/>
-        public static bool TryResolve<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, out T? instance)
+        public static bool TryResolve<T>(this ITypeResolver typeResolver, ResolveOptions resolveOptions, [NotNullWhen(true)] out T? instance)
         {
             if (TryResolve(typeResolver, typeof(T), resolveOptions, out var i))
             {
-                instance = (T?)i;
+                instance = (T)i;
                 return true;
             }
 
@@ -146,7 +154,7 @@ namespace Sight.IoC
         {
             if (typeResolver.TryResolveInvoker(method, instance, resolveOptions, out var invoker))
             {
-                returnValue = invoker!();
+                returnValue = invoker();
                 return true;
             }
 
@@ -160,6 +168,12 @@ namespace Sight.IoC
             return TryInvoke(typeResolver, method, null, resolveOptions, out returnValue);
         }
 
+        /// <inheritdoc cref="TryInvoke(ITypeResolver,MethodInfo,object?,ResolveOptions,out object?)"/>
+        public static bool TryInvoke(this ITypeResolver typeResolver, Delegate method, ResolveOptions resolveOptions, out object? returnValue)
+        {
+            return TryInvoke(typeResolver, method.Method, method.Target, resolveOptions, out returnValue);
+        }
+
         /// <summary>
         /// Resolve a typed service
         /// </summary>
@@ -168,7 +182,7 @@ namespace Sight.IoC
         {
             resolveOptions ??= ResolveOptions.Default;
             if (typeResolver.TryResolveActivator(identifier, resolveOptions, out var activator))
-                return activator!();
+                return activator();
 
             if (resolveOptions.IsOptional)
                 return null;
@@ -197,13 +211,43 @@ namespace Sight.IoC
             if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out var invoker))
                 throw new IoCException($"Cannot invoke '{method}' with current state");
 
-            return invoker!();
+            return invoker();
         }
 
         /// <inheritdoc cref="Invoke(ITypeResolver,MethodInfo,object?,ResolveOptions?)"/>
         public static object? Invoke(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions? resolveOptions = null)
         {
             return Invoke(typeResolver, method, null, resolveOptions);
+        }
+
+        /// <inheritdoc cref="Invoke(ITypeResolver,MethodInfo,object?,ResolveOptions?)"/>
+        public static object? Invoke(this ITypeResolver typeResolver, Delegate method, ResolveOptions? resolveOptions = null)
+        {
+            return Invoke(typeResolver, method.Method, method.Target, resolveOptions);
+        }
+
+        /// <summary>
+        /// Invoke an async method with dependency injection
+        /// </summary>
+        /// <exception cref="IoCException"></exception>
+        public static Task<object?> InvokeAsync(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions? resolveOptions = null)
+        {
+            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out var invoker))
+                throw new IoCException($"Cannot invoke '{method}' with current state");
+
+            return (Task<object?>)invoker()!;
+        }
+
+        /// <inheritdoc cref="InvokeAsync(ITypeResolver,MethodInfo,object?,ResolveOptions?)"/>
+        public static Task<object?> InvokeAsync(this ITypeResolver typeResolver, MethodInfo method, ResolveOptions? resolveOptions = null)
+        {
+            return InvokeAsync(typeResolver, method, null, resolveOptions);
+        }
+
+        /// <inheritdoc cref="InvokeAsync(ITypeResolver,MethodInfo,object?,ResolveOptions?)"/>
+        public static Task<object?> InvokeAsync(this ITypeResolver typeResolver, Delegate method, ResolveOptions? resolveOptions = null)
+        {
+            return InvokeAsync(typeResolver, method.Method, method.Target, resolveOptions);
         }
 
         /// <summary>
@@ -261,7 +305,7 @@ namespace Sight.IoC
                 bool ResolvePredicate(Type t, ResolveOptions options)
                 {
                     var resolvedType = typeResolver(t);
-                    return predicate(resolvedType) || TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out _);
+                    return predicate(resolvedType) || TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, false, out _);
                 }
 
                 object ResolveDelegate(Type t, ResolveOptions options)
@@ -270,8 +314,8 @@ namespace Sight.IoC
                     if (predicate(resolvedType))
                         return resolver(resolvedType);
 
-                    var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out var activator)
-                        ? activator!()
+                    var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, false, out var activator)
+                        ? activator()
                         : throw new IoCException($"Cannot auto resolve '{type}'");
                     onResolved?.Invoke(resolvedType, instance);
                     return instance;

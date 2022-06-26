@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 
 namespace Sight.IoC
 {
@@ -36,12 +37,12 @@ namespace Sight.IoC
         /// Try to resolve a delegate that can initialize a new instance of the registration
         /// </summary>
         /// <exception cref="IoCException"/>
-        public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator);
+        public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator);
 
         /// <summary>
         /// Try to resolve a delegate that can invoke a method with dependency injection
         /// </summary>
         /// <exception cref="IoCException"/>
-        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, out Func<object?>? invoker);
+        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoker);
     }
 }
