@@ -232,7 +232,10 @@ namespace Sight.IoC
         /// <exception cref="IoCException"></exception>
         public static Task<object?> InvokeAsync(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions? resolveOptions = null)
         {
-            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out var invoker))
+            resolveOptions ??= ResolveOptions.Default;
+            resolveOptions.IsAsync = true;
+
+            if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions, out var invoker))
                 throw new IoCException($"Cannot invoke '{method}' with current state");
 
             return (Task<object?>)invoker()!;
@@ -305,7 +308,7 @@ namespace Sight.IoC
                 bool ResolvePredicate(Type t, ResolveOptions options)
                 {
                     var resolvedType = typeResolver(t);
-                    return predicate(resolvedType) || TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, false, out _);
+                    return predicate(resolvedType) || TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out _);
                 }
 
                 object ResolveDelegate(Type t, ResolveOptions options)
@@ -314,7 +317,7 @@ namespace Sight.IoC
                     if (predicate(resolvedType))
                         return resolver(resolvedType);
 
-                    var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, false, out var activator)
+                    var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out var activator)
                         ? activator()
                         : throw new IoCException($"Cannot auto resolve '{type}'");
                     onResolved?.Invoke(resolvedType, instance);

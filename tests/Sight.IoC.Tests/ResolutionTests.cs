@@ -309,5 +309,26 @@ namespace Sight.IoC.Tests
                 return testClass.Value;
             }
         }
+
+        [Test]
+        public async Task Test_can_register_async_provider()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider(async (_, _) =>
+            {
+                await Task.Yield();
+                return new SimpleClass();
+            });
+
+            var value = await container.InvokeAsync(TestMethod);
+
+            Assert.AreEqual("myValue", value);
+
+            static string TestMethod(SimpleClass testClass)
+            {
+                testClass.Value = "myValue";
+                return testClass.Value;
+            }
+        }
     }
 }

@@ -66,51 +66,6 @@ namespace Sight.IoC
         /// <inheritdoc />
         public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
-            return TryResolveActivator(identifier, resolveOptions, false, out activator);
-        }
-
-        /// <inheritdoc />
-        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoker)
-        {
-            if (instance != null && (method.DeclaringType == null || !method.DeclaringType.IsInstanceOfType(instance)))
-                throw new IoCException("Instance not assignable to declaring type of method");
-
-            if (instance == null && !method.IsStatic)
-                throw new IoCException("Instance not required for not static methods");
-
-            return TryCreateInvoker(this, method, resolveOptions, p => method.Invoke(instance, p), typeof(Task).IsAssignableFrom(method.ReturnType), out invoker);
-        }
-
-        /// <summary>
-        /// Ensure to lock collection if needed when calling action
-        /// </summary>
-        protected void EnsureSync(Action func)
-        {
-            _ = EnsureSync(() =>
-            {
-                func();
-                return 0;
-            });
-        }
-
-        /// <summary>
-        /// Ensure to lock collection if needed when calling action
-        /// </summary>
-        protected T EnsureSync<T>(Func<T> func)
-        {
-            if (SyncRoot == null)
-            {
-                return func();
-            }
-
-            lock (SyncRoot)
-            {
-                return func();
-            }
-        }
-
-        private bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, bool async, [NotNullWhen(true)] out Func<object>? activator)
-        {
             var type = identifier.Type;
             if (!resolveOptions.NewInstance)
             {
@@ -134,7 +89,7 @@ namespace Sight.IoC
                     if (genericType == typeof(Task<>) || (genericType.BaseType is { IsConstructedGenericType: true } parentType && parentType.GetGenericTypeDefinition() == typeof(Task<>)))
                     {
                         var taskType = genericType == typeof(Task<>) ? type.GetGenericArguments()[0] : genericType.DeclaringType!.GetGenericArguments()[0];
-                        if (TryResolveActivator(new RegistrationId(taskType), resolveOptions, true, out var innerActivator))
+                        if (TryResolveActivator(new RegistrationId(taskType), new ResolveOptions(resolveOptions) { IsAsync = false }, out var innerActivator))
                         {
                             activator = () =>
                             {
@@ -210,7 +165,48 @@ namespace Sight.IoC
                 }
             }
 
-            return TryCreateActivator(this, type, resolveOptions, async, out activator);
+            return TryCreateActivator(this, type, resolveOptions, out activator);
+        }
+
+        /// <inheritdoc />
+        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoker)
+        {
+            if (instance != null && (method.DeclaringType == null || !method.DeclaringType.IsInstanceOfType(instance)))
+                throw new IoCException("Instance not assignable to declaring type of method");
+
+            if (instance == null && !method.IsStatic)
+                throw new IoCException("Instance not required for not static methods");
+
+            resolveOptions.IsAsync |= typeof(Task).IsAssignableFrom(method.ReturnType);
+            return TryCreateInvoker(this, method, resolveOptions, p => method.Invoke(instance, p), out invoker);
+        }
+
+        /// <summary>
+        /// Ensure to lock collection if needed when calling action
+        /// </summary>
+        protected void EnsureSync(Action func)
+        {
+            _ = EnsureSync(() =>
+            {
+                func();
+                return 0;
+            });
+        }
+
+        /// <summary>
+        /// Ensure to lock collection if needed when calling action
+        /// </summary>
+        protected T EnsureSync<T>(Func<T> func)
+        {
+            if (SyncRoot == null)
+            {
+                return func();
+            }
+
+            lock (SyncRoot)
+            {
+                return func();
+            }
         }
 
         private static IReadOnlyList<object> ResolveAll(ITypeResolver typeResolver, RegistrationId identifier, ResolveOptions resolveOptions)
@@ -242,7 +238,7 @@ namespace Sight.IoC
             return value;
         }
 
-        internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, bool async, [NotNullWhen(true)] out Func<object>? activator)
+        internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition || type.IsValueType || ExcludedTypesForAutoResolve.Contains(type))
             {
@@ -252,7 +248,7 @@ namespace Sight.IoC
 
             foreach (var constructor in OrderConstructors(type.GetConstructors(), resolveOptions))
             {
-                if (TryCreateInvoker(typeResolver, constructor, resolveOptions, p => constructor.Invoke(p), async, out activator!))
+                if (TryCreateInvoker(typeResolver, constructor, resolveOptions, p => constructor.Invoke(p), out activator!))
                     return true;
             }
 
@@ -301,14 +297,15 @@ namespace Sight.IoC
             }
         }
 
-        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, bool async, [NotNullWhen(true)] out Func<object?>? activator)
+        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, [NotNullWhen(true)] out Func<object?>? activator)
         {
             var parameters = new List<object?>();
             var parameterInfos = method.GetParameters();
             var parameterResolveOptions = new ResolveOptions
             {
                 AutoResolve = resolveOptions.AutoWiring,
-                AutoWiring = resolveOptions.AutoWiring
+                AutoWiring = resolveOptions.AutoWiring,
+                IsAsync = resolveOptions.IsAsync
             };
 
             foreach (var parameter in parameterInfos)
@@ -321,7 +318,7 @@ namespace Sight.IoC
                         return false;
                     }
 
-                    parameters.Add(async ? Task.FromResult(value) : value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
@@ -333,18 +330,18 @@ namespace Sight.IoC
                         return false;
                     }
 
-                    parameters.Add(async ? Task.FromResult(value) : value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
                 if (resolveOptions.AdditionalParameters.TryGetLast(x => parameter.ParameterType.IsInstanceOfType(x), out value))
                 {
-                    parameters.Add(async ? Task.FromResult(value) : value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
                 var parameterType = parameter.ParameterType;
-                if (async)
+                if (resolveOptions.IsAsync)
                 {
                     parameterType = typeof(Task<>).MakeGenericType(parameterType);
                 }
@@ -365,7 +362,7 @@ namespace Sight.IoC
                 }
             }
 
-            if (async)
+            if (resolveOptions.IsAsync)
             {
                 activator = new Func<Task<object?>>(async () =>
                 {
