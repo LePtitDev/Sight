@@ -330,5 +330,22 @@ namespace Sight.IoC.Tests
                 return testClass.Value;
             }
         }
+
+        [Test]
+        public async Task Test_can_resolve_class_with_async_dependency()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider(async (_, _) =>
+            {
+                await Task.Yield();
+                return new SimpleClass();
+            });
+
+            container.RegisterType<SimpleClassWithDependency>();
+
+            var testClass = await container.ResolveAsync<SimpleClassWithDependency>();
+
+            Assert.NotNull(testClass, "testClass != null");
+        }
     }
 }

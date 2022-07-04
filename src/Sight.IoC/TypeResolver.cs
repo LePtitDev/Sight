@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Threading.Tasks;
+using Sight.IoC.Internal;
 using Sight.Linq;
 
 namespace Sight.IoC
@@ -85,28 +86,23 @@ namespace Sight.IoC
                         activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                         return true;
                     }
+                }
 
-                    if (genericType == typeof(Task<>) || (genericType.BaseType is { IsConstructedGenericType: true } parentType && parentType.GetGenericTypeDefinition() == typeof(Task<>)))
+                if (AsyncHelpers.IsTaskType(type, out var resultType))
+                {
+                    if (TryResolveActivator(new RegistrationId(resultType) { Name = identifier.Name }, new ResolveOptions(resolveOptions) { IsAsync = true }, out var innerActivator))
                     {
-                        var taskType = genericType == typeof(Task<>) ? type.GetGenericArguments()[0] : genericType.DeclaringType!.GetGenericArguments()[0];
-                        if (TryResolveActivator(new RegistrationId(taskType), new ResolveOptions(resolveOptions) { IsAsync = false }, out var innerActivator))
+                        activator = () =>
                         {
-                            activator = () =>
-                            {
-                                var instance = innerActivator();
-                                if (type.IsInstanceOfType(instance))
-                                    return instance;
+                            var instance = innerActivator();
+                            return resultType.IsInstanceOfType(instance) ? AsyncHelpers.GetTaskFromResult(resultType, instance) : instance;
+                        };
 
-                                var resultMethod = typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(taskType);
-                                return resultMethod.Invoke(null, new[] { instance })!;
-                            };
-
-                            return true;
-                        }
-
-                        activator = null;
-                        return false;
+                        return true;
                     }
+
+                    activator = null;
+                    return false;
                 }
 
                 if (type.IsArray && type.GetArrayRank() == 1)
@@ -221,7 +217,21 @@ namespace Sight.IoC
 
         private static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, identifier, resolveOptions);
+            var success = IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, identifier, resolveOptions);
+            if (success)
+                return true;
+
+            if (resolveOptions.IsAsync)
+            {
+                var asyncIdentifier = new RegistrationId(AsyncHelpers.GetTaskType(identifier.Type))
+                {
+                    Name = identifier.Name
+                };
+
+                success = IsRegistrationFor(typeResolver, registration, asyncIdentifier) && IsRegistrationResolvable(registration, asyncIdentifier, resolveOptions);
+            }
+
+            return success;
         }
 
         private static bool IsRegistrationResolvable(Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
@@ -232,7 +242,7 @@ namespace Sight.IoC
         private static object ResolveFromProvider(Type type, ResolveOptions resolveOptions, ResolveDelegate provider)
         {
             var value = provider(type, resolveOptions);
-            if (!type.IsInstanceOfType(value))
+            if (!type.IsInstanceOfType(value) && (!resolveOptions.IsAsync || AsyncHelpers.IsTaskOfType(value, type)))
                 throw new IoCException($"Cannot resolve '{type}' from resolve provider");
 
             return value;
@@ -343,7 +353,7 @@ namespace Sight.IoC
                 var parameterType = parameter.ParameterType;
                 if (resolveOptions.IsAsync)
                 {
-                    parameterType = typeof(Task<>).MakeGenericType(parameterType);
+                    parameterType = AsyncHelpers.GetTaskType(parameterType);
                 }
 
                 var registrationId = new RegistrationId(parameterType);
@@ -379,8 +389,7 @@ namespace Sight.IoC
 
                     for (var i = 0; i < parameters.Count; i++)
                     {
-                        var parameter = parameters[i]!;
-                        parameters[i] = parameter.GetType().GetProperty(nameof(Task<object>.Result))!.GetValue(parameter);
+                        parameters[i] = AsyncHelpers.GetTaskResult(parameters[i]!);
                     }
 
                     var value = invoker(parameters.ToArray())!;
@@ -388,10 +397,7 @@ namespace Sight.IoC
                     {
                         await task.ConfigureAwait(false);
                         var taskType = task.GetType();
-                        if (taskType.IsConstructedGenericType && (taskType.GetGenericTypeDefinition() == typeof(Task<>) || (taskType.BaseType is { IsConstructedGenericType: true } parentType && parentType.GetGenericTypeDefinition() == typeof(Task<>))))
-                            return taskType.GetProperty(nameof(Task<object>.Result))!.GetValue(task);
-
-                        return null;
+                        return AsyncHelpers.IsTaskType(taskType) ? AsyncHelpers.GetTaskResult(task) : null;
                     }
 
                     return value;

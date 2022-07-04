@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Threading.Tasks;
+using Sight.IoC.Internal;
 
 namespace Sight.IoC
 {
@@ -200,6 +201,39 @@ namespace Sight.IoC
         public static T? Resolve<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null) where T : notnull
         {
             return (T?)Resolve(typeResolver, typeof(T), name, resolveOptions);
+        }
+
+        /// <summary>
+        /// Resolve a typed service as async
+        /// </summary>
+        public static async Task<object?> ResolveAsync(this ITypeResolver resolver, RegistrationId identifier, ResolveOptions? resolveOptions = null)
+        {
+            resolveOptions ??= ResolveOptions.Default;
+            resolveOptions.IsAsync = true;
+
+            identifier = new RegistrationId(AsyncHelpers.GetTaskType(identifier.Type))
+            {
+                Name = identifier.Name
+            };
+
+            var task = (Task?)resolver.Resolve(identifier, resolveOptions);
+            if (task == null)
+                return Task.FromResult((object?)null);
+
+            await task.ConfigureAwait(false);
+            return AsyncHelpers.GetTaskResult(task);
+        }
+
+        /// <inheritdoc cref="ResolveAsync(ITypeResolver,RegistrationId,ResolveOptions?)"/>
+        public static Task<object?> ResolveAsync(this ITypeResolver typeResolver, Type type, string? name = null, ResolveOptions? resolveOptions = null)
+        {
+            return typeResolver.ResolveAsync(new RegistrationId(type) { Name = name }, resolveOptions ?? ResolveOptions.Default);
+        }
+
+        /// <inheritdoc cref="ResolveAsync(ITypeResolver,RegistrationId,ResolveOptions?)"/>
+        public static async Task<T?> ResolveAsync<T>(this ITypeResolver typeResolver, string? name = null, ResolveOptions? resolveOptions = null) where T : notnull
+        {
+            return (T?)await ResolveAsync(typeResolver, typeof(T), name, resolveOptions).ConfigureAwait(false);
         }
 
         /// <summary>
