@@ -1,5 +1,8 @@
 ﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Threading.Tasks;
+using Sight.IoC.Internal;
 using Sight.Linq;
 
 namespace Sight.IoC
@@ -62,7 +65,7 @@ namespace Sight.IoC
         }
 
         /// <inheritdoc />
-        public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, out Func<object>? activator)
+        public bool TryResolveActivator(RegistrationId identifier, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
             var type = identifier.Type;
             if (!resolveOptions.NewInstance)
@@ -83,6 +86,23 @@ namespace Sight.IoC
                         activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
                         return true;
                     }
+                }
+
+                if (AsyncHelpers.IsTaskType(type, out var resultType))
+                {
+                    if (TryResolveActivator(new RegistrationId(resultType) { Name = identifier.Name }, new ResolveOptions(resolveOptions) { IsAsync = true }, out var innerActivator))
+                    {
+                        activator = () =>
+                        {
+                            var instance = innerActivator();
+                            return resultType.IsInstanceOfType(instance) ? AsyncHelpers.GetTaskFromResult(resultType, instance) : instance;
+                        };
+
+                        return true;
+                    }
+
+                    activator = null;
+                    return false;
                 }
 
                 if (type.IsArray && type.GetArrayRank() == 1)
@@ -145,7 +165,7 @@ namespace Sight.IoC
         }
 
         /// <inheritdoc />
-        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, out Func<object?>? invoker)
+        public bool TryResolveInvoker(MethodInfo method, object? instance, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object?>? invoker)
         {
             if (instance != null && (method.DeclaringType == null || !method.DeclaringType.IsInstanceOfType(instance)))
                 throw new IoCException("Instance not assignable to declaring type of method");
@@ -153,6 +173,7 @@ namespace Sight.IoC
             if (instance == null && !method.IsStatic)
                 throw new IoCException("Instance not required for not static methods");
 
+            resolveOptions.IsAsync |= typeof(Task).IsAssignableFrom(method.ReturnType);
             return TryCreateInvoker(this, method, resolveOptions, p => method.Invoke(instance, p), out invoker);
         }
 
@@ -196,7 +217,21 @@ namespace Sight.IoC
 
         private static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
         {
-            return IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, identifier, resolveOptions);
+            var success = IsRegistrationFor(typeResolver, registration, identifier) && IsRegistrationResolvable(registration, identifier, resolveOptions);
+            if (success)
+                return true;
+
+            if (resolveOptions.IsAsync)
+            {
+                var asyncIdentifier = new RegistrationId(AsyncHelpers.GetTaskType(identifier.Type))
+                {
+                    Name = identifier.Name
+                };
+
+                success = IsRegistrationFor(typeResolver, registration, asyncIdentifier) && IsRegistrationResolvable(registration, asyncIdentifier, resolveOptions);
+            }
+
+            return success;
         }
 
         private static bool IsRegistrationResolvable(Registration registration, RegistrationId identifier, ResolveOptions resolveOptions)
@@ -207,13 +242,13 @@ namespace Sight.IoC
         private static object ResolveFromProvider(Type type, ResolveOptions resolveOptions, ResolveDelegate provider)
         {
             var value = provider(type, resolveOptions);
-            if (!type.IsInstanceOfType(value))
+            if (!type.IsInstanceOfType(value) && (!resolveOptions.IsAsync || AsyncHelpers.IsTaskOfType(value, type)))
                 throw new IoCException($"Cannot resolve '{type}' from resolve provider");
 
             return value;
         }
 
-        internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, out Func<object>? activator)
+        internal static bool TryCreateActivator(ITypeResolver typeResolver, Type type, ResolveOptions resolveOptions, [NotNullWhen(true)] out Func<object>? activator)
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition || type.IsValueType || ExcludedTypesForAutoResolve.Contains(type))
             {
@@ -272,14 +307,15 @@ namespace Sight.IoC
             }
         }
 
-        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, out Func<object?>? activator)
+        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, [NotNullWhen(true)] out Func<object?>? activator)
         {
             var parameters = new List<object?>();
             var parameterInfos = method.GetParameters();
             var parameterResolveOptions = new ResolveOptions
             {
                 AutoResolve = resolveOptions.AutoWiring,
-                AutoWiring = resolveOptions.AutoWiring
+                AutoWiring = resolveOptions.AutoWiring,
+                IsAsync = resolveOptions.IsAsync
             };
 
             foreach (var parameter in parameterInfos)
@@ -292,7 +328,7 @@ namespace Sight.IoC
                         return false;
                     }
 
-                    parameters.Add(value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
@@ -304,17 +340,23 @@ namespace Sight.IoC
                         return false;
                     }
 
-                    parameters.Add(value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
                 if (resolveOptions.AdditionalParameters.TryGetLast(x => parameter.ParameterType.IsInstanceOfType(x), out value))
                 {
-                    parameters.Add(value);
+                    parameters.Add(resolveOptions.IsAsync ? Task.FromResult(value) : value);
                     continue;
                 }
 
-                var registrationId = new RegistrationId(parameter.ParameterType);
+                var parameterType = parameter.ParameterType;
+                if (resolveOptions.IsAsync)
+                {
+                    parameterType = AsyncHelpers.GetTaskType(parameterType);
+                }
+
+                var registrationId = new RegistrationId(parameterType);
                 if (typeResolver.TryResolveActivator(registrationId, parameterResolveOptions, out var parameterActivator))
                 {
                     parameters.Add(parameterActivator);
@@ -330,18 +372,52 @@ namespace Sight.IoC
                 }
             }
 
-            activator = () =>
+            if (resolveOptions.IsAsync)
             {
-                for (var i = 0; i < parameters.Count; i++)
+                activator = new Func<Task<object?>>(async () =>
                 {
-                    if (parameters[i] is Func<object> provider)
+                    for (var i = 0; i < parameters.Count; i++)
                     {
-                        parameters[i] = provider();
+                        if (parameters[i] is Func<object> provider)
+                        {
+                            parameters[i] = provider();
+                        }
                     }
-                }
 
-                return invoker(parameters.ToArray());
-            };
+                    var tasks = parameters.OfType<Task>();
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                    for (var i = 0; i < parameters.Count; i++)
+                    {
+                        parameters[i] = AsyncHelpers.GetTaskResult(parameters[i]!);
+                    }
+
+                    var value = invoker(parameters.ToArray())!;
+                    if (value is Task task)
+                    {
+                        await task.ConfigureAwait(false);
+                        var taskType = task.GetType();
+                        return AsyncHelpers.IsTaskType(taskType) ? AsyncHelpers.GetTaskResult(task) : null;
+                    }
+
+                    return value;
+                });
+            }
+            else
+            {
+                activator = () =>
+                {
+                    for (var i = 0; i < parameters.Count; i++)
+                    {
+                        if (parameters[i] is Func<object> provider)
+                        {
+                            parameters[i] = provider();
+                        }
+                    }
+
+                    return invoker(parameters.ToArray());
+                };
+            }
 
             return true;
 

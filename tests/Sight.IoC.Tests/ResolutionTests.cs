@@ -291,5 +291,61 @@ namespace Sight.IoC.Tests
             Assert.NotNull(testClass2, "testClass2 != null");
             Assert.AreNotEqual(testClass1, testClass2);
         }
+
+        [Test]
+        public async Task Test_can_invoke_async_method()
+        {
+            var container = new TypeContainer();
+            container.RegisterType<SimpleClass>();
+
+            var value = await container.InvokeAsync(TestMethod);
+
+            Assert.AreEqual("myValue", value);
+
+            static async Task<string> TestMethod(SimpleClass testClass)
+            {
+                testClass.Value = "myValue";
+                await Task.Yield();
+                return testClass.Value;
+            }
+        }
+
+        [Test]
+        public async Task Test_can_register_async_provider()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider(async (_, _) =>
+            {
+                await Task.Yield();
+                return new SimpleClass();
+            });
+
+            var value = await container.InvokeAsync(TestMethod);
+
+            Assert.AreEqual("myValue", value);
+
+            static string TestMethod(SimpleClass testClass)
+            {
+                testClass.Value = "myValue";
+                return testClass.Value;
+            }
+        }
+
+        [Test]
+        public async Task Test_can_resolve_class_with_async_dependency()
+        {
+            var container = new TypeContainer();
+            container.RegisterProvider(async (_, _) =>
+            {
+                await Task.Yield();
+                return new SimpleClass();
+            });
+
+            container.RegisterType<SimpleClassWithDependency>();
+
+            var testClass = await container.ResolveAsync<SimpleClassWithDependency>();
+
+            Assert.NotNull(testClass, "testClass != null");
+        }
     }
 }

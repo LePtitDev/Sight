@@ -12,7 +12,29 @@
         /// <summary>
         /// Default resolution options
         /// </summary>
-        public static ResolveOptions Default { get; } = new ResolveOptions();
+        public static ResolveOptions Default => new ResolveOptions();
+
+        /// <summary>
+        /// Initialize a new instance of the class <see cref="ResolveOptions"/>
+        /// </summary>
+        public ResolveOptions()
+        {
+        }
+
+        /// <summary>
+        /// Initialize a new instance of the class <see cref="ResolveOptions"/>
+        /// </summary>
+        public ResolveOptions(ResolveOptions other)
+        {
+            _additionalParameters = new List<object>(other.AdditionalParameters);
+            _namedParameters = other.NamedParameters.ToDictionary(x => x.Key, x => x.Value);
+            _typedParameters = other.TypedParameters.ToDictionary(x => x.Key, x => x.Value);
+            AutoResolve = other.AutoResolve;
+            AutoWiring = other.AutoWiring;
+            IsOptional = other.IsOptional;
+            IsAsync = other.IsAsync;
+            NewInstance = other.NewInstance;
+        }
 
         /// <summary>
         /// Parameters that can be used to resolve a service but are not registered in resolver
@@ -43,6 +65,11 @@
         /// Do not throw if service is not resolved and return null
         /// </summary>
         public bool IsOptional { get; set; }
+
+        /// <summary>
+        /// Allow to resolve services in async context
+        /// </summary>
+        public bool IsAsync { get; set; }
 
         /// <summary>
         /// Bypass registered already registered service and initialize a new instance of the class. This option is not applied for dependencies
