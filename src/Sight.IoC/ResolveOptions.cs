@@ -75,5 +75,15 @@
         /// Bypass registered already registered service and initialize a new instance of the class. This option is not applied for dependencies
         /// </summary>
         public bool NewInstance { get; set; }
+
+        /// <summary>
+        /// Implicit operator to convert additional parameters array to <see cref="ResolveOptions"/>
+        /// </summary>
+        public static implicit operator ResolveOptions(object[] additionalParameters)
+        {
+            var options = new ResolveOptions();
+            options.AdditionalParameters.AddRange(additionalParameters);
+            return options;
+        }
     }
 }
