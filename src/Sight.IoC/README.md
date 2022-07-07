@@ -4,6 +4,22 @@
 
 This library implement dependency injection (IoC) with named services, auto resolve, registration extensibility and more.
 
+## Why use it?
+
+* Easy to use
+* Efficient
+* Extensible
+* Some cool features:
+  * Registration of delegates, types, generics
+  * Keyed or non-keyed registrations
+  * Thread safe
+  * Multiple service implementations support
+  * Implementation overridable
+  * Injection for types and methods
+  * Asynchronous resolution support
+  * Unregistered type resolution support
+  * ...and more
+
 ## Getting started
 
 You can inject and resolve your services by using the `TypeContainer`.
@@ -124,6 +140,24 @@ if (container.TryResolve<IService>(ResolveOptions.Default, out var service))
 {
     // Do something
 }
+```
+
+All those methods are also available for asynchronous resolution.
+
+**Example:**
+```csharp
+public class MyClass2
+{
+    public MyClass2(MyClass1 myClass1)
+    {
+        // Do something
+    }
+}
+
+container.RegisterProvider(async (t, o) => await MyClass1.CreateAsync());
+container.RegisterType<MyClass2>();
+
+var myClass2 = await container.ResolveAsync<MyClass2>();
 ```
 
 You can also use `IsRegistered`, `IsResolvable` and `IsInvokable`.
