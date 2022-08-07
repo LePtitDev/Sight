@@ -14,11 +14,11 @@ namespace Sight.Tokenize
         private const int DefaultReadCount = 256;
 
         /// <summary>
-        /// Parse a formatted text
+        /// Extract tokens from a formatted text
         /// </summary>
-        public static Task<ParseResult> ParseAsync(this ITokenizer tokenizer, string text)
+        public static Task<ParseResult> ReadAsync(this ITokenizer tokenizer, string text)
         {
-            return tokenizer.ParseAsync(new StringDocument(text));
+            return tokenizer.ReadAsync(new StringDocument(text));
         }
 
         /// <summary>

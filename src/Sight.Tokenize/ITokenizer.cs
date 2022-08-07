@@ -10,8 +10,8 @@ namespace Sight.Tokenize
     public interface ITokenizer
     {
         /// <summary>
-        /// Parse a formatted document
+        /// Extract tokens from a formatted document
         /// </summary>
-        public Task<ParseResult> ParseAsync(IDocument document);
+        public Task<ParseResult> ReadAsync(IDocument document);
     }
 }
