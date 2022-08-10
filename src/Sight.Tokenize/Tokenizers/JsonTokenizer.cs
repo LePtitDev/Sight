@@ -78,7 +78,7 @@ namespace Sight.Tokenize.Tokenizers
             if (readStatus.IsEof)
                 return null;
 
-            var position = readStatus.Position;
+            var position = readStatus.Position - 1;
             var currentChar = (int)readStatus.Current!;
             switch (currentChar)
             {
@@ -92,17 +92,17 @@ namespace Sight.Tokenize.Tokenizers
                 case ':':
                 case ',':
                     readStatus.Next();
-                    tokens.Add(new SymbolToken(FieldDelimiterType, currentChar, readStatus.Position, 1));
+                    tokens.Add(new SymbolToken(FieldDelimiterType, currentChar, position, 1));
                     return null;
                 case '[':
                 case ']':
                     readStatus.Next();
-                    tokens.Add(new SymbolToken(ArrayDelimiterType, currentChar, readStatus.Position, 1));
+                    tokens.Add(new SymbolToken(ArrayDelimiterType, currentChar, position, 1));
                     return null;
                 case '{':
                 case '}':
                     readStatus.Next();
-                    tokens.Add(new SymbolToken(ObjectDelimiterType, currentChar, readStatus.Position, 1));
+                    tokens.Add(new SymbolToken(ObjectDelimiterType, currentChar, position, 1));
                     return null;
                 case '"':
                 {
