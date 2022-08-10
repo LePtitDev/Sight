@@ -135,7 +135,6 @@ namespace Sight.Tokenize.Tokenizers
                         return true;
                     }, readStatus).ConfigureAwait(false);
 
-                    // TODO: Validate string end escape
                     var strLength = readStatus.IsEof ? readStatus.Position - position : readStatus.Position - position - 1;
                     if (str.EndsWith("\""))
                     {
