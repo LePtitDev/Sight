@@ -254,7 +254,7 @@ namespace Sight.Tokenize.Tokenizers
             }
         }
 
-        private static bool IsLiteral(int character) => character is >= '0' and <= '9' or >= '@' and 'Z' or >= 'a' and <= 'z' or '_' or > 127;
+        private static bool IsLiteral(int character) => character is >= '0' and <= '9' or >= '@' and <= 'Z' or >= 'a' and <= 'z' or '_' or > 127;
 
         private static bool IsNumericLiteral(int character) => character == '.' || IsLiteral(character);
 

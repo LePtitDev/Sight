@@ -173,7 +173,7 @@ namespace Sight.Tokenize.Tokenizers
             }
         }
 
-        private static bool IsLiteral(int character) => character is >= '0' and <= '9' or >= '@' and 'Z' or >= 'a' and <= 'z' or '_' or > 127;
+        private static bool IsLiteral(int character) => character is >= '0' and <= '9' or >= '@' and <= 'Z' or >= 'a' and <= 'z' or '_' or > 127;
 
         private enum ReadScope
         {
@@ -186,8 +186,6 @@ namespace Sight.Tokenize.Tokenizers
             public bool IsEof { get; private set; }
 
             public int? Current { get; private set; }
-
-            public int AvailableBytes { get; private set; }
 
             public long Position { get; private set; }
 

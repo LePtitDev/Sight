@@ -1,4 +1,4 @@
-﻿#define XML_SAMPLE
+﻿#define DYNAMIC_SAMPLE
 
 using Sight.Tokenize.Parsing;
 using Sight.Tokenize.Tokenizers;
@@ -47,6 +47,37 @@ namespace Sight.Tokenize.Sample
 </root>
 ";
 
+        private const string DynamicSample = @"
+[
+  <firstName> = 'John';
+  <lastName> = 'Smith';
+  <isAlive> = TRUE;
+  <age> = 27;
+  <address> = [
+    <streetAddress> = '21 2nd Street';
+    <city> = 'New York';
+    <state> = 'NY';
+    <postalCode> = '10021-3100'
+  ];
+  <phoneNumbers> = [
+    [
+      <type> = 'home';
+      <number> = '212 555-1234'
+    ];
+    [
+      <type> = 'office';
+      <number> = '646 555-4567'
+    ]
+  ];
+  <children> = [
+    'Catherine';
+    'Thomas';
+    'Trevor'
+  ];
+  <spouse> = NULL
+]
+";
+
         public static async Task Main()
         {
 #if JSON_SAMPLE
@@ -57,6 +88,23 @@ namespace Sight.Tokenize.Sample
 #if XML_SAMPLE
             var tokenizer = new XmlTokenizer();
             const string text = XmlSample;
+#endif
+
+#if DYNAMIC_SAMPLE
+            var tokenizer = new DynamicTokenizer()
+                .IgnoreSymbols(new [] { ' ', '\t', '\r', '\n' })
+                .AddSymbol("delimiter", '[')
+                .AddSymbol("delimiter", ']')
+                .AddSymbol("delimiter", '=')
+                .AddSymbol("delimiter", ';')
+                .AddLiteral("symbol", "NULL")
+                .AddLiteral("symbol", "TRUE")
+                .AddLiteral("symbol", "FALSE")
+                .AddNumeric("number", s => double.TryParse(s, out _))
+                .AddBlock("identifier", '<', '>')
+                .AddBlock("string", '\'', '\'', '\\');
+
+            const string text = DynamicSample;
 #endif
 
             var result = await tokenizer.ReadAsync(text);
