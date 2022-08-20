@@ -1,4 +1,6 @@
-﻿using Sight.Tokenize.Parsing;
+﻿#define XML_SAMPLE
+
+using Sight.Tokenize.Parsing;
 using Sight.Tokenize.Tokenizers;
 using Sight.Tokenize.Tokens;
 
@@ -36,10 +38,28 @@ namespace Sight.Tokenize.Sample
     ""spouse"": null
 }";
 
+        private const string XmlSample = @"
+<?xml version=""1.0"" encoding=""UTF-8"" ?>
+<root>
+  <item name=""Item #1"">Item 1</item>
+  <item name=""Item #2"">Item 2</item>
+  <item name=""Item #3"">Item 3</item>
+</root>
+";
+
         public static async Task Main()
         {
+#if JSON_SAMPLE
             var tokenizer = new JsonTokenizer();
-            var result = await tokenizer.ReadAsync(JsonSample);
+            const string text = JsonSample;
+#endif
+
+#if XML_SAMPLE
+            var tokenizer = new XmlTokenizer();
+            const string text = XmlSample;
+#endif
+
+            var result = await tokenizer.ReadAsync(text);
 
             WriteResult(result);
         }
@@ -70,7 +90,8 @@ namespace Sight.Tokenize.Sample
                     {
                         case SymbolToken symbolToken:
                             const int columnSize = 20;
-                            Console.WriteLine($"  - S: {symbolToken.Symbol}{new string(' ', Math.Max(1, columnSize - symbolToken.Symbol.Length))}{symbolToken.Type}{new string(' ', Math.Max(1, columnSize - symbolToken.Type.Length))}[{symbolToken.Position}..{symbolToken.Position + symbolToken.Length}]");
+                            var symbol = symbolToken.Symbol.Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
+                            Console.WriteLine($"  - S: {symbol}{new string(' ', Math.Max(1, columnSize - symbol.Length))}{symbolToken.Type}{new string(' ', Math.Max(1, columnSize - symbolToken.Type.Length))}[{symbolToken.Position}..{symbolToken.Position + symbolToken.Length}]");
                             break;
                         case InvalidToken invalidToken:
                             Console.WriteLine($"  - I: {invalidToken.Text} [{invalidToken.Position}..{invalidToken.Position + invalidToken.Length}] ({invalidToken.Error})");
