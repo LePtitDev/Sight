@@ -5,11 +5,10 @@
     /// </summary>
     public readonly struct ReadResult
     {
-        private ReadResult(bool eof, int utf32, int availableBytes)
+        private ReadResult(bool eof, int utf32)
         {
             Eof = eof;
             Utf32 = utf32;
-            AvailableBytes = availableBytes;
         }
 
         /// <summary>
@@ -23,16 +22,11 @@
         public int Utf32 { get; }
 
         /// <summary>
-        /// Indicates available bytes count before an other read
-        /// </summary>
-        public int AvailableBytes { get; }
-
-        /// <summary>
         /// Create a result for a character read
         /// </summary>
-        public static ReadResult Read(int utf32, int availableBytes)
+        public static ReadResult Read(int utf32)
         {
-            return new ReadResult(false, utf32, availableBytes);
+            return new ReadResult(false, utf32);
         }
 
         /// <summary>
@@ -40,7 +34,7 @@
         /// </summary>
         public static ReadResult EndOfFile()
         {
-            return new ReadResult(true, -1, 0);
+            return new ReadResult(true, -1);
         }
     }
 }

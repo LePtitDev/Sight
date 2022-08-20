@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Sight.Tokenize.Documents;
 using Sight.Tokenize.Parsing;
 using Sight.Tokenize.Tokens;
 
@@ -49,14 +49,14 @@ namespace Sight.Tokenize.Tokenizers
         public const string ObjectDelimiterType = "object_delimiter";
 
         /// <inheritdoc />
-        public async Task<ParseResult> ReadAsync(IDocument document)
+        public async Task<ParseResult> ReadAsync(Stream stream)
         {
             var tokens = new List<Token>();
             var errors = new List<string>();
             var readStatus = new ReadStatus();
             do
             {
-                var error = await ReadTokenAsync(document, tokens, readStatus).ConfigureAwait(false);
+                var error = await ReadTokenAsync(stream, tokens, readStatus).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(error))
                     errors.Add(error!);
 
@@ -67,11 +67,11 @@ namespace Sight.Tokenize.Tokenizers
                 : ParseResult.Fail(errors.AsReadOnly());
         }
 
-        private static async Task<string?> ReadTokenAsync(IDocument document, List<Token> tokens, ReadStatus readStatus)
+        private static async Task<string?> ReadTokenAsync(Stream stream, List<Token> tokens, ReadStatus readStatus)
         {
             if (readStatus.Current == null)
             {
-                var read = await document.GetNextUtf8Async(readStatus.AvailableBytes).ConfigureAwait(false);
+                var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
                 readStatus.Update(read);
             }
 
@@ -107,7 +107,7 @@ namespace Sight.Tokenize.Tokenizers
                 case '"':
                 {
                     var escape = false;
-                    var str = await ReadWhileAsync(document, (c, bld) =>
+                    var str = await ReadWhileAsync(stream, (c, bld) =>
                     {
                         if (bld.Length == 0) return c == '"';
                         if (bld.Length == 1) return true;
@@ -152,7 +152,7 @@ namespace Sight.Tokenize.Tokenizers
                     // See https://en.wikipedia.org/wiki/JSON#cite_note-DouglasCrockfordComments-28
                     // or https://archive.ph/20150704102718/https://plus.google.com/+DouglasCrockfordEsq/posts/RK8qyGVaGSr
 
-                    var comment = await ReadWhileAsync(document, (c, bld) =>
+                    var comment = await ReadWhileAsync(stream, (c, bld) =>
                     {
                         if (bld.Length == 0) return c == '/';
                         if (bld.Length == 1) return c is '/' or '*';
@@ -179,7 +179,7 @@ namespace Sight.Tokenize.Tokenizers
 
             if (currentChar is '-' or '.' or >= '0' and <= '9')
             {
-                var literal = await ReadNumericLiteralAsync(document, readStatus).ConfigureAwait(false);
+                var literal = await ReadNumericLiteralAsync(stream, readStatus).ConfigureAwait(false);
                 if (double.TryParse(literal, out _))
                 {
                     tokens.Add(new SymbolToken(NumberType, literal, position, literal.Length));
@@ -191,7 +191,7 @@ namespace Sight.Tokenize.Tokenizers
 
             if (IsLiteral(currentChar))
             {
-                var literal = await ReadLiteralAsync(document, readStatus).ConfigureAwait(false);
+                var literal = await ReadLiteralAsync(stream, readStatus).ConfigureAwait(false);
                 switch (literal)
                 {
                     case "null":
@@ -222,23 +222,23 @@ namespace Sight.Tokenize.Tokenizers
             }
         }
 
-        private static Task<string> ReadLiteralAsync(IDocument document, ReadStatus readStatus) => ReadWhileAsync(document, IsLiteral, readStatus);
+        private static Task<string> ReadLiteralAsync(Stream stream, ReadStatus readStatus) => ReadWhileAsync(stream, IsLiteral, readStatus);
 
-        private static Task<string> ReadNumericLiteralAsync(IDocument document, ReadStatus readStatus) => ReadWhileAsync(document, IsNumericLiteral, readStatus);
+        private static Task<string> ReadNumericLiteralAsync(Stream stream, ReadStatus readStatus) => ReadWhileAsync(stream, IsNumericLiteral, readStatus);
 
-        private static Task<string> ReadWhileAsync(IDocument document, Predicate<int> predicate, ReadStatus readStatus)
+        private static Task<string> ReadWhileAsync(Stream stream, Predicate<int> predicate, ReadStatus readStatus)
         {
-            return ReadWhileAsync(document, (c, _) => predicate(c), readStatus);
+            return ReadWhileAsync(stream, (c, _) => predicate(c), readStatus);
         }
 
-        private static async Task<string> ReadWhileAsync(IDocument document, Func<int, StringBuilder, bool> predicate, ReadStatus readStatus)
+        private static async Task<string> ReadWhileAsync(Stream stream, Func<int, StringBuilder, bool> predicate, ReadStatus readStatus)
         {
             var bld = new StringBuilder();
             while (true)
             {
                 if (readStatus.Current == null)
                 {
-                    var read = await document.GetNextUtf8Async(readStatus.AvailableBytes).ConfigureAwait(false);
+                    var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
                     readStatus.Update(read);
                 }
 
@@ -264,8 +264,6 @@ namespace Sight.Tokenize.Tokenizers
 
             public int? Current { get; private set; }
 
-            public int AvailableBytes { get; private set; }
-
             public long Position { get; private set; }
 
             public void Update(ReadResult read)
@@ -277,7 +275,6 @@ namespace Sight.Tokenize.Tokenizers
                 }
 
                 Current = read.Utf32;
-                AvailableBytes = read.AvailableBytes;
                 Position++;
             }
 

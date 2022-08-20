@@ -1,4 +1,4 @@
-﻿using Sight.Tokenize.Documents;
+﻿using System.IO;
 
 namespace Sight.Tokenize.Tests
 {
@@ -10,13 +10,11 @@ namespace Sight.Tokenize.Tests
         public async Task Test_utf8_document_reading(int[] unicodeChars)
         {
             var text = string.Join(string.Empty, unicodeChars.Select(char.ConvertFromUtf32));
-            var document = Document.FromText(text);
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));
 
             var index = 0;
-            var availableBytes = 0;
-            while (await document.GetNextUtf8Async(availableBytes) is { Eof: false } read)
+            while (await stream.GetNextUtf8Async() is { Eof: false } read)
             {
-                availableBytes = read.AvailableBytes;
                 if (index >= unicodeChars.Length)
                     Assert.Fail("Character count is invalid");
 
@@ -29,7 +27,7 @@ namespace Sight.Tokenize.Tests
             if (index < unicodeChars.Length)
                 Assert.Fail($"All characters not read (index: {index})");
 
-            Assert.Zero(availableBytes);
+            Assert.AreEqual(stream.Length, stream.Position);
         }
     }
 }

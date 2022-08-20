@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using Sight.Tokenize.Documents;
+﻿using System.IO;
+using System.Threading.Tasks;
 using Sight.Tokenize.Parsing;
 
 namespace Sight.Tokenize
@@ -12,6 +12,6 @@ namespace Sight.Tokenize
         /// <summary>
         /// Extract tokens from a formatted document
         /// </summary>
-        public Task<ParseResult> ReadAsync(IDocument document);
+        public Task<ParseResult> ReadAsync(Stream stream);
     }
 }
