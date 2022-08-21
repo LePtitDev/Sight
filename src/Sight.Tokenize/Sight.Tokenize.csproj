@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Description>Help to parse a formatted document into structured tokens.</Description>
+  </PropertyGroup>
+</Project>

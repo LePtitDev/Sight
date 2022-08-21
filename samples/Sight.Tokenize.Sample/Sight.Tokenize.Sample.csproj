@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sight.Tokenize\Sight.Tokenize.csproj" />
+  </ItemGroup>
+</Project>
