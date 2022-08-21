@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Sight.Tokenize.Helpers;
 using Sight.Tokenize.Parsing;
 using Sight.Tokenize.Tokens;
 
@@ -245,7 +246,7 @@ namespace Sight.Tokenize.Tokenizers
         {
             if (readStatus.Queue.Count == 0)
             {
-                var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
+                var read = await StreamHelpers.ReadUtf8Async(stream).ConfigureAwait(false);
                 readStatus.Update(read);
             }
 
@@ -278,7 +279,7 @@ namespace Sight.Tokenize.Tokenizers
                 }
             }
 
-            var text = char.ConvertFromUtf32(readStatus.Queue.Peek());
+            var text = char.ConvertFromUtf32((int)readStatus.Current!);
             readStatus.Next();
             var error = $"Unexpected character '{text}' at position '{position}'";
             tokens.Add(new InvalidToken(text, error, position, 1));
@@ -300,6 +301,8 @@ namespace Sight.Tokenize.Tokenizers
 
             public Queue<int> Queue { get; } = new Queue<int>();
 
+            public int? Current { get; private set; }
+
             public long Position { get; private set; }
 
             public Scope Scope { get; set; }
@@ -314,9 +317,14 @@ namespace Sight.Tokenize.Tokenizers
 
                 Queue.Enqueue(read.Utf32);
                 Position++;
+                Current ??= read.Utf32;
             }
 
-            public void Next() => Queue.Dequeue();
+            public void Next()
+            {
+                Queue.Dequeue();
+                Current = Queue.Count > 0 ? Queue.Peek() : null;
+            }
         }
 
         private class Scope
@@ -334,7 +342,7 @@ namespace Sight.Tokenize.Tokenizers
                 ToScope = toScope;
             }
 
-            public string Type { get; }
+            protected string Type { get; }
 
             public string? ToScope { get; }
 
@@ -343,20 +351,20 @@ namespace Sight.Tokenize.Tokenizers
 
         private class CharSymbol : DynamicSymbol
         {
+            private readonly int _utf32;
+
             public CharSymbol(string type, string? toScope, int utf32)
                 : base(type, toScope)
             {
-                Utf32 = utf32;
+                _utf32 = utf32;
             }
-
-            public int Utf32 { get; }
 
             public override Task<Token?> TryReadAsync(long position, Stream stream, ReadStatus readStatus)
             {
-                if (readStatus.Queue.Peek() == Utf32)
+                if (readStatus.Current == _utf32)
                 {
                     readStatus.Next();
-                    return Task.FromResult<Token?>(new SymbolToken(Type, char.ConvertFromUtf32(Utf32), position, 1));
+                    return Task.FromResult<Token?>(new SymbolToken(Type, char.ConvertFromUtf32(_utf32), position, 1));
                 }
 
                 return Task.FromResult<Token?>(null);
@@ -396,7 +404,7 @@ namespace Sight.Tokenize.Tokenizers
                 {
                     while (true)
                     {
-                        var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
+                        var read = await StreamHelpers.ReadUtf8Async(stream).ConfigureAwait(false);
                         readStatus.Update(read);
                         if (read.Eof)
                             break;

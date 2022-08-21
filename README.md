@@ -12,3 +12,4 @@ Sight is a light C# framework that implement some services and helpers for tools
 | Sight.Logging | [![](https://img.shields.io/nuget/v/Sight.Logging.svg)](https://www.nuget.org/packages/Sight.Logging/) | Logging library ([see more](src/Sight.Logging/README.md)) |
 | Sight.IoC | [![](https://img.shields.io/nuget/v/Sight.IoC.svg)](https://www.nuget.org/packages/Sight.IoC/) | Dependency injection library ([see more](src/Sight.IoC/README.md)) |
 | Sight.IoC.MsDI | [![](https://img.shields.io/nuget/v/Sight.IoC.MsDI.svg)](https://www.nuget.org/packages/Sight.IoC.MsDI/) | Extension of Sight.IoC for Microsoft Dependency Injection support ([see more](src/Sight.IoC.MsDI/README.md)) |
+| Sight.Tokenize | [![](https://img.shields.io/nuget/v/Sight.Tokenize.svg)](https://www.nuget.org/packages/Sight.Tokenize/) | Utilities to parse a document into structured tokens ([see more](src/Sight.Tokenize/README.md)) |

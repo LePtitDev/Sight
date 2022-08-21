@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using Sight.Tokenize.Helpers;
 
 namespace Sight.Tokenize.Tests
 {
@@ -13,7 +14,7 @@ namespace Sight.Tokenize.Tests
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));
 
             var index = 0;
-            while (await stream.GetNextUtf8Async() is { Eof: false } read)
+            while (await StreamHelpers.ReadUtf8Async(stream) is { Eof: false } read)
             {
                 if (index >= unicodeChars.Length)
                     Assert.Fail("Character count is invalid");

@@ -3,7 +3,7 @@
     /// <summary>
     /// Describe the result of a text reading operation
     /// </summary>
-    public readonly struct ReadResult
+    internal readonly struct ReadResult
     {
         private ReadResult(bool eof, int utf32)
         {

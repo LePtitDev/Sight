@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Sight.Tokenize.Helpers;
 using Sight.Tokenize.Parsing;
 using Sight.Tokenize.Tokens;
 
@@ -56,7 +57,7 @@ namespace Sight.Tokenize.Tokenizers
         {
             if (readStatus.Current == null)
             {
-                var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
+                var read = await StreamHelpers.ReadUtf8Async(stream).ConfigureAwait(false);
                 readStatus.Update(read);
             }
 
@@ -157,7 +158,7 @@ namespace Sight.Tokenize.Tokenizers
             {
                 if (readStatus.Current == null)
                 {
-                    var read = await stream.GetNextUtf8Async().ConfigureAwait(false);
+                    var read = await StreamHelpers.ReadUtf8Async(stream).ConfigureAwait(false);
                     readStatus.Update(read);
                 }
 
