@@ -17,7 +17,7 @@
     <Using Include="Sight.Benchmarks" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="$(SolutionDir)benchmarks\Shared\**\*.cs">
