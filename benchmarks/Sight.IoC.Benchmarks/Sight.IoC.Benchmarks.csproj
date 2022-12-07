@@ -5,6 +5,6 @@
   <ItemGroup>
     <PackageReference Include="DryIoc" Version="5.3.1" />
     <PackageReference Include="Autofac" Version="6.5.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
   </ItemGroup>
 </Project>
