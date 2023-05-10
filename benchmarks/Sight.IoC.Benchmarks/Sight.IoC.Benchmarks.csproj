@@ -3,7 +3,7 @@
     <ProjectReference Include="..\..\src\Sight.IoC\Sight.IoC.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DryIoc" Version="5.3.1" />
+    <PackageReference Include="DryIoc" Version="5.3.4" />
     <PackageReference Include="Autofac" Version="7.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
   </ItemGroup>
