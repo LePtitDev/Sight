@@ -1,0 +1,6 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.0.1-alpha</Version>
+    <Description>Helpers for file/stream/buffer encoding and decoding.</Description>
+  </PropertyGroup>
+</Project>
