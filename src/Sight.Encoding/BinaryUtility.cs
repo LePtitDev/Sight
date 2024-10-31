@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Sight.Encoding.Internal;
 
 namespace Sight.Encoding
 {
@@ -49,7 +50,16 @@ namespace Sight.Encoding
         /// <summary>
         /// Write bytes into a buffer
         /// </summary>
-        public static void WriteByteToBuffer(byte value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteInt8ToBuffer(sbyte value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            WriteUInt8ToBuffer((byte)value, buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Write bytes into a buffer
+        /// </summary>
+        public static void WriteUInt8ToBuffer(byte value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
             buffer[offset] = value;
         }
@@ -58,15 +68,15 @@ namespace Sight.Encoding
         /// Write bytes into a buffer
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteShortToBuffer(short value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteInt16ToBuffer(short value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
-            WriteUShortToBuffer((ushort)value, buffer, offset, littleEndian);
+            WriteUInt16ToBuffer((ushort)value, buffer, offset, littleEndian);
         }
 
         /// <summary>
         /// Write bytes into a buffer
         /// </summary>
-        public static void WriteUShortToBuffer(ushort value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteUInt16ToBuffer(ushort value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
             if (littleEndian)
             {
@@ -84,15 +94,15 @@ namespace Sight.Encoding
         /// Write bytes into a buffer
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteIntToBuffer(int value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteInt32ToBuffer(int value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
-            WriteUIntToBuffer((uint)value, buffer, offset, littleEndian);
+            WriteUInt32ToBuffer((uint)value, buffer, offset, littleEndian);
         }
 
         /// <summary>
         /// Write bytes into a buffer
         /// </summary>
-        public static void WriteUIntToBuffer(uint value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteUInt32ToBuffer(uint value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
             if (littleEndian)
             {
@@ -114,15 +124,15 @@ namespace Sight.Encoding
         /// Write bytes into a buffer
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteLongToBuffer(long value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteInt64ToBuffer(long value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
-            WriteULongToBuffer((ulong)value, buffer, offset, littleEndian);
+            WriteUInt64ToBuffer((ulong)value, buffer, offset, littleEndian);
         }
 
         /// <summary>
         /// Write bytes into a buffer
         /// </summary>
-        public static void WriteULongToBuffer(ulong value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        public static void WriteUInt64ToBuffer(ulong value, byte[] buffer, int offset = 0, bool littleEndian = true)
         {
             if (littleEndian)
             {
@@ -146,6 +156,126 @@ namespace Sight.Encoding
                 buffer[offset++] = (byte)((value >> 8) & 0xFF);
                 buffer[offset] = (byte)(value & 0xFF);
             }
+        }
+
+        /// <summary>
+        /// Write bytes into a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteSingleToBuffer(float value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            var union = new SingleToUInt32Union { Single = value };
+            WriteUInt32ToBuffer(union.UInt32, buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Write bytes into a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteDoubleToBuffer(double value, byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            var union = new DoubleToUInt64Union { Double = value };
+            WriteUInt64ToBuffer(union.UInt64, buffer, offset, littleEndian);
+        }
+
+        #endregion
+
+        #region ReadFromBuffer
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static sbyte ReadInt8FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return (sbyte)ReadUInt8FromBuffer(buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        public static byte ReadUInt8FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return buffer[offset];
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static short ReadInt16FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return (short)ReadUInt16FromBuffer(buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        public static ushort ReadUInt16FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return littleEndian
+                ? (ushort)(buffer[offset++] | ((uint)buffer[offset] << 8))
+                : (ushort)(((uint)buffer[offset++] << 8) | buffer[offset]);
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int ReadInt32FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return (int)ReadUInt32FromBuffer(buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        public static uint ReadUInt32FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return littleEndian
+                ? buffer[offset++] | ((uint)buffer[offset++] << 8) | ((uint)buffer[offset++] << 16) | ((uint)buffer[offset] << 24)
+                : ((uint)buffer[offset++] << 24) | ((uint)buffer[offset++] << 16) | ((uint)buffer[offset++] << 8) | buffer[offset];
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long ReadInt64FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return (long)ReadUInt64FromBuffer(buffer, offset, littleEndian);
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        public static ulong ReadUInt64FromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            return littleEndian
+                ? buffer[offset++] | ((ulong)buffer[offset++] << 8) | ((ulong)buffer[offset++] << 16) | ((ulong)buffer[offset++] << 24) |
+                  ((ulong)buffer[offset++] << 32) | ((ulong)buffer[offset++] << 40) | ((ulong)buffer[offset++] << 48) | ((ulong)buffer[offset] << 56)
+                : ((ulong)buffer[offset++] << 56) | ((ulong)buffer[offset++] << 48) | ((ulong)buffer[offset++] << 40) | ((ulong)buffer[offset++] << 32) |
+                  ((ulong)buffer[offset++] << 24) | ((ulong)buffer[offset++] << 16) | ((ulong)buffer[offset++] << 8) | buffer[offset];
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float ReadSingleFromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            var union = new SingleToUInt32Union { UInt32 = ReadUInt32FromBuffer(buffer, offset, littleEndian) };
+            return union.Single;
+        }
+
+        /// <summary>
+        /// Read bytes from a buffer
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static double ReadDoubleFromBuffer(byte[] buffer, int offset = 0, bool littleEndian = true)
+        {
+            var union = new DoubleToUInt64Union { UInt64 = ReadUInt64FromBuffer(buffer, offset, littleEndian) };
+            return union.Double;
         }
 
         #endregion
