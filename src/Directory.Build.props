@@ -1,7 +1,7 @@
 <Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <PropertyGroup>
-    <TargetFrameworks>net472;netcoreapp3.1;net5.0;net6.0</TargetFrameworks>
-    <LangVersion>10</LangVersion>
+    <TargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <CopyDependencies>false</CopyDependencies>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -12,6 +12,6 @@
     <RepositoryUrl>https://github.com/LePtitDev/Sight.git</RepositoryUrl>
     <PackageProjectUrl>https://github.com/LePtitDev/Sight</PackageProjectUrl>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-    <Copyright>Copyright © Arthur Ferre 2022</Copyright>
+    <Copyright>Copyright © Arthur Ferre 2022-2026</Copyright>
   </PropertyGroup>
 </Project>

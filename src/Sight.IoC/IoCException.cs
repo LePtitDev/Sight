@@ -31,10 +31,12 @@ namespace Sight.IoC
         {
         }
 
+#pragma warning disable SYSLIB0051 // Kept for binary compatibility
         /// <inheritdoc />
         protected IoCException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#pragma warning restore SYSLIB0051
     }
 }

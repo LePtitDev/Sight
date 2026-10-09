@@ -1,7 +1,7 @@
 <Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <LangVersion>10</LangVersion>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <CopyDependencies>true</CopyDependencies>
   </PropertyGroup>
   <ItemGroup>
@@ -11,12 +11,13 @@
     <Using Include="System.Text" />
     <Using Include="System.Threading.Tasks" />
     <Using Include="NUnit.Framework" />
+    <Using Include="NUnit.Framework.Legacy.ClassicAssert" Alias="Assert" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="NUnit" Version="3.14.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="NSubstitute" Version="5.1.0" />
-    <PackageReference Include="NunitXml.TestLogger" Version="3.1.15" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="NunitXml.TestLogger" />
   </ItemGroup>
 </Project>

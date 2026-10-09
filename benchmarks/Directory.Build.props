@@ -1,7 +1,7 @@
 <Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <LangVersion>10</LangVersion>
+    <TargetFramework>net10.0</TargetFramework>
     <CopyDependencies>true</CopyDependencies>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -17,10 +17,10 @@
     <Using Include="Sight.Benchmarks" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.10" />
+    <PackageReference Include="BenchmarkDotNet" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="$(SolutionDir)benchmarks\Shared\**\*.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\**\*.cs">
       <Link>Shared\%(RecursiveDir)/%(FileName)%(Extension)</Link>
     </Compile>
   </ItemGroup>

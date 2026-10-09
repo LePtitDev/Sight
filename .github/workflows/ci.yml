@@ -10,7 +10,9 @@ on:
       - '*'
 
 env:
-  CI_DOTNET_VERSION: 6.0.x
+  CI_DOTNET_VERSION: |
+    8.0.x
+    10.0.x
   CI_NUGET_OUTPUT: ${{ github.workspace }}/nuget
 
 jobs:
@@ -19,9 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Setup .NET ${{ env.CI_DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Restore dependencies
@@ -35,13 +37,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Setup .NET ${{ env.CI_DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Package Source Projects
-        run: for f in ${{ github.workspace }}/src/**/*.csproj; do dotnet pack "$f" --configuration Release --output ${{ env.CI_NUGET_OUTPUT }}; done
+        run: for f in ${{ github.workspace }}/src/*/*.csproj; do dotnet pack "$f" --configuration Release --output ${{ env.CI_NUGET_OUTPUT }}; done
       - name: Upload Artifacts (NuGet Packages)
         uses: actions/upload-artifact@v4
         with:
@@ -61,7 +63,7 @@ jobs:
           name: nuget
           path: ${{ env.CI_NUGET_OUTPUT }}
       - name: Setup .NET ${{ env.CI_DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '${{ env.CI_DOTNET_VERSION }}'
       - name: Publish NuGet Packages
