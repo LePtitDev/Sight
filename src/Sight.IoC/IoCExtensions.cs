@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Sight.IoC.Internal;
@@ -421,6 +422,46 @@ namespace Sight.IoC
         public static void RegisterProvider<T>(this ITypeRegistrar typeRegistrar, ResolveDelegate<T> resolver, string? name = null, bool lazy = false) where T : notnull
         {
             RegisterProvider(typeRegistrar, typeof(T), (t, o) => resolver(t, o), name, lazy);
+        }
+
+        /// <summary>
+        /// Register a service created by an expression. Dependencies are declared with <see cref="Arg.Of{T}"/> and resolved from the container
+        /// </summary>
+        /// <example>
+        /// <code>container.RegisterExpression&lt;IService&gt;(() => new MyService(Arg.Of&lt;IDependency&gt;()));</code>
+        /// </example>
+        /// <exception cref="IoCException"/>
+        public static void RegisterExpression<T>(this ITypeContainer typeContainer, Expression<Func<T>> expression, string? name = null, bool lazy = false) where T : notnull
+        {
+            var (factory, dependencies) = ExpressionHelpers.Compile(expression);
+
+            // Dependencies are resolved like constructor parameters, so auto wiring applies to them
+            static ResolveOptions GetDependencyOptions(ResolveOptions options) => new ResolveOptions { AutoResolve = options.AutoWiring, AutoWiring = options.AutoWiring };
+
+            ResolveDelegate resolver = (_, options) =>
+            {
+                var dependencyOptions = GetDependencyOptions(options);
+                var args = new object?[dependencies.Length];
+                for (var i = 0; i < args.Length; i++)
+                {
+                    args[i] = typeContainer.Resolve(dependencies[i], dependencyOptions);
+                }
+
+                return factory(args);
+            };
+
+            if (lazy)
+            {
+                object? instance = null;
+                var innerResolver = resolver;
+                resolver = (t, o) => instance ??= innerResolver(t, o);
+            }
+
+            typeContainer.Register(new Registration(typeof(T), resolver, name, (_, options) =>
+            {
+                var dependencyOptions = GetDependencyOptions(options);
+                return dependencies.All(x => typeContainer.IsResolvable(x, dependencyOptions));
+            }));
         }
 
         /// <summary>

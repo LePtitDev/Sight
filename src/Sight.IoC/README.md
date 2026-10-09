@@ -81,6 +81,12 @@ container.RegisterType<MyService, IService>();
 var service = container.Resolve<IService>();
 ```
 
+If you want to control how the service is built while keeping dependency injection, register an expression. Dependencies are declared with `Arg.Of<T>()` (optionally with a constant name) and resolved from the container:
+
+```csharp
+container.RegisterExpression<IService>(() => new MyService(Arg.Of<IDependency>(), Arg.Of<IOther>("named")) { Option = true });
+```
+
 If you want to register an already initialized service, use:
 
 ```csharp
