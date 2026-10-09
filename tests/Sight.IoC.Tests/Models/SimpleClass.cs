@@ -1,7 +1,6 @@
-﻿namespace Sight.IoC.Tests.Models
+﻿namespace Sight.IoC.Tests.Models;
+
+internal class SimpleClass
 {
-    internal class SimpleClass
-    {
-        public string Value { get; set; }
-    }
+    public string Value { get; set; }
 }

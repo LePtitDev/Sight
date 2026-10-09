@@ -1,42 +1,41 @@
 ﻿using System.Runtime.Serialization;
 
-namespace Sight.IoC
+namespace Sight.IoC;
+
+/// <summary>
+/// Describe IoC exception
+/// </summary>
+[Serializable]
+public class IoCException : Exception
 {
     /// <summary>
-    /// Describe IoC exception
+    /// Initialize a new instance of the <see cref="IoCException"/> class
     /// </summary>
-    [Serializable]
-    public class IoCException : Exception
+    public IoCException()
     {
-        /// <summary>
-        /// Initialize a new instance of the <see cref="IoCException"/> class
-        /// </summary>
-        public IoCException()
-        {
-        }
+    }
 
-        /// <summary>
-        /// Initialize a new instance of the <see cref="IoCException"/> class with a specific error message
-        /// </summary>
-        public IoCException(string message)
-            : base(message)
-        {
-        }
+    /// <summary>
+    /// Initialize a new instance of the <see cref="IoCException"/> class with a specific error message
+    /// </summary>
+    public IoCException(string message)
+        : base(message)
+    {
+    }
 
-        /// <summary>
-        /// Initialize a new instance of the <see cref="IoCException"/> class with a specific error message and a reference to the inner exception that cause this exception
-        /// </summary>
-        public IoCException(string message, Exception innerException)
-            : base(message, innerException)
-        {
-        }
+    /// <summary>
+    /// Initialize a new instance of the <see cref="IoCException"/> class with a specific error message and a reference to the inner exception that cause this exception
+    /// </summary>
+    public IoCException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 
 #pragma warning disable SYSLIB0051 // Kept for binary compatibility
-        /// <inheritdoc />
-        protected IoCException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-#pragma warning restore SYSLIB0051
+    /// <inheritdoc />
+    protected IoCException(SerializationInfo info, StreamingContext context)
+        : base(info, context)
+    {
     }
+#pragma warning restore SYSLIB0051
 }

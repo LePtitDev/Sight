@@ -1,290 +1,289 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Sight.Linq
+namespace Sight.Linq;
+
+/// <summary>
+/// Extension methods for <see cref="IEnumerable{T}"/>
+/// </summary>
+public static class EnumerableExt
 {
     /// <summary>
-    /// Extension methods for <see cref="IEnumerable{T}"/>
+    /// Append elements at the end of the collection
     /// </summary>
-    public static class EnumerableExt
+    public static IEnumerable<T> Append<T>(this IEnumerable<T> source, params T[] items)
     {
-        /// <summary>
-        /// Append elements at the end of the collection
-        /// </summary>
-        public static IEnumerable<T> Append<T>(this IEnumerable<T> source, params T[] items)
-        {
-            return source.Concat(items);
-        }
+        return source.Concat(items);
+    }
 
-        /// <summary>
-        /// Enumerate elements with unique provided key
-        /// </summary>
-        public static IEnumerable<TSource> Distinct<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keyFunc, IEqualityComparer<TKey>? keyComparer = null)
+    /// <summary>
+    /// Enumerate elements with unique provided key
+    /// </summary>
+    public static IEnumerable<TSource> Distinct<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keyFunc, IEqualityComparer<TKey>? keyComparer = null)
+    {
+        var hashSet = new HashSet<TKey>(keyComparer ?? EqualityComparer<TKey>.Default);
+        foreach (var item in source)
         {
-            var hashSet = new HashSet<TKey>(keyComparer ?? EqualityComparer<TKey>.Default);
-            foreach (var item in source)
-            {
-                if (hashSet.Add(keyFunc(item)))
-                    yield return item;
-            }
-        }
-
-        /// <summary>
-        /// Remove elements from the collection
-        /// </summary>
-        public static IEnumerable<T> Except<T>(this IEnumerable<T> source, params T[] items)
-        {
-            return source.Except((IEnumerable<T>)items);
-        }
-
-        /// <summary>
-        /// Invoke delegate for each element in source
-        /// </summary>
-        public static IEnumerable<T> ForEach<T>(this IEnumerable<T> source, Action<T> func)
-        {
-            foreach (var item in source)
-            {
-                func(item);
+            if (hashSet.Add(keyFunc(item)))
                 yield return item;
-            }
+        }
+    }
+
+    /// <summary>
+    /// Remove elements from the collection
+    /// </summary>
+    public static IEnumerable<T> Except<T>(this IEnumerable<T> source, params T[] items)
+    {
+        return source.Except((IEnumerable<T>)items);
+    }
+
+    /// <summary>
+    /// Invoke delegate for each element in source
+    /// </summary>
+    public static IEnumerable<T> ForEach<T>(this IEnumerable<T> source, Action<T> func)
+    {
+        foreach (var item in source)
+        {
+            func(item);
+            yield return item;
+        }
+    }
+
+    /// <summary>
+    /// Invoke delegate with collection index for each element in source
+    /// </summary>
+    public static IEnumerable<T> ForEach<T>(this IEnumerable<T> source, Action<T, int> func)
+    {
+        var index = 0;
+        foreach (var item in source)
+        {
+            func(item, index++);
+            yield return item;
+        }
+    }
+
+    /// <summary>
+    /// Find index of item
+    /// </summary>
+    public static int IndexOf<T>(this IEnumerable<T> source, T item, IEqualityComparer<T>? comparer = null)
+    {
+        comparer ??= EqualityComparer<T>.Default;
+        var index = 0;
+        foreach (var e in source)
+        {
+            if (comparer.Equals(e, item))
+                return index;
+
+            index++;
         }
 
-        /// <summary>
-        /// Invoke delegate with collection index for each element in source
-        /// </summary>
-        public static IEnumerable<T> ForEach<T>(this IEnumerable<T> source, Action<T, int> func)
+        return -1;
+    }
+
+    /// <summary>
+    /// Find index of an item that pass predicate
+    /// </summary>
+    public static int IndexOf<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+    {
+        var index = 0;
+        foreach (var item in source)
         {
-            var index = 0;
-            foreach (var item in source)
-            {
-                func(item, index++);
-                yield return item;
-            }
+            if (predicate(item))
+                return index;
+
+            index++;
         }
 
-        /// <summary>
-        /// Find index of item
-        /// </summary>
-        public static int IndexOf<T>(this IEnumerable<T> source, T item, IEqualityComparer<T>? comparer = null)
+        return -1;
+    }
+
+    /// <summary>
+    /// Find index of an item that pass predicate
+    /// </summary>
+    public static int IndexOf<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
+    {
+        var index = 0;
+        foreach (var item in source)
         {
-            comparer ??= EqualityComparer<T>.Default;
-            var index = 0;
-            foreach (var e in source)
-            {
-                if (comparer.Equals(e, item))
-                    return index;
+            if (predicate(item, index))
+                return index;
 
-                index++;
-            }
-
-            return -1;
+            index++;
         }
 
-        /// <summary>
-        /// Find index of an item that pass predicate
-        /// </summary>
-        public static int IndexOf<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+        return -1;
+    }
+
+    /// <summary>
+    /// Find index of item
+    /// </summary>
+    public static int IndexOfLast<T>(this IEnumerable<T> source, T item, IEqualityComparer<T>? comparer = null)
+    {
+        comparer ??= EqualityComparer<T>.Default;
+        var index = 0;
+        var result = -1;
+        foreach (var e in source)
         {
-            var index = 0;
-            foreach (var item in source)
-            {
-                if (predicate(item))
-                    return index;
+            if (comparer.Equals(e, item))
+                result = index;
 
-                index++;
-            }
-
-            return -1;
+            index++;
         }
 
-        /// <summary>
-        /// Find index of an item that pass predicate
-        /// </summary>
-        public static int IndexOf<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
+        return result;
+    }
+
+    /// <summary>
+    /// Find index of the last item that pass predicate
+    /// </summary>
+    public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+    {
+        var index = 0;
+        var result = -1;
+        foreach (var item in source)
         {
-            var index = 0;
-            foreach (var item in source)
-            {
-                if (predicate(item, index))
-                    return index;
+            if (predicate(item))
+                result = index;
 
-                index++;
-            }
-
-            return -1;
+            index++;
         }
 
-        /// <summary>
-        /// Find index of item
-        /// </summary>
-        public static int IndexOfLast<T>(this IEnumerable<T> source, T item, IEqualityComparer<T>? comparer = null)
+        return result;
+    }
+
+    /// <summary>
+    /// Find index of the last item that pass predicate
+    /// </summary>
+    public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
+    {
+        var index = 0;
+        var result = -1;
+        foreach (var item in source)
         {
-            comparer ??= EqualityComparer<T>.Default;
-            var index = 0;
-            var result = -1;
-            foreach (var e in source)
-            {
-                if (comparer.Equals(e, item))
-                    result = index;
+            if (predicate(item, index))
+                result = index;
 
-                index++;
-            }
-
-            return result;
+            index++;
         }
 
-        /// <summary>
-        /// Find index of the last item that pass predicate
-        /// </summary>
-        public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+        return result;
+    }
+
+    /// <summary>
+    /// Insert elements in the collection
+    /// </summary>
+    public static IEnumerable<T> Insert<T>(this IEnumerable<T> source, int index, params T[] items)
+    {
+        var i = 0;
+        foreach (var item in source)
         {
-            var index = 0;
-            var result = -1;
-            foreach (var item in source)
-            {
-                if (predicate(item))
-                    result = index;
-
-                index++;
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Find index of the last item that pass predicate
-        /// </summary>
-        public static int IndexOfLast<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
-        {
-            var index = 0;
-            var result = -1;
-            foreach (var item in source)
-            {
-                if (predicate(item, index))
-                    result = index;
-
-                index++;
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Insert elements in the collection
-        /// </summary>
-        public static IEnumerable<T> Insert<T>(this IEnumerable<T> source, int index, params T[] items)
-        {
-            var i = 0;
-            foreach (var item in source)
-            {
-                if (index == i++)
-                {
-                    foreach (var e in items)
-                    {
-                        yield return e;
-                    }
-                }
-
-                yield return item;
-            }
-
-            if (index >= i)
+            if (index == i++)
             {
                 foreach (var e in items)
                 {
                     yield return e;
                 }
             }
-        }
 
-        /// <summary>
-        /// Indicates if the collection is empty
-        /// </summary>
-        public static bool IsEmpty<T>(this IEnumerable<T> source)
-        {
-            return !source.Any();
-        }
-
-        /// <summary>
-        /// Indicates if the collection is empty
-        /// </summary>
-        public static bool IsEmpty<T>(this IEnumerable<T> source, Func<T, bool> predicate)
-        {
-            return !source.Any(predicate);
-        }
-
-        /// <summary>
-        /// Convert an element to enumerable of one item
-        /// </summary>
-        public static IEnumerable<T> ToEnumerable<T>(this T item)
-        {
             yield return item;
         }
 
-        /// <summary>
-        /// Try to found an element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
-        /// </summary>
-        public static bool TryGet<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull
+        if (index >= i)
         {
-            foreach (var elem in source)
+            foreach (var e in items)
             {
-                if (predicate(elem))
-                {
-                    item = elem;
-                    return true;
-                }
+                yield return e;
             }
-
-            item = default;
-            return false;
         }
+    }
 
-        /// <summary>
-        /// Try to found the last element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
-        /// </summary>
-        public static bool TryGetLast<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull
+    /// <summary>
+    /// Indicates if the collection is empty
+    /// </summary>
+    public static bool IsEmpty<T>(this IEnumerable<T> source)
+    {
+        return !source.Any();
+    }
+
+    /// <summary>
+    /// Indicates if the collection is empty
+    /// </summary>
+    public static bool IsEmpty<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+    {
+        return !source.Any(predicate);
+    }
+
+    /// <summary>
+    /// Convert an element to enumerable of one item
+    /// </summary>
+    public static IEnumerable<T> ToEnumerable<T>(this T item)
+    {
+        yield return item;
+    }
+
+    /// <summary>
+    /// Try to found an element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
+    /// </summary>
+    public static bool TryGet<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull
+    {
+        foreach (var elem in source)
         {
-            item = default;
-            var found = false;
-            foreach (var elem in source)
+            if (predicate(elem))
             {
-                if (predicate(elem))
-                {
-                    item = elem;
-                    found = true;
-                }
-            }
-
-            return found;
-        }
-
-        /// <summary>
-        /// Filter elements from a predicate
-        /// </summary>
-        public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> source, Func<T, bool> predicate)
-        {
-            return source.Where(x => !predicate(x));
-        }
-
-        /// <summary>
-        /// Filter elements from a predicate
-        /// </summary>
-        public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
-        {
-            var index = 0;
-            foreach (var item in source)
-            {
-                if (!predicate(item, index++))
-                    yield return item;
+                item = elem;
+                return true;
             }
         }
 
-        /// <summary>
-        /// Filter null elements
-        /// </summary>
-        public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> source)
+        item = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Try to found the last element that match the predicate (like with <see cref="IDictionary{TKey,TValue}"/>)
+    /// </summary>
+    public static bool TryGetLast<T>(this IEnumerable<T> source, Func<T, bool> predicate, [NotNullWhen(true)] out T? item) where T : notnull
+    {
+        item = default;
+        var found = false;
+        foreach (var elem in source)
         {
-            return source.Where(x => x != null);
+            if (predicate(elem))
+            {
+                item = elem;
+                found = true;
+            }
         }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Filter elements from a predicate
+    /// </summary>
+    public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+    {
+        return source.Where(x => !predicate(x));
+    }
+
+    /// <summary>
+    /// Filter elements from a predicate
+    /// </summary>
+    public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> source, Func<T, int, bool> predicate)
+    {
+        var index = 0;
+        foreach (var item in source)
+        {
+            if (!predicate(item, index++))
+                yield return item;
+        }
+    }
+
+    /// <summary>
+    /// Filter null elements
+    /// </summary>
+    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> source)
+    {
+        return source.Where(x => x != null);
     }
 }

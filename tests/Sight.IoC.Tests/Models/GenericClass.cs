@@ -1,7 +1,6 @@
-﻿namespace Sight.IoC.Tests.Models
+﻿namespace Sight.IoC.Tests.Models;
+
+internal class GenericClass<T>
 {
-    internal class GenericClass<T>
-    {
-        public T Value { get; set; }
-    }
+    public T Value { get; set; }
 }

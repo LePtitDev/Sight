@@ -1,28 +1,27 @@
-﻿namespace Sight.Logging.Logs
+﻿namespace Sight.Logging.Logs;
+
+/// <summary>
+/// Define levels of a message
+/// </summary>
+public enum LogLevels
 {
     /// <summary>
-    /// Define levels of a message
+    /// Most detailed
     /// </summary>
-    public enum LogLevels
-    {
-        /// <summary>
-        /// Most detailed
-        /// </summary>
-        Debug,
+    Debug,
 
-        /// <summary>
-        /// Standard
-        /// </summary>
-        Information,
+    /// <summary>
+    /// Standard
+    /// </summary>
+    Information,
 
-        /// <summary>
-        /// Warning
-        /// </summary>
-        Warning,
+    /// <summary>
+    /// Warning
+    /// </summary>
+    Warning,
 
-        /// <summary>
-        /// Error
-        /// </summary>
-        Error
-    }
+    /// <summary>
+    /// Error
+    /// </summary>
+    Error
 }

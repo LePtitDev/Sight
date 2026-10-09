@@ -3,39 +3,38 @@ using System.Collections.Generic;
 using System.Text;
 using Sight.Logging.Logs;
 
-namespace Sight.Logging.Internal
+namespace Sight.Logging.Internal;
+
+/// <summary>
+/// Chain of log parts
+/// </summary>
+internal class RichLog : IRichLog
 {
-    /// <summary>
-    /// Chain of log parts
-    /// </summary>
-    internal class RichLog : IRichLog
+    private readonly IEnumerable<object> _parts;
+
+    public RichLog(IEnumerable<object> parts)
     {
-        private readonly IEnumerable<object> _parts;
+        _parts = parts;
+    }
 
-        public RichLog(IEnumerable<object> parts)
+    public IEnumerator<object> GetEnumerator()
+    {
+        return _parts.GetEnumerator();
+    }
+
+    public override string ToString()
+    {
+        var bld = new StringBuilder();
+        foreach (var part in _parts)
         {
-            _parts = parts;
+            bld.Append(part);
         }
 
-        public IEnumerator<object> GetEnumerator()
-        {
-            return _parts.GetEnumerator();
-        }
+        return bld.ToString();
+    }
 
-        public override string ToString()
-        {
-            var bld = new StringBuilder();
-            foreach (var part in _parts)
-            {
-                bld.Append(part);
-            }
-
-            return bld.ToString();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 }

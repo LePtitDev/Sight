@@ -1,27 +1,27 @@
 ﻿using Sight.Tokenize.Tokenizers;
 using Sight.Tokenize.Tokens;
 
-namespace Sight.Tokenize.Tests
+namespace Sight.Tokenize.Tests;
+
+public class JsonTokenizeTests
 {
-    public class JsonTokenizeTests
+    [Test]
+    public async Task Test_all_tokens_ranges_are_valid()
     {
-        [Test]
-        public async Task Test_all_tokens_ranges_are_valid()
+        var tokenizer = new JsonTokenizer();
+        var result = await tokenizer.ReadAsync(JsonSample);
+
+        Assert.IsTrue(result.IsSuccess, "result.IsSuccess");
+        Assert.IsEmpty(result.Errors, "Errors is not empty");
+        Assert.IsTrue(result.Tokens.All(x => x is SymbolToken), "Not all symbol tokens");
+
+        foreach (var token in result.Tokens.OfType<SymbolToken>())
         {
-            var tokenizer = new JsonTokenizer();
-            var result = await tokenizer.ReadAsync(JsonSample);
-
-            Assert.IsTrue(result.IsSuccess, "result.IsSuccess");
-            Assert.IsEmpty(result.Errors, "Errors is not empty");
-            Assert.IsTrue(result.Tokens.All(x => x is SymbolToken), "Not all symbol tokens");
-
-            foreach (var token in result.Tokens.OfType<SymbolToken>())
-            {
-                Assert.AreEqual(token.Symbol, JsonSample.Substring((int)token.Position, (int)token.Length));
-            }
+            Assert.AreEqual(token.Symbol, JsonSample.Substring((int)token.Position, (int)token.Length));
         }
+    }
 
-        private const string JsonSample = @"
+    private const string JsonSample = @"
 {
     ""firstName"": ""John"",
     ""lastName"": ""Smith"",
@@ -50,5 +50,4 @@ namespace Sight.Tokenize.Tests
     ],
     ""spouse"": null
 }";
-    }
 }

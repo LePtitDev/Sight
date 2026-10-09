@@ -1,10 +1,9 @@
-﻿namespace Sight.Benchmarks
+﻿namespace Sight.Benchmarks;
+
+public static class Program
 {
-    public static class Program
+    public static void Main()
     {
-        public static void Main()
-        {
-            BenchmarkRunner.Run(typeof(Program).Assembly);
-        }
+        BenchmarkRunner.Run(typeof(Program).Assembly);
     }
 }

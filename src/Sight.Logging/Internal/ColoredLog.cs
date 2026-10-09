@@ -1,22 +1,21 @@
 ﻿using Sight.Logging.Logs;
 
-namespace Sight.Logging.Internal
+namespace Sight.Logging.Internal;
+
+internal class ColoredLog : IColoredLog
 {
-    internal class ColoredLog : IColoredLog
+    public ColoredLog(LogColor color, object content)
     {
-        public ColoredLog(LogColor color, object content)
-        {
-            Color = color;
-            Content = content;
-        }
+        Color = color;
+        Content = content;
+    }
 
-        public LogColor Color { get; }
+    public LogColor Color { get; }
 
-        public object Content { get; }
+    public object Content { get; }
 
-        public override string ToString()
-        {
-            return Content!.ToString()!;
-        }
+    public override string ToString()
+    {
+        return Content!.ToString()!;
     }
 }

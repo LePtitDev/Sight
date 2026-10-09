@@ -1,13 +1,12 @@
-﻿namespace Sight.IoC
+﻿namespace Sight.IoC;
+
+/// <summary>
+/// Describe a container that can register services
+/// </summary>
+public interface ITypeRegistrar
 {
     /// <summary>
-    /// Describe a container that can register services
+    /// Register a service
     /// </summary>
-    public interface ITypeRegistrar
-    {
-        /// <summary>
-        /// Register a service
-        /// </summary>
-        public void Register(Registration registration);
-    }
+    public void Register(Registration registration);
 }

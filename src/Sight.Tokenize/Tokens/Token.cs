@@ -1,27 +1,26 @@
-﻿namespace Sight.Tokenize.Tokens
+﻿namespace Sight.Tokenize.Tokens;
+
+/// <summary>
+/// Describe base class of a parsed token
+/// </summary>
+public abstract class Token
 {
     /// <summary>
-    /// Describe base class of a parsed token
+    /// Initialize a new instance of the class <see cref="Token"/>
     /// </summary>
-    public abstract class Token
+    protected Token(long position, long length)
     {
-        /// <summary>
-        /// Initialize a new instance of the class <see cref="Token"/>
-        /// </summary>
-        protected Token(long position, long length)
-        {
-            Position = position;
-            Length = length;
-        }
-
-        /// <summary>
-        /// Token position in the document
-        /// </summary>
-        public long Position { get; }
-
-        /// <summary>
-        /// Token length in the document
-        /// </summary>
-        public long Length { get; }
+        Position = position;
+        Length = length;
     }
+
+    /// <summary>
+    /// Token position in the document
+    /// </summary>
+    public long Position { get; }
+
+    /// <summary>
+    /// Token length in the document
+    /// </summary>
+    public long Length { get; }
 }

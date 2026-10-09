@@ -1,22 +1,21 @@
-﻿namespace Sight.Logging.Loggers
+﻿namespace Sight.Logging.Loggers;
+
+/// <summary>
+/// Implement logger that ignores all messages
+/// </summary>
+public sealed class NullLogger : ILogger
 {
-    /// <summary>
-    /// Implement logger that ignores all messages
-    /// </summary>
-    public sealed class NullLogger : ILogger
+    private NullLogger()
     {
-        private NullLogger()
-        {
-        }
+    }
 
-        /// <summary>
-        /// Unique instance of the logger
-        /// </summary>
-        public static NullLogger Instance { get; } = new NullLogger();
+    /// <summary>
+    /// Unique instance of the logger
+    /// </summary>
+    public static NullLogger Instance { get; } = new NullLogger();
 
-        /// <inheritdoc />
-        public void Log(object message)
-        {
-        }
+    /// <inheritdoc />
+    public void Log(object message)
+    {
     }
 }

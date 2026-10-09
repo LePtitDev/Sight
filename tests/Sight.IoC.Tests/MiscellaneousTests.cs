@@ -1,48 +1,47 @@
 ﻿using Sight.IoC.Tests.Models;
 
-namespace Sight.IoC.Tests
+namespace Sight.IoC.Tests;
+
+public class MiscellaneousTests
 {
-    public class MiscellaneousTests
+    [Test]
+    public void Test_as_readonly_resolve_same_types()
     {
-        [Test]
-        public void Test_as_readonly_resolve_same_types()
-        {
-            var container = new TypeContainer();
-            var resolver = container.AsReadOnly();
+        var container = new TypeContainer();
+        var resolver = container.AsReadOnly();
 
-            container.RegisterType<SimpleClass>();
+        container.RegisterType<SimpleClass>();
 
-            var testClass = resolver.Resolve<SimpleClass>();
+        var testClass = resolver.Resolve<SimpleClass>();
 
-            Assert.NotNull(testClass, "testClass != null");
-        }
+        Assert.NotNull(testClass, "testClass != null");
+    }
 
-        [Test]
-        public void Test_as_immutable_resolve_copy_of_container()
-        {
-            var container = new TypeContainer();
-            container.RegisterType<SimpleClass>();
+    [Test]
+    public void Test_as_immutable_resolve_copy_of_container()
+    {
+        var container = new TypeContainer();
+        container.RegisterType<SimpleClass>();
 
-            var resolver = container.AsImmutable();
+        var resolver = container.AsImmutable();
 
-            var testClass = resolver.Resolve<SimpleClass>();
+        var testClass = resolver.Resolve<SimpleClass>();
 
-            Assert.NotNull(testClass, "testClass != null");
+        Assert.NotNull(testClass, "testClass != null");
 
-            container.RegisterType<SimpleClassWithDependency>();
+        container.RegisterType<SimpleClassWithDependency>();
 
-            Assert.Throws<IoCException>(() => resolver.Resolve<SimpleClassWithDependency>());
-        }
+        Assert.Throws<IoCException>(() => resolver.Resolve<SimpleClassWithDependency>());
+    }
 
-        [Test]
-        public void Test_fallback_provider()
-        {
-            var fallback = new ResolveFallback((_, _) => true, (_, _) => new SimpleClass());
-            var container = new TypeContainer(new TypeContainer.CreateOptions { Fallback = fallback });
+    [Test]
+    public void Test_fallback_provider()
+    {
+        var fallback = new ResolveFallback((_, _) => true, (_, _) => new SimpleClass());
+        var container = new TypeContainer(new TypeContainer.CreateOptions { Fallback = fallback });
 
-            var testClass = container.Resolve<SimpleClass>();
+        var testClass = container.Resolve<SimpleClass>();
 
-            Assert.NotNull(testClass, "testClass != null");
-        }
+        Assert.NotNull(testClass, "testClass != null");
     }
 }

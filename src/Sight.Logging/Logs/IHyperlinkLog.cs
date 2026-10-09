@@ -1,13 +1,12 @@
-﻿namespace Sight.Logging.Logs
+﻿namespace Sight.Logging.Logs;
+
+/// <summary>
+/// Describe a log message with an hyperlink attached
+/// </summary>
+public interface IHyperlinkLog : IContentLog
 {
     /// <summary>
-    /// Describe a log message with an hyperlink attached
+    /// Hyperlink reference
     /// </summary>
-    public interface IHyperlinkLog : IContentLog
-    {
-        /// <summary>
-        /// Hyperlink reference
-        /// </summary>
-        public string Href { get; }
-    }
+    public string Href { get; }
 }

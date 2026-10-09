@@ -1,15 +1,14 @@
 ﻿using System;
 
-namespace Sight.Logging.Logs
+namespace Sight.Logging.Logs;
+
+/// <summary>
+/// Describe a log message with a record time
+/// </summary>
+public interface ITimedLog : IContentLog
 {
     /// <summary>
-    /// Describe a log message with a record time
+    /// Record time
     /// </summary>
-    public interface ITimedLog : IContentLog
-    {
-        /// <summary>
-        /// Record time
-        /// </summary>
-        public TimeSpan Time { get; }
-    }
+    public TimeSpan Time { get; }
 }

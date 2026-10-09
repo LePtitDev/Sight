@@ -3,20 +3,19 @@ using System.Text;
 using System.Threading.Tasks;
 using Sight.Tokenize.Parsing;
 
-namespace Sight.Tokenize
+namespace Sight.Tokenize;
+
+/// <summary>
+/// Define extension methods for an ITokenizer
+/// </summary>
+public static class TokenizerExt
 {
     /// <summary>
-    /// Define extension methods for an ITokenizer
+    /// Extract tokens from a formatted text
     /// </summary>
-    public static class TokenizerExt
+    public static Task<ParseResult> ReadAsync(this ITokenizer tokenizer, string text)
     {
-        /// <summary>
-        /// Extract tokens from a formatted text
-        /// </summary>
-        public static Task<ParseResult> ReadAsync(this ITokenizer tokenizer, string text)
-        {
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));
-            return tokenizer.ReadAsync(stream);
-        }
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));
+        return tokenizer.ReadAsync(stream);
     }
 }

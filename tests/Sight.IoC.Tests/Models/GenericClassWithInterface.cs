@@ -1,10 +1,9 @@
-﻿namespace Sight.IoC.Tests.Models
-{
-    internal interface IGenericClassWithInterface<T>
-    {
-    }
+﻿namespace Sight.IoC.Tests.Models;
 
-    internal class GenericClassWithInterface<T> : IGenericClassWithInterface<T>
-    {
-    }
+internal interface IGenericClassWithInterface<T>
+{
+}
+
+internal class GenericClassWithInterface<T> : IGenericClassWithInterface<T>
+{
 }

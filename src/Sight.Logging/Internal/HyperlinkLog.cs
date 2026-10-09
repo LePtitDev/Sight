@@ -1,22 +1,21 @@
 ﻿using Sight.Logging.Logs;
 
-namespace Sight.Logging.Internal
+namespace Sight.Logging.Internal;
+
+internal class HyperlinkLog : IHyperlinkLog
 {
-    internal class HyperlinkLog : IHyperlinkLog
+    public HyperlinkLog(string href, object content)
     {
-        public HyperlinkLog(string href, object content)
-        {
-            Href = href;
-            Content = content;
-        }
+        Href = href;
+        Content = content;
+    }
 
-        public string Href { get; }
+    public string Href { get; }
 
-        public object Content { get; }
+    public object Content { get; }
 
-        public override string ToString()
-        {
-            return Content!.ToString()!;
-        }
+    public override string ToString()
+    {
+        return Content!.ToString()!;
     }
 }
