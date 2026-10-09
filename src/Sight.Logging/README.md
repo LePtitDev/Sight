@@ -51,5 +51,6 @@ Availables loggers are:
 - `ConsoleLogger` for console output
 - `FileLogger` for file output
 - `MemoryLogger` to keep logs in memory
+- `NullLogger` to ignore all logs (`NullLogger.Instance`)
 - `MixedLogger` to log each message in multiple loggers
 - `QueueLogger` to queue and process log messages
