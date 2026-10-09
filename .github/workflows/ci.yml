@@ -45,7 +45,7 @@ jobs:
       - name: Package Source Projects
         run: for f in ${{ github.workspace }}/src/*/*.csproj; do dotnet pack "$f" --configuration Release --output ${{ env.CI_NUGET_OUTPUT }}; done
       - name: Upload Artifacts (NuGet Packages)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nuget
           if-no-files-found: error
