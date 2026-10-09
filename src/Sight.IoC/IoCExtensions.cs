@@ -189,7 +189,7 @@ namespace Sight.IoC
             if (resolveOptions.IsOptional)
                 return null;
 
-            throw new IoCException($"Cannot resolve {identifier}");
+            throw new IoCException(ResolveDiagnostics.BuildMessage($"Cannot resolve {ResolveDiagnostics.Describe(identifier)}", () => ResolveDiagnostics.ExplainIdentifier(typeResolver, identifier, resolveOptions)));
         }
 
         /// <inheritdoc cref="Resolve(ITypeResolver,RegistrationId,ResolveOptions?)"/>
@@ -244,7 +244,7 @@ namespace Sight.IoC
         public static object? Invoke(this ITypeResolver typeResolver, MethodInfo method, object? instance, ResolveOptions? resolveOptions = null)
         {
             if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions ?? ResolveOptions.Default, out var invoker))
-                throw new IoCException($"Cannot invoke '{method}' with current state");
+                throw new IoCException(ResolveDiagnostics.BuildMessage($"Cannot invoke '{method}'", () => ResolveDiagnostics.ExplainMethod(typeResolver, method, resolveOptions ?? ResolveOptions.Default)));
 
             return invoker();
         }
@@ -271,7 +271,7 @@ namespace Sight.IoC
             resolveOptions.IsAsync = true;
 
             if (!typeResolver.TryResolveInvoker(method, instance, resolveOptions, out var invoker))
-                throw new IoCException($"Cannot invoke '{method}' with current state");
+                throw new IoCException(ResolveDiagnostics.BuildMessage($"Cannot invoke '{method}'", () => ResolveDiagnostics.ExplainMethod(typeResolver, method, resolveOptions ?? ResolveOptions.Default)));
 
             return (Task<object?>)invoker()!;
         }
@@ -338,7 +338,10 @@ namespace Sight.IoC
 
             static void RegisterTypeImpl(ITypeContainer typeContainer, Type type, Type[] asTypes, string? name, Func<Type, Type> typeResolver, Func<Type, bool> predicate, Func<Type, object> resolver, Action<Type, object>? onResolved)
             {
-                typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate));
+                typeContainer.Register(new Registration(asTypes, ResolveDelegate, name, ResolvePredicate)
+                {
+                    Explainer = (t, options, stack) => ResolveDiagnostics.ExplainAutoCreate(typeContainer, typeResolver(t), options, stack)
+                });
 
                 bool ResolvePredicate(Type t, ResolveOptions options)
                 {
@@ -354,7 +357,7 @@ namespace Sight.IoC
 
                     var instance = TypeResolver.TryCreateActivator(typeContainer, resolvedType, options, out var activator)
                         ? activator()
-                        : throw new IoCException($"Cannot auto resolve '{type}'");
+                        : throw new IoCException(ResolveDiagnostics.BuildMessage($"Cannot auto resolve '{ResolveDiagnostics.GetTypeName(resolvedType)}'", () => ResolveDiagnostics.ExplainAutoCreate(typeContainer, resolvedType, options)));
                     onResolved?.Invoke(resolvedType, instance);
                     return instance;
                 }
@@ -461,7 +464,17 @@ namespace Sight.IoC
             {
                 var dependencyOptions = GetDependencyOptions(options);
                 return dependencies.All(x => typeContainer.IsResolvable(x, dependencyOptions));
-            }));
+            })
+            {
+                Explainer = (_, options, stack) =>
+                {
+                    var dependencyOptions = GetDependencyOptions(options);
+                    return dependencies
+                        .Where(x => !typeContainer.IsResolvable(x, dependencyOptions))
+                        .Select(x => new ResolveFailure($"Dependency {ResolveDiagnostics.Describe(x)} cannot be resolved", ResolveDiagnostics.ExplainIdentifier(typeContainer, x, dependencyOptions)))
+                        .ToArray();
+                }
+            });
         }
 
         /// <summary>

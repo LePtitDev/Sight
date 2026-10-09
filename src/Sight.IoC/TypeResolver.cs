@@ -210,7 +210,7 @@ namespace Sight.IoC
             return typeResolver.SafeGetRegistrations().Where(x => IsRegistrationFor(typeResolver, x, identifier) && (!resolveOptions.IsOptional || IsRegistrationResolvable(x, identifier, resolveOptions))).Select(x => ResolveFromProvider(identifier.Type, resolveOptions, x.Resolver)).ToArray();
         }
 
-        private static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier)
+        internal static bool IsRegistrationFor(ITypeResolver typeResolver, Registration registration, RegistrationId identifier)
         {
             return typeResolver.Predicate?.Invoke(registration, identifier) ?? registration.Types.Contains(identifier.Type) && (identifier.Name == null || string.Equals(registration.Name, identifier.Name));
         }
@@ -307,16 +307,21 @@ namespace Sight.IoC
             }
         }
 
-        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, [NotNullWhen(true)] out Func<object?>? activator)
+        internal static ResolveOptions CreateParameterOptions(ResolveOptions resolveOptions)
         {
-            var parameters = new List<object?>();
-            var parameterInfos = method.GetParameters();
-            var parameterResolveOptions = new ResolveOptions
+            return new ResolveOptions
             {
                 AutoResolve = resolveOptions.AutoWiring,
                 AutoWiring = resolveOptions.AutoWiring,
                 IsAsync = resolveOptions.IsAsync
             };
+        }
+
+        private static bool TryCreateInvoker(ITypeResolver typeResolver, MethodBase method, ResolveOptions resolveOptions, Func<object?[], object?> invoker, [NotNullWhen(true)] out Func<object?>? activator)
+        {
+            var parameters = new List<object?>();
+            var parameterInfos = method.GetParameters();
+            var parameterResolveOptions = CreateParameterOptions(resolveOptions);
 
             foreach (var parameter in parameterInfos)
             {

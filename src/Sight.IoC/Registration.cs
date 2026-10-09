@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Sight.IoC.Internal;
 
 namespace Sight.IoC
 {
@@ -43,6 +44,11 @@ namespace Sight.IoC
         /// Resolution predicate (optional)
         /// </summary>
         public ResolvePredicate? Predicate { get; }
+
+        /// <summary>
+        /// Explain why the registration is not resolvable (used for exception messages only)
+        /// </summary>
+        internal Func<Type, ResolveOptions, List<Type>, IReadOnlyList<ResolveFailure>>? Explainer { get; set; }
 
         /// <inheritdoc />
         public override string ToString()
