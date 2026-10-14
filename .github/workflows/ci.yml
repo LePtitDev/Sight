@@ -58,7 +58,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Download Artifacts (NuGet Packages)
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: nuget
           path: ${{ env.CI_NUGET_OUTPUT }}
