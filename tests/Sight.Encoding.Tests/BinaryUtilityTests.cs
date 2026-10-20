@@ -3,6 +3,8 @@ using Sight.Encoding.Internal;
 
 namespace Sight.Encoding.Tests;
 
+#pragma warning disable CS0618 // Legacy API kept for compatibility
+
 public class BinaryUtilityTests
 {
     #region ReverseEndianness
@@ -1293,6 +1295,86 @@ public class BinaryUtilityTests
 
         var union = new DoubleToUInt64Union { UInt64 = 0b1010_0101__0100_1110__1001_0110__0110_0010__0101_1010__1011_0001__0110_1001__1001_1101 };
         Assert.AreEqual(union.Double, BinaryUtility.ReadDoubleFromStream(buffer, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadInt8FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(1, stream => BinaryUtility.ReadInt8FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadUInt8FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(1, stream => BinaryUtility.ReadUInt8FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadInt16FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(2, stream => BinaryUtility.ReadInt16FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadUInt16FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(2, stream => BinaryUtility.ReadUInt16FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadInt32FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(4, stream => BinaryUtility.ReadInt32FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadUInt32FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(4, stream => BinaryUtility.ReadUInt32FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadInt64FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(8, stream => BinaryUtility.ReadInt64FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadUInt64FromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(8, stream => BinaryUtility.ReadUInt64FromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadSingleFromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(4, stream => BinaryUtility.ReadSingleFromStream(stream, littleEndian: littleEndian));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadDoubleFromTruncatedStream(bool littleEndian)
+    {
+        AssertThrowsOnTruncatedStream(8, stream => BinaryUtility.ReadDoubleFromStream(stream, littleEndian: littleEndian));
+    }
+
+    private static void AssertThrowsOnTruncatedStream<T>(int size, Func<Stream, T> read)
+    {
+        // Every length shorter than the value size must fail, including an empty stream
+        for (var length = 0; length < size; length++)
+        {
+            var stream = new MemoryStream(new byte[length]);
+            Assert.Throws<EndOfStreamException>(() => read(stream), $"Length {length} should not be readable");
+        }
     }
 
     #endregion
