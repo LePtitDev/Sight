@@ -81,9 +81,9 @@ public class TypeResolver : ITypeResolver
             {
                 var genericType = type.GetGenericTypeDefinition();
                 var genericIdentifier = new RegistrationId(genericType) { Name = identifier.Name };
-                if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out item))
+                if (dictionary.TryGetLast(x => IsRegistrationFor(this, x, genericIdentifier) && IsRegistrationResolvable(x, identifier, resolveOptions), out var genericItem))
                 {
-                    activator = () => ResolveFromProvider(type, resolveOptions, item.Resolver);
+                    activator = () => ResolveFromProvider(type, resolveOptions, genericItem.Resolver);
                     return true;
                 }
             }

@@ -33,6 +33,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Sight.Encoding.Tests/Sight.Encoding.Tests.csproj" />
     <Project Path="tests/Sight.IoC.Tests/Sight.IoC.Tests.csproj" />
+    <Project Path="tests/Sight.Linq.Tests/Sight.Linq.Tests.csproj" />
     <Project Path="tests/Sight.Serialization.Tests/Sight.Serialization.Tests.csproj" />
     <Project Path="tests/Sight.Tokenize.Tests/Sight.Tokenize.Tests.csproj" />
   </Folder>
