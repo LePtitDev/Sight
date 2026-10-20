@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using Sight.Tokenize.Tokens;
 
-namespace Sight.Tokenize.Parsing;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Describe the result of a parsing operation

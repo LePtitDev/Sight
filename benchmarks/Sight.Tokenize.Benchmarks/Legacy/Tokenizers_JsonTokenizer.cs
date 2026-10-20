@@ -1,13 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Sight.Tokenize.Helpers;
-using Sight.Tokenize.Parsing;
-using Sight.Tokenize.Tokens;
 
-namespace Sight.Tokenize.Tokenizers;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Tokenizer that parse JSON documents

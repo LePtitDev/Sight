@@ -1,4 +1,4 @@
-﻿namespace Sight.Tokenize.Tokens;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Describe a token as symbol

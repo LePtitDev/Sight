@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
-using Sight.Tokenize.Parsing;
 
-namespace Sight.Tokenize.Helpers;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 internal static class StreamHelpers
 {

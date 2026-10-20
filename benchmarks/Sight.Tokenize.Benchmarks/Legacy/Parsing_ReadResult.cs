@@ -1,4 +1,4 @@
-﻿namespace Sight.Tokenize.Parsing;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Describe the result of a text reading operation

@@ -1,9 +1,8 @@
-﻿using System.IO;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Sight.Tokenize.Parsing;
 
-namespace Sight.Tokenize;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Define extension methods for an ITokenizer

@@ -1,8 +1,7 @@
-﻿using System.IO;
+using System.IO;
 using System.Threading.Tasks;
-using Sight.Tokenize.Parsing;
 
-namespace Sight.Tokenize;
+namespace Sight.Tokenize.Benchmarks.Legacy;
 
 /// <summary>
 /// Describe a document parser
