@@ -60,6 +60,9 @@ internal static class SchemaPrinter
                     if (definition.Base != null)
                         builder.Append(" : ").Append(definition.Base.GetName(schema));
 
+                    if (definition.IsPositional)
+                        builder.Append(" @positional");
+
                     if (definition.Fields.Count == 0)
                     {
                         builder.Append(" {}\n");
@@ -84,6 +87,11 @@ internal static class SchemaPrinter
                     }
 
                     builder.Append(linePrefix).Append("}\n");
+                    break;
+                case AliasDefinition definition:
+                    builder.Append(linePrefix).Append("type ").Append(definition.Name).Append(" = ");
+                    definition.Target.Append(builder, schema);
+                    builder.Append('\n');
                     break;
             }
         }

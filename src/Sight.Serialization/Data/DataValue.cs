@@ -82,6 +82,11 @@ public abstract class DataValue
     public virtual string AsString() => throw InvalidAccess(nameof(AsString));
 
     /// <summary>
+    /// Get the content of a <c>list&lt;u8&gt;</c> (<c>bytes</c>): the stored bytes when the list was created or read from bytes, a copy otherwise
+    /// </summary>
+    public virtual ReadOnlyMemory<byte> AsBytes() => throw InvalidAccess(nameof(AsBytes));
+
+    /// <summary>
     /// Get the value as a signed 32-bit integer
     /// </summary>
     public int AsInt32() => checked((int)AsInt64());
@@ -92,7 +97,7 @@ public abstract class DataValue
     public float AsSingle() => (float)AsDouble();
 
     /// <summary>
-    /// Create a value from a CLR primitive (bool, number, string), or return it if it is already a <see cref="DataValue"/>
+    /// Create a value from a CLR primitive (bool, number, string, byte array), or return it if it is already a <see cref="DataValue"/>
     /// </summary>
     public static DataValue From(object? value) => value switch
     {
@@ -110,11 +115,13 @@ public abstract class DataValue
         float v => v,
         double v => v,
         string v => v,
+        byte[] v => v,
         _ => throw new ArgumentException($"Cannot convert {value.GetType()} to a data value", nameof(value)),
     };
 
 #pragma warning disable CS1591
     public static implicit operator DataValue(bool value) => DataScalar.FromBoolean(value);
+    public static implicit operator DataValue(byte[] value) => new DataList(value);
     public static implicit operator DataValue(byte value) => DataScalar.FromUInt64(TypeKind.U8, value);
     public static implicit operator DataValue(sbyte value) => DataScalar.FromInt64(TypeKind.S8, value);
     public static implicit operator DataValue(ushort value) => DataScalar.FromUInt64(TypeKind.U16, value);

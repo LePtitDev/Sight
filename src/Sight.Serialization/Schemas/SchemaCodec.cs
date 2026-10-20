@@ -49,6 +49,11 @@ internal static class SchemaCodec
             {
                 StructDefinition definition => StructToData(schema, definition),
                 EnumDefinition definition => EnumToData(definition),
+                AliasDefinition definition => new DataStruct(CoreSchema.AliasDef)
+                {
+                    ["name"] = definition.Name,
+                    ["target"] = TypeToData(schema, definition.Target),
+                },
                 _ => throw new InvalidOperationException(),
             });
         }
@@ -118,6 +123,7 @@ internal static class SchemaCodec
             ["name"] = definition.Name,
             ["base"] = definition.Base != null ? (uint)schema.GetLocalIndex(definition.Base) : DataValue.Null,
             ["isAbstract"] = definition.IsAbstract,
+            ["isPositional"] = definition.IsPositional,
         };
 
         var fields = new DataList(TypeReference.Of(CoreSchema.Field));
@@ -160,6 +166,17 @@ internal static class SchemaCodec
     {
         var flags = (byte)((type.IsNullable ? 1 : 0) | (type.IsFixed ? 2 : 0));
         var args = new DataList(TypeReference.Of(CoreSchema.TypeRef));
+        if (type.Alias != null)
+        {
+            return new DataStruct(CoreSchema.TypeRef)
+            {
+                ["kind"] = new DataEnum(CoreSchema.Kind.FindValue(CoreSchema.AliasKind)!),
+                ["flags"] = flags,
+                ["index"] = (uint)schema.GetLocalIndex(type.Alias),
+                ["args"] = args,
+            };
+        }
+
         if (type.Kind == TypeKind.List)
         {
             args.Add(TypeToData(schema, type.ElementType!));
@@ -190,7 +207,13 @@ internal static class SchemaCodec
             var name = type["name"].AsString();
             if (ReferenceEquals(type.Definition, CoreSchema.StructDef))
             {
-                declared.Add((schema.AddStruct(name, null, type["isAbstract"].AsBoolean()), type));
+                var definition = schema.AddStruct(name, null, type["isAbstract"].AsBoolean());
+                definition.IsPositional = type["isPositional"].AsBoolean();
+                declared.Add((definition, type));
+            }
+            else if (ReferenceEquals(type.Definition, CoreSchema.AliasDef))
+            {
+                declared.Add((schema.AddUnresolvedAlias(name), type));
             }
             else
             {
@@ -208,7 +231,24 @@ internal static class SchemaCodec
 
         var local = schema.LocalTypes;
 
-        // Second pass: bases and fields
+        // Second pass: alias targets, resolved on demand since an alias may refer to another one declared later
+        var aliases = declared.Where(x => x.Definition is AliasDefinition).ToDictionary(x => (AliasDefinition)x.Definition, x => x.Data);
+        var resolving = new HashSet<AliasDefinition>();
+        foreach (var alias in aliases.Keys)
+            ResolveAlias(alias);
+
+        void ResolveAlias(AliasDefinition alias)
+        {
+            if (alias.IsResolved)
+                return;
+
+            if (!resolving.Add(alias))
+                throw new SerializationException($"Cyclic type alias '{alias.QualifiedName}'");
+
+            alias.Resolve(TypeFromData(local, (DataStruct)aliases[alias]["target"], ResolveAlias));
+        }
+
+        // Third pass: bases and fields
         foreach (var (definition, data) in declared)
         {
             if (definition is not StructDefinition structDefinition)
@@ -219,7 +259,7 @@ internal static class SchemaCodec
 
             foreach (DataStruct field in (DataList)data["fields"])
             {
-                var fieldType = TypeFromData(local, (DataStruct)field["type"]);
+                var fieldType = TypeFromData(local, (DataStruct)field["type"], ResolveAlias);
                 var defaultValue = field["default"];
                 structDefinition.AddField(
                     field["name"].AsString(),
@@ -230,7 +270,7 @@ internal static class SchemaCodec
         }
     }
 
-    private static TypeReference TypeFromData(IReadOnlyList<TypeDefinition> local, DataStruct data)
+    private static TypeReference TypeFromData(IReadOnlyList<TypeDefinition> local, DataStruct data, Action<AliasDefinition> resolveAlias)
     {
         var kind = ToKind(data["kind"]);
         var flags = (byte)data["flags"].AsUInt64();
@@ -242,6 +282,14 @@ internal static class SchemaCodec
         TypeReference type;
         switch (kind)
         {
+            case (TypeKind)CoreSchema.AliasKind:
+                if (index.IsNull || args.Count != 0)
+                    throw new SerializationException("Invalid alias type reference");
+
+                var alias = GetLocal(local, index.AsUInt64()) as AliasDefinition ?? throw new SerializationException($"Type index {index} is not a type alias");
+                resolveAlias(alias);
+                type = TypeReference.Of(alias);
+                break;
             case TypeKind.Enum:
             case TypeKind.Struct:
             case TypeKind.Ref:
@@ -257,7 +305,7 @@ internal static class SchemaCodec
                     _ => TypeReference.Of(definition),
                 };
 
-                if ((kind == TypeKind.Enum) != (definition is EnumDefinition))
+                if ((kind == TypeKind.Enum) != (definition is EnumDefinition) || definition is AliasDefinition)
                     throw new SerializationException($"Type index {index} does not match kind {kind}");
 
                 break;
@@ -265,13 +313,13 @@ internal static class SchemaCodec
                 if (!index.IsNull || args.Count != 1)
                     throw new SerializationException("Invalid list type reference");
 
-                type = TypeReference.List(TypeFromData(local, (DataStruct)args[0]));
+                type = TypeReference.List(TypeFromData(local, (DataStruct)args[0], resolveAlias));
                 break;
             case TypeKind.Map:
                 if (!index.IsNull || args.Count != 2)
                     throw new SerializationException("Invalid map type reference");
 
-                type = TypeReference.Map(TypeFromData(local, (DataStruct)args[0]), TypeFromData(local, (DataStruct)args[1]));
+                type = TypeReference.Map(TypeFromData(local, (DataStruct)args[0], resolveAlias), TypeFromData(local, (DataStruct)args[1], resolveAlias));
                 break;
             case TypeKind.Null:
                 throw new SerializationException("null is not a declarable type");

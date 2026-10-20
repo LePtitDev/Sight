@@ -95,7 +95,7 @@ internal sealed class TypedWriter
                 WriteEnum(type.Enum!.Definition, type.Enum.ToSchemaValue(value));
                 break;
             case ClrShape.ByteArray:
-                var bytes = (byte[])value;
+                var bytes = GetBytes(value);
                 _encoder.WriteVarUInt((ulong)bytes.Length);
                 _encoder.WriteBytes(bytes);
                 break;
@@ -120,8 +120,20 @@ internal sealed class TypedWriter
             case ClrShape.Any:
                 WriteAny(value);
                 break;
+            case ClrShape.Converted:
+                WriteValue(type.Surrogate!, type.SurrogateConverter!.ToSurrogate(value));
+                break;
         }
     }
+
+    private static ReadOnlySpan<byte> GetBytes(object value) => value switch
+    {
+        byte[] bytes => bytes,
+        ReadOnlyMemory<byte> memory => memory.Span,
+        Memory<byte> memory => memory.Span,
+        ArraySegment<byte> segment => segment.AsSpan(),
+        _ => throw new InvalidCastException($"'{value.GetType()}' is not a byte buffer"),
+    };
 
     public void WriteEnum(EnumDefinition definition, long value)
     {
@@ -255,11 +267,12 @@ internal sealed class TypedWriter
         _encoder.WriteVarUInt((ulong)collection.Count);
         if (element.SchemaType.Kind == TypeKind.Bool && !element.SchemaType.IsNullable)
         {
+            var converter = element.Shape == ClrShape.Converted ? element.SurrogateConverter : null;
             byte current = 0;
             var index = 0;
             foreach (var item in collection)
             {
-                if ((bool)item!)
+                if ((bool)(converter != null ? converter.ToSurrogate(item!) : item)!)
                     current |= (byte)(1 << (index & 7));
 
                 if ((index & 7) == 7)
@@ -393,7 +406,8 @@ internal sealed class TypedWriter
         {
             case DataValue:
                 throw Error("data values cannot be stored in typed objects");
-            case byte[] bytes:
+            case byte[] or ReadOnlyMemory<byte> or Memory<byte> or ArraySegment<byte>:
+                var bytes = GetBytes(value);
                 _encoder.WriteByte((byte)TypeKind.List);
                 _encoder.WriteByte((byte)TypeKind.U8);
                 _encoder.WriteVarUInt((ulong)bytes.Length);
@@ -445,6 +459,14 @@ internal sealed class TypedWriter
             _encoder.WriteByte((byte)TypeKind.Struct);
             _encoder.WriteVarUInt((ulong)_table.IndexOf(structInfo.Definition));
             WriteStructBody(structInfo, value);
+            return;
+        }
+
+        // Converted types are stored as their surrogate (read back as the surrogate)
+        var converter = ClrModelBuilder.FindConverter(type);
+        if (converter != null)
+        {
+            WriteAny(converter.ToSurrogate(value) ?? throw Error($"converter of '{type}' returned null"));
             return;
         }
 

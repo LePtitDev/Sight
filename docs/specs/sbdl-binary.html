@@ -137,7 +137,7 @@ td code { white-space: nowrap; }
   <dl class="meta"><div><dt>Format</dt><dd>Sight Bundle, binary encoding (<code>.sbdl</code>)</dd></div><div><dt>Format version</dt><dd>1</dd></div><div><dt>Date</dt><dd>2026-10-20</dd></div><div><dt>Companion document</dt><dd><a href="sbdl-text.html">SBDL Text Format Specification</a></dd></div></dl>
 </div></header>
 <div class="layout">
-  <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="l2"><a href="#1-introduction"><span class="num">1.</span> Introduction</a></li><li class="l3"><a href="#1-1-conventions"><span class="num">1.1</span> Conventions</a></li><li class="l3"><a href="#1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts</a></li><li class="l2"><a href="#2-overview"><span class="num">2.</span> Overview</a></li><li class="l2"><a href="#3-data-model"><span class="num">3.</span> Data model</a></li><li class="l3"><a href="#3-1-types"><span class="num">3.1</span> Types</a></li><li class="l3"><a href="#3-2-values"><span class="num">3.2</span> Values</a></li><li class="l3"><a href="#3-3-identifiers"><span class="num">3.3</span> Identifiers</a></li><li class="l2"><a href="#4-schema-model"><span class="num">4.</span> Schema model</a></li><li class="l3"><a href="#4-1-schema"><span class="num">4.1</span> Schema</a></li><li class="l3"><a href="#4-2-struct-definition"><span class="num">4.2</span> Struct definition</a></li><li class="l3"><a href="#4-3-enum-definition"><span class="num">4.3</span> Enum definition</a></li><li class="l3"><a href="#4-4-type-tables"><span class="num">4.4</span> Type tables</a></li><li class="l3"><a href="#4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code></a></li><li class="l3"><a href="#4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash</a></li><li class="l3"><a href="#4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files</a></li><li class="l2"><a href="#5-primitive-encodings"><span class="num">5.</span> Primitive encodings</a></li><li class="l3"><a href="#5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)</a></li><li class="l3"><a href="#5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)</a></li><li class="l3"><a href="#5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values</a></li><li class="l3"><a href="#5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication</a></li><li class="l2"><a href="#6-file-structure"><span class="num">6.</span> File structure</a></li><li class="l3"><a href="#6-1-header"><span class="num">6.1</span> Header</a></li><li class="l3"><a href="#6-2-compression"><span class="num">6.2</span> Compression</a></li><li class="l3"><a href="#6-3-schema-section"><span class="num">6.3</span> Schema section</a></li><li class="l3"><a href="#6-4-body"><span class="num">6.4</span> Body</a></li><li class="l2"><a href="#7-value-encoding"><span class="num">7.</span> Value encoding</a></li><li class="l3"><a href="#7-1-scalars"><span class="num">7.1</span> Scalars</a></li><li class="l3"><a href="#7-2-nullable-values"><span class="num">7.2</span> Nullable values</a></li><li class="l3"><a href="#7-3-lists"><span class="num">7.3</span> Lists</a></li><li class="l3"><a href="#7-4-maps"><span class="num">7.4</span> Maps</a></li><li class="l3"><a href="#7-5-structs"><span class="num">7.5</span> Structs</a></li><li class="l3"><a href="#7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-8-polymorphism"><span class="num">7.8</span> Polymorphism</a></li><li class="l3"><a href="#7-9-any"><span class="num">7.9</span> Any</a></li><li class="l2"><a href="#8-writing"><span class="num">8.</span> Writing</a></li><li class="l3"><a href="#8-1-determinism"><span class="num">8.1</span> Determinism</a></li><li class="l3"><a href="#8-2-streaming"><span class="num">8.2</span> Streaming</a></li><li class="l2"><a href="#9-schema-evolution"><span class="num">9.</span> Schema evolution</a></li><li class="l3"><a href="#9-1-types"><span class="num">9.1</span> Types</a></li><li class="l3"><a href="#9-2-fields"><span class="num">9.2</span> Fields</a></li><li class="l3"><a href="#9-3-type-compatibility"><span class="num">9.3</span> Type compatibility</a></li><li class="l2"><a href="#10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources</a></li><li class="l3"><a href="#10-1-order"><span class="num">10.1</span> Order</a></li><li class="l3"><a href="#10-2-version-matching"><span class="num">10.2</span> Version matching</a></li><li class="l3"><a href="#10-3-search-paths"><span class="num">10.3</span> Search paths</a></li><li class="l2"><a href="#11-limits-and-errors"><span class="num">11.</span> Limits and errors</a></li><li class="l2"><a href="#12-example"><span class="num">12.</span> Example</a></li><li class="l2"><a href="#appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values</a></li><li class="l2"><a href="#appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers</a></li></ul></nav>
+  <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="l2"><a href="#1-introduction"><span class="num">1.</span> Introduction</a></li><li class="l3"><a href="#1-1-conventions"><span class="num">1.1</span> Conventions</a></li><li class="l3"><a href="#1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts</a></li><li class="l2"><a href="#2-overview"><span class="num">2.</span> Overview</a></li><li class="l2"><a href="#3-data-model"><span class="num">3.</span> Data model</a></li><li class="l3"><a href="#3-1-types"><span class="num">3.1</span> Types</a></li><li class="l3"><a href="#3-2-values"><span class="num">3.2</span> Values</a></li><li class="l3"><a href="#3-3-identifiers"><span class="num">3.3</span> Identifiers</a></li><li class="l2"><a href="#4-schema-model"><span class="num">4.</span> Schema model</a></li><li class="l3"><a href="#4-1-schema"><span class="num">4.1</span> Schema</a></li><li class="l3"><a href="#4-2-struct-definition"><span class="num">4.2</span> Struct definition</a></li><li class="l3"><a href="#4-3-enum-and-type-alias-definitions"><span class="num">4.3</span> Enum and type alias definitions</a></li><li class="l3"><a href="#4-4-type-tables"><span class="num">4.4</span> Type tables</a></li><li class="l3"><a href="#4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code></a></li><li class="l3"><a href="#4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash</a></li><li class="l3"><a href="#4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files</a></li><li class="l2"><a href="#5-primitive-encodings"><span class="num">5.</span> Primitive encodings</a></li><li class="l3"><a href="#5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)</a></li><li class="l3"><a href="#5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)</a></li><li class="l3"><a href="#5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values</a></li><li class="l3"><a href="#5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication</a></li><li class="l2"><a href="#6-file-structure"><span class="num">6.</span> File structure</a></li><li class="l3"><a href="#6-1-header"><span class="num">6.1</span> Header</a></li><li class="l3"><a href="#6-2-compression"><span class="num">6.2</span> Compression</a></li><li class="l3"><a href="#6-3-schema-section"><span class="num">6.3</span> Schema section</a></li><li class="l3"><a href="#6-4-body"><span class="num">6.4</span> Body</a></li><li class="l2"><a href="#7-value-encoding"><span class="num">7.</span> Value encoding</a></li><li class="l3"><a href="#7-1-scalars"><span class="num">7.1</span> Scalars</a></li><li class="l3"><a href="#7-2-nullable-values"><span class="num">7.2</span> Nullable values</a></li><li class="l3"><a href="#7-3-lists"><span class="num">7.3</span> Lists</a></li><li class="l3"><a href="#7-4-maps"><span class="num">7.4</span> Maps</a></li><li class="l3"><a href="#7-5-structs"><span class="num">7.5</span> Structs</a></li><li class="l3"><a href="#7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-8-polymorphism"><span class="num">7.8</span> Polymorphism</a></li><li class="l3"><a href="#7-9-any"><span class="num">7.9</span> Any</a></li><li class="l2"><a href="#8-writing"><span class="num">8.</span> Writing</a></li><li class="l3"><a href="#8-1-determinism"><span class="num">8.1</span> Determinism</a></li><li class="l3"><a href="#8-2-streaming"><span class="num">8.2</span> Streaming</a></li><li class="l2"><a href="#9-schema-evolution"><span class="num">9.</span> Schema evolution</a></li><li class="l3"><a href="#9-1-types"><span class="num">9.1</span> Types</a></li><li class="l3"><a href="#9-2-fields"><span class="num">9.2</span> Fields</a></li><li class="l3"><a href="#9-3-type-compatibility"><span class="num">9.3</span> Type compatibility</a></li><li class="l2"><a href="#10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources</a></li><li class="l3"><a href="#10-1-order"><span class="num">10.1</span> Order</a></li><li class="l3"><a href="#10-2-version-matching"><span class="num">10.2</span> Version matching</a></li><li class="l3"><a href="#10-3-search-paths"><span class="num">10.3</span> Search paths</a></li><li class="l2"><a href="#11-limits-and-errors"><span class="num">11.</span> Limits and errors</a></li><li class="l2"><a href="#12-example"><span class="num">12.</span> Example</a></li><li class="l2"><a href="#appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values</a></li><li class="l2"><a href="#appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers</a></li></ul></nav>
   <article>
 
 <h2 id="1-introduction"><span class="num">1.</span> Introduction<a class="anchor" href="#1-introduction" aria-label="Link to this section">#</a></h2>
@@ -262,6 +262,7 @@ td code { white-space: nowrap; }
 <li><code>T?</code> is allowed for every type except <code>any</code> (which can already hold <code>null</code>) and nullable types (<code>T??</code> is invalid).</li>
 <li><code>K</code> in <code>map&lt;K, V&gt;</code> <span class="kw">MUST</span> be <code>bool</code>, an integer type, <code>string</code> or an <code>enum</code> type, and <span class="kw">MUST NOT</span> be nullable.</li>
 <li><code>T</code> in <code>ref&lt;T&gt;</code> and <code>extref&lt;T&gt;</code> <span class="kw">MUST</span> be a struct type.</li>
+<li>A <strong>type alias</strong> (§4.3) gives a name to another type. It is not a distinct type: a position whose type is an alias has the type of its target, for every purpose (encoding, <code>any</code> values, schema evolution). <code>bytes</code>, in the text languages, is a built-in shorthand of <code>list&lt;u8&gt;</code>.</li>
 </ul>
 <h3 id="3-2-values"><span class="num">3.2</span> Values<a class="anchor" href="#3-2-values" aria-label="Link to this section">#</a></h3>
 <ul>
@@ -325,7 +326,7 @@ td code { white-space: nowrap; }
 </tr>
 <tr>
 <td><code>types</code></td>
-<td>ordered list of type definitions (structs and enums)</td>
+<td>ordered list of type definitions (structs, enums and type aliases)</td>
 </tr>
 </tbody></table></div>
 <p>Rules:</p>
@@ -359,16 +360,22 @@ td code { white-space: nowrap; }
 <td><code>fields</code></td>
 <td>ordered list of fields</td>
 </tr>
+<tr>
+<td><code>isPositional</code></td>
+<td>text writers use the positional form <code>(a, b, c)</code> for values of this struct (text specification §6.6); no effect on the binary encoding</td>
+</tr>
 </tbody></table></div>
 <p>A <strong>field</strong> has a <code>name</code>, a <code>type</code>, an optional list of <code>aliases</code> (former names, §9) and an optional <code>default</code> value.</p>
 <p>Rules:</p>
 <ul>
-<li>Inheritance <span class="kw">MUST NOT</span> be cyclic. A base <span class="kw">MUST</span> be a struct.</li>
+<li>Inheritance <span class="kw">MUST NOT</span> be cyclic. A base <span class="kw">MUST</span> be a struct (not a type alias).</li>
 <li>Field names, including inherited ones, <span class="kw">MUST</span> be unique within a struct. An alias <span class="kw">MUST NOT</span> equal another field&#39;s name.</li>
 <li>A field <span class="kw">MAY</span> have a default only if its type is <code>bool</code>, an integer, a float, <code>string</code> or an enum, and is not nullable. The default <span class="kw">MUST</span> be a valid value of the field type.</li>
 <li>The <strong>field sequence</strong> of a struct is the fields of its root-most base first, then each derived level in order, ending with its own fields.</li>
+<li>A positional struct <span class="kw">MUST NOT</span> be abstract, and its field sequence <span class="kw">MUST</span> be non-empty and only contain fields whose type is <code>bool</code>, an integer, a float, <code>string</code> or an enum, not nullable (possibly through type aliases).</li>
 </ul>
-<h3 id="4-3-enum-definition"><span class="num">4.3</span> Enum definition<a class="anchor" href="#4-3-enum-definition" aria-label="Link to this section">#</a></h3>
+<h3 id="4-3-enum-and-type-alias-definitions"><span class="num">4.3</span> Enum and type alias definitions<a class="anchor" href="#4-3-enum-and-type-alias-definitions" aria-label="Link to this section">#</a></h3>
+<p><strong>Enum definition</strong></p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -390,10 +397,35 @@ td code { white-space: nowrap; }
 </tr>
 </tbody></table></div>
 <p>Value names <span class="kw">MUST</span> be unique, values <span class="kw">MUST</span> be unique and <span class="kw">MUST</span> fit the underlying type.</p>
+<p><strong>Type alias definition</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>identifier</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>aliased type, any type of §3.1 (including another alias)</td>
+</tr>
+</tbody></table></div>
+<p>Rules:</p>
+<ul>
+<li>The target <span class="kw">MUST NOT</span> be nullable nor fixed. A reference to an alias <span class="kw">MAY</span> add the nullable and fixed flags, under the rules of the resolved type (<code>Color?</code>, <code>Hash @fixed</code>).</li>
+<li>Aliases <span class="kw">MUST NOT</span> be cyclic, directly or through other aliases.</li>
+<li>An alias is resolved to its target wherever its type is used: values are encoded as the target (§7), <code>any</code> descriptors describe the target (§7.9), and schema evolution compares targets (§9.3). Renaming or removing an alias, or replacing a type by an alias of it, therefore never changes the data. It does change the schema hash.</li>
+<li>The target of <code>ref&lt;T&gt;</code> and <code>extref&lt;T&gt;</code>, and the base of a struct, <span class="kw">MUST</span> be struct definitions, not aliases.</li>
+<li>Data never designates an alias: no type index of the data (§7) refers to one.</li>
+</ul>
 <h3 id="4-4-type-tables"><span class="num">4.4</span> Type tables<a class="anchor" href="#4-4-type-tables" aria-label="Link to this section">#</a></h3>
 <p><strong>File schemas.</strong> A file uses an ordered, non-empty list of schemas, its <strong>file schemas</strong> (§6.3). Several schemas are needed when the data uses types of schemas that do not import each other, typically derived types declared in an extension schema (<code>mods.Dragon</code> deriving from <code>game.Character</code>: <code>game</code> cannot import <code>mods</code> without a cycle).</p>
 <p><strong>Schema closure.</strong> The closure of a list of schemas is the ordered list obtained by a depth-first, pre-order traversal of each schema of the list in order, following <code>imports</code> in declaration order, and skipping schemas already visited (compared by name). A closure <span class="kw">MUST NOT</span> contain two schemas with the same name and different versions.</p>
-<p><strong>File type table.</strong> The type table of a file is the concatenation of the <code>types</code> lists of every schema of the closure of the file schemas, in closure order. A <strong>type index</strong> in the data (§7) is an index in this table. Any type of the table may be used by the data, including as root type.</p>
+<p><strong>File type table.</strong> The type table of a file is the concatenation of the <code>types</code> lists of every schema of the closure of the file schemas, in closure order. A <strong>type index</strong> in the data (§7) is an index in this table. Any struct or enum of the table may be used by the data, including as root type. Type aliases have an index too, but data never uses it.</p>
 <p><strong>Local type space.</strong> Inside a schema definition, type references use the <strong>local</strong> type space of that schema: its own <code>types</code>, followed by the <code>types</code> of each direct import in import order.</p>
 <p><strong>Concrete set.</strong> For a struct type <code>T</code>, the concrete set <code>C(T)</code> is <code>T</code> (if not abstract) plus every non-abstract struct deriving from <code>T</code> directly or indirectly that is present in the file type table, ordered by file type table index.</p>
 <h3 id="4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code><a class="anchor" href="#4-5-meta-schema-core" aria-label="Link to this section">#</a></h3>
@@ -406,7 +438,7 @@ enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
   S8 = 6, S16 = 7, S32 = 8, S64 = 9, F32 = 10, F64 = 11,
   String = 12, Enum = 13, List = 14, Map = 15, Struct = 16,
-  Ref = 17, ExtRef = 18, Any = 19
+  Ref = 17, ExtRef = 18, Any = 19, Alias = 20
 }
 
 struct SchemaRef {                  // 1
@@ -418,7 +450,7 @@ struct SchemaRef {                  // 1
 struct TypeRef {                    // 2
   kind:  Kind
   flags: u8                         // bit 0 nullable, bit 1 fixed, other bits 0
-  index: u32?                       // Enum, Struct, Ref, ExtRef: local type index
+  index: u32?                       // Enum, Struct, Ref, ExtRef, Alias: local type index
   args:  list&lt;TypeRef&gt;              // List: [T], Map: [K, V], otherwise empty
 }
 
@@ -427,9 +459,10 @@ abstract struct TypeDef {           // 3
 }
 
 struct StructDef : TypeDef {        // 4
-  base:       u32?                  // local type index of the parent
-  isAbstract: bool
-  fields:     list&lt;Field&gt;
+  base:         u32?                // local type index of the parent
+  isAbstract:   bool
+  fields:       list&lt;Field&gt;
+  isPositional: bool = false
 }
 
 struct EnumDef : TypeDef {          // 5
@@ -455,13 +488,20 @@ struct Schema {                     // 8
   imports: list&lt;SchemaRef&gt;
   types:   list&lt;TypeDef&gt;
 }
+
+struct AliasDef : TypeDef {         // 9
+  target: TypeRef
+}
 </code></pre>
+<p><code>C(TypeDef)</code> is <code>[StructDef, EnumDef, AliasDef]</code>: the polymorphism tags of type definitions are <code>0</code>, <code>1</code> and <code>2</code>.</p>
 <p><code>TypeRef</code> rules:</p>
 <ul>
 <li><code>Ref</code> and <code>ExtRef</code> use <code>index</code> for their target struct and have no <code>args</code>.</li>
 <li><code>Enum</code> and <code>Struct</code> use <code>index</code>; primitives, <code>String</code> and <code>Any</code> have neither <code>index</code> nor <code>args</code>.</li>
+<li><code>Alias</code> uses <code>index</code> for an <code>AliasDef</code> and has no <code>args</code>. Its <code>flags</code> are those of the reference, not of the target. <code>Alias</code> is only valid in a <code>TypeRef</code>, never in a type descriptor (§7.9).</li>
+<li>An <code>index</code> <span class="kw">MUST</span> designate a definition matching the kind: an <code>EnumDef</code> for <code>Enum</code>, a <code>StructDef</code> for <code>Struct</code>, <code>Ref</code> and <code>ExtRef</code>, an <code>AliasDef</code> for <code>Alias</code>.</li>
 <li><code>Null</code> <span class="kw">MUST NOT</span> appear in a <code>TypeRef</code>.</li>
-<li>The <strong>fixed</strong> flag is only valid on <code>U16</code>, <code>U32</code>, <code>U64</code>, <code>S16</code>, <code>S32</code>, <code>S64</code>. It changes the encoding (§7.1), not the type.</li>
+<li>The <strong>fixed</strong> flag is only valid on <code>U16</code>, <code>U32</code>, <code>U64</code>, <code>S16</code>, <code>S32</code>, <code>S64</code> (for <code>Alias</code>, on the resolved kind). It changes the encoding (§7.1), not the type.</li>
 <li><code>Field.default</code> is <code>Null</code> when the field has no default. Otherwise it <span class="kw">MUST</span> be a scalar <code>any</code> value of the field kind (e.g. <code>u16</code> for a <code>u16</code> field); for an enum field, it is the <strong>name</strong> of the enum value, as a <code>string</code> (enum values cannot be described with the <code>core</code> type table).</li>
 </ul>
 <h3 id="4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash<a class="anchor" href="#4-6-canonical-form-and-hash" aria-label="Link to this section">#</a></h3>
@@ -878,6 +918,7 @@ value             encoded per the descriptor (nothing for Null)
 <p>Rules:</p>
 <ul>
 <li>The top-level descriptor of an <code>any</code> value <span class="kw">MUST NOT</span> have the nullable bit; a null value is kind <code>Null</code>.</li>
+<li>Kind <code>Alias</code> (20) is invalid in a descriptor: a value always carries its resolved type (§4.3).</li>
 <li>A struct described by the descriptor is the <strong>exact</strong> concrete type: no polymorphism tag follows.</li>
 <li><code>Any</code> as element kind (e.g. <code>list&lt;any&gt;</code>) is allowed; each element then carries its own descriptor.</li>
 </ul>
@@ -920,7 +961,7 @@ value             encoded per the descriptor (nothing for Null)
 </tr>
 </tbody></table></div>
 <h3 id="9-3-type-compatibility"><span class="num">9.3</span> Type compatibility<a class="anchor" href="#9-3-type-compatibility" aria-label="Link to this section">#</a></h3>
-<p>A writer type converts to a reader type if:</p>
+<p>Type aliases are resolved first, on both sides (§4.3). A writer type converts to a reader type if:</p>
 <ul>
 <li>they are equal; or</li>
 <li>integer widening: <code>u8 → u16 → u32 → u64</code>, <code>s8 → s16 → s32 → s64</code>, <code>uN → sM</code> with <code>M &gt; N</code>;</li>
@@ -1051,11 +1092,11 @@ struct Point {
 </tr>
 <tr>
 <td><code>00</code></td>
-<td>polymorphism tag: <code>C(TypeDef)</code> = [StructDef, EnumDef] → StructDef</td>
+<td>polymorphism tag: <code>C(TypeDef)</code> = [StructDef, EnumDef, AliasDef] → StructDef</td>
 </tr>
 <tr>
 <td><code>00</code></td>
-<td><code>StructDef</code> presence bitmap: <code>base</code> absent</td>
+<td><code>StructDef</code> presence bitmap: <code>base</code> absent, <code>isPositional</code> equal to its default</td>
 </tr>
 <tr>
 <td><code>0A 50 6F 69 6E 74</code></td>
@@ -1174,9 +1215,15 @@ struct Point {
 <td>19</td>
 <td>Any</td>
 </tr>
+<tr>
+<td></td>
+<td></td>
+<td>20</td>
+<td>Alias (<code>TypeRef</code> only)</td>
+</tr>
 </tbody></table></div>
 <h2 id="appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers<a class="anchor" href="#appendix-b-conformance-checklist-for-readers" aria-label="Link to this section">#</a></h2>
-<p>A reader <span class="kw">MUST</span> reject: wrong magic; unknown format version; reserved flag bits or values; invalid <code>bool</code> or presence byte; invalid UTF-8; string table index out of range; enum value not declared; polymorphism tag out of range; reference to an unassigned object id; dependency index out of range; duplicate map keys, metadata keys, dependency ids or export names; non-zero unused bits in bitmaps; schema hash mismatch (Reference mode); trailing bytes; exceeded limits.</p>
+<p>A reader <span class="kw">MUST</span> reject: wrong magic; unknown format version; reserved flag bits or values; invalid <code>bool</code> or presence byte; invalid UTF-8; string table index out of range; enum value not declared; polymorphism tag out of range; <code>Alias</code> kind in a type descriptor; cyclic type aliases; reference to an unassigned object id; dependency index out of range; duplicate map keys, metadata keys, dependency ids or export names; non-zero unused bits in bitmaps; schema hash mismatch (Reference mode); trailing bytes; exceeded limits.</p>
 
   </article>
 </div>

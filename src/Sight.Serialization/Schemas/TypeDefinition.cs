@@ -6,7 +6,7 @@ using Sight.Serialization.Data;
 namespace Sight.Serialization.Schemas;
 
 /// <summary>
-/// Type declared in a schema (struct or enum)
+/// Type declared in a schema (struct, enum or type alias)
 /// </summary>
 public abstract class TypeDefinition
 {
@@ -51,6 +51,7 @@ public sealed class StructDefinition : TypeDefinition
     private FieldDefinition[]? _allFields;
     private StructDefinition? _base;
     private bool _isAbstract;
+    private bool _isPositional;
 
     internal StructDefinition(Schema schema, string name, StructDefinition? baseType, bool isAbstract)
         : base(schema, name)
@@ -82,6 +83,38 @@ public sealed class StructDefinition : TypeDefinition
         {
             Schema.EnsureMutable();
             _isAbstract = value;
+        }
+    }
+
+    /// <summary>
+    /// Indicates whether text writers use the positional form <c>(a, b, c)</c> for values of this struct
+    /// (every field of the field sequence must be a non-nullable scalar or enum)
+    /// </summary>
+    public bool IsPositional
+    {
+        get => _isPositional;
+        set
+        {
+            Schema.EnsureMutable();
+            _isPositional = value;
+        }
+    }
+
+    /// <summary>
+    /// Indicates whether values of this struct can be written in the positional form <c>(a, b, c)</c>:
+    /// every field of the field sequence is a non-nullable scalar or enum
+    /// </summary>
+    public bool AllowsPositional
+    {
+        get
+        {
+            foreach (var item in AllFields)
+            {
+                if (item.Type.IsNullable || (!item.Type.Kind.IsScalar() && item.Type.Kind != TypeKind.Enum))
+                    return false;
+            }
+
+            return AllFields.Count > 0;
         }
     }
 
@@ -318,4 +351,34 @@ public sealed class EnumValueDefinition
 
     /// <inheritdoc />
     public override string ToString() => $"{Name} = {Value}";
+}
+
+/// <summary>
+/// Type alias declared in a schema: a name given to another type, encoded exactly as its target
+/// </summary>
+public sealed class AliasDefinition : TypeDefinition
+{
+    private TypeReference? _target;
+
+    internal AliasDefinition(Schema schema, string name, TypeReference? target)
+        : base(schema, name)
+    {
+        _target = target;
+    }
+
+    /// <summary>
+    /// Aliased type (never nullable nor fixed)
+    /// </summary>
+    public TypeReference Target => _target ?? throw new InvalidOperationException($"Target of alias '{QualifiedName}' is not resolved yet");
+
+    internal bool IsResolved => _target != null;
+
+    /// <summary>
+    /// Set the target of an alias declared before it could be resolved (schema sources, compiled schemas)
+    /// </summary>
+    internal void Resolve(TypeReference target)
+    {
+        Schema.EnsureMutable();
+        _target = target;
+    }
 }

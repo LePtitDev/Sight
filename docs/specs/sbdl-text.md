@@ -52,9 +52,9 @@ QName = Ident { "." Ident }
 
 **Reserved words**, which can never be used as an identifier value (enum value, alias, anchor): `null`, `true`, `false`, `inf`, `nan`.
 
-**Type keywords**, which cannot be used as user type names: `bool`, `u8`, `u16`, `u32`, `u64`, `s8`, `s16`, `s32`, `s64`, `f32`, `f64`, `string`, `list`, `map`, `ref`, `extref`, `any`.
+**Type keywords**, which cannot be used as user type names: `bool`, `u8`, `u16`, `u32`, `u64`, `s8`, `s16`, `s32`, `s64`, `f32`, `f64`, `string`, `bytes`, `list`, `map`, `ref`, `extref`, `any`.
 
-Other words (`enum`, `struct`, `abstract`) are keywords only where the grammar expects them; they remain valid field names.
+Other words (`enum`, `struct`, `abstract`, `type`) are keywords only where the grammar expects them; they remain valid field names.
 
 ### 2.4 Literals
 
@@ -101,7 +101,7 @@ Value: `"First line\n  indented line\nLast line"`.
 
 **Base64**
 
-`b64"…"`: standard alphabet (RFC 4648 §4) with mandatory padding. Whitespace and line breaks inside the quotes are ignored. Only valid where a `list<u8>` is expected.
+`b64"…"`: standard alphabet (RFC 4648 §4) with mandatory padding. Whitespace and line breaks inside the quotes are ignored. Only valid where a `list<u8>` (`bytes`) is expected.
 
 ### 2.5 Punctuation
 
@@ -123,7 +123,7 @@ Items of a list, map or struct body, enum values and directives are separated by
 
 Two additional line-sensitive rules:
 
-- A **type prefix** (§6.4) and the `{` that follows it MUST be on the same line.
+- A **type prefix** (§6.4) and the `{` or `(` that follows it MUST be on the same line. So MUST an **explicit type** and the value that follows it (§6.5).
 - A **directive** (§5.1) starts at the beginning of a line (after optional whitespace) and ends at the end of that line, except for a `{ … }` block, which may span several lines.
 
 ---
@@ -135,15 +135,18 @@ Shared by the schema language and the data format:
 ```
 Type      = BaseType [ "?" ]
 BaseType  = "bool" | "u8" | "u16" | "u32" | "u64" | "s8" | "s16" | "s32" | "s64"
-          | "f32" | "f64" | "string" | "any"
+          | "f32" | "f64" | "string" | "bytes" | "any"
           | "list" "<" Type ">"
           | "map" "<" Type "," Type ">"
           | "ref" "<" QName ">"
           | "extref" "<" QName ">"
-          | QName                               // enum or struct
+          | QName                               // enum, struct or type alias
 ```
 
-Constraints of the data model apply (binary spec §3.1): no `any?`, map keys restricted, `ref`/`extref` targets are structs.
+- `bytes` is a shorthand of `list<u8>`: both denote the same type, and `bytes?` is `list<u8>?`.
+- A type alias denotes its target (binary spec §4.3): `Color?` with `type Color = u32` is `u32?`.
+
+Constraints of the data model apply (binary spec §3.1): no `any?`, map keys restricted, `ref`/`extref` targets are structs (not aliases).
 
 **Type name resolution in a schema.** An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one import, it is ambiguous and MUST be qualified. A qualified name is `<prefix>.<type name>`, where the prefix is an import alias (§4.2) or a schema name (`assets.Texture`).
 
@@ -162,13 +165,14 @@ SchemaDirective = "@id" ( QName | String )
             | "@version" Decimal
             | "@meta" ( Ident | String ) "=" String
             | "@import" [ Ident "=" ] QName Decimal [ Hex ]
-TypeDecl    = EnumDecl | StructDecl
+TypeDecl    = EnumDecl | StructDecl | AliasDecl
 
 EnumDecl    = "enum" Ident ":" IntType "{" [ EnumValue { Sep EnumValue } [ "," ] ] "}"
 EnumValue   = Ident [ "=" Integer ]
 
-StructDecl  = [ "abstract" ] "struct" Ident [ ":" QName ]
+StructDecl  = [ "abstract" ] "struct" Ident [ ":" QName ] [ "@positional" ]
               "{" [ FieldDecl { Sep FieldDecl } [ "," ] ] "}"
+AliasDecl   = "type" Ident "=" Type
 FieldDecl   = Ident ":" Type [ "=" Literal ] { Annotation }
 Annotation  = "@fixed" | "@alias" "(" Ident { "," Ident } ")"
 ```
@@ -199,16 +203,21 @@ Mapping to `core.Schema` (binary spec §4.5):
 | type declarations | `types`, in declaration order |
 | `enum E : u8 { A, B = 5, C }` | `EnumDef`; a value without `=` is the previous value + 1, the first one defaults to 0 → `A = 0, B = 5, C = 6` |
 | `abstract struct B : A { … }` | `StructDef { base: index of A, isAbstract: true, … }` |
+| `struct V @positional { … }` | `StructDef { isPositional: true, … }` |
+| `type Color = u32` | `AliasDef { name: "Color", target: TypeRef U32 }` |
+| `x: Color` | `TypeRef { kind: Alias, index: index of Color }` |
+| `x: bytes` | `TypeRef` of `list<u8>` (`bytes` is not stored) |
 | `x: u16 = 1` | `Field.default = 1` |
 | `x: u64 @fixed` | `TypeRef.flags` bit 1 |
 | `x: T @alias(old, older)` | `Field.aliases = ["old", "older"]` |
 
 Rules:
 
-- All model rules apply (binary spec §4): unique names, acyclic inheritance, defaults restricted to scalar, string and enum types.
+- All model rules apply (binary spec §4): unique names, acyclic inheritance and aliases, defaults restricted to scalar, string and enum types, positional structs restricted to scalar and enum fields.
 - A field MUST NOT be both nullable and defaulted (`T? = v` is invalid): `null` is the implicit default of a nullable field.
-- `@fixed` is only valid on `u16`, `u32`, `u64`, `s16`, `s32`, `s64`, possibly nullable. Each annotation appears at most once per field.
-- Types may be referenced before their declaration.
+- `@fixed` is only valid on `u16`, `u32`, `u64`, `s16`, `s32`, `s64` (possibly through an alias), possibly nullable. Each annotation appears at most once per field or struct.
+- The target of a type alias MUST NOT be nullable; `@fixed` is not allowed on aliases (only on fields).
+- Types, aliases included, may be referenced before their declaration.
 - An import alias MUST be an identifier, unique among aliases, and different from the schema name and from the first segment of every imported schema name.
 
 ### 4.3 Example
@@ -222,9 +231,19 @@ Rules:
 
 enum Class : u8 { Warrior, Mage }
 
+type Color = u32                       // RGBA
+type Palette = list<Color>
+
+struct Vec3 @positional {
+  x: f32
+  y: f32
+  z: f32
+}
+
 struct Item {
   name:  string
   count: u16 = 1
+  tint:  Color = 0xFFFFFFFF
 }
 
 abstract struct Character {
@@ -243,7 +262,10 @@ struct Player {
   icon:       extref<Texture>          // resolved in assets
   hash:       u64 @fixed
   experience: s32 @alias(xp)
-  extra:      any?
+  position:   Vec3
+  colors:     Palette
+  avatar:     bytes?
+  extra:      any
 }
 ```
 
@@ -296,21 +318,25 @@ Value      = "null"
            | Scalar
            | List
            | Braced
-           | Anchor Braced
+           | Positional
+           | Anchor ( Braced | Positional )
            | Reference
            | ExtRef
            | TypedValue                          // only where the type is `any`, §6.5
 
 Scalar     = "true" | "false" | Integer | Float | String | MultiString | Base64 | EnumValue
-EnumValue  = QName                               // not followed by "{" on the same line
+EnumValue  = QName                               // not followed by a value on the same line
 List       = "[" [ Value { Sep Value } [ "," ] ] "]"
 Braced     = [ QName ] "{" [ Entry { Sep Entry } [ "," ] ] "}"
+Positional = [ QName ] "(" [ Value { Sep Value } [ "," ] ] ")"
 Entry      = Key ":" Value
 Key        = Ident | String | Integer | "true" | "false"
 Anchor     = "&" ( Ident | Decimal )
 Reference  = "*" ( Ident | Decimal )
 ExtRef     = "<" Ident [ "#" ( Ident | String ) ] ">"
 ```
+
+A name (QName) followed on the same line by `{` or `(` is a type prefix; followed on the same line by another value, it is the explicit type of a TypedValue (`Color 255`, `bytes b64"AQ=="`); otherwise it is an EnumValue (or a reserved word).
 
 The grammar is unambiguous without a schema: a document can always be parsed into a syntax tree. The schema is required to **type** the tree: it decides whether `12` is a `u8` or an `f32`, whether `{ … }` is a struct or a map, and whether `Mage` is an enum value.
 
@@ -323,10 +349,11 @@ The grammar is unambiguous without a schema: a document can always be parsed int
 | `f32`, `f64` | Float or decimal Integer literal; a suffix, if any, MUST equal the type |
 | `string` | String or MultiString |
 | enum `E` | value name of `E` (`Mage`) or qualified with the enum name (`Class.Mage`, or `game.Class.Mage`) |
-| `list<u8>` | List of integers or Base64 |
+| `list<u8>` (`bytes`) | List of integers or Base64 |
 | `list<T>` | List |
 | `map<K, V>` | Braced **without** type prefix; keys typed as `K`: String for `string`, Integer for integers, `true`/`false` for `bool`, Ident for enums |
-| struct `T` | Braced with Ident keys (field names); type prefix rules in §6.4 |
+| struct `T` | Braced with Ident keys (field names), or Positional (§6.6); type prefix rules in §6.4 |
+| type alias | any syntax accepted for its target |
 | `T?` | `null` or any syntax accepted for `T` |
 | `ref<T>` | §7.1 |
 | `extref<T>` | §7.2 |
@@ -342,10 +369,12 @@ A literal out of range for its type, or a syntax not accepted for the expected t
 
 ### 6.4 Type prefixes
 
-A struct value MAY be preceded by its type name, on the same line as `{`:
+A struct value MAY be preceded by its type name, on the same line as `{` or `(`:
 
 - **mandatory** for the root value, exports, struct values in `any`, and when the concrete type differs from the declared type (`Warrior { … }` in a `list<Character>`);
 - **optional** otherwise; if present, it MUST be the declared type or a type deriving from it. If the declared type is abstract, a prefix is always mandatory.
+
+The name of a type alias whose target is a struct is accepted as a prefix, and designates that struct. Writers always use the struct name.
 
 ### 6.5 Values of type `any`
 
@@ -360,17 +389,34 @@ The value carries its own type:
 | String, MultiString | `string` |
 | Base64 | `list<u8>` |
 | `E.Value` (qualified enum value) | enum `E` |
-| `T { … }` (mandatory prefix) | struct `T` |
+| `T { … }` or `T ( … )` (mandatory prefix) | struct `T` |
 | `[ … ]` | `list<any>` |
 | `{ … }` with String keys | `map<string, any>` |
 | `*name`, or `&name T { … }` | `ref<T>`, `T` being the concrete type of the target |
 | TypedValue: `Type Value` | the explicit `Type` |
 
 ```
-TypedValue = Type Value      // e.g. list<u8> [1, 2], map<s32, f32> { 1: 0.5 }, extref<assets.Texture> <tex>
+TypedValue = Type Value      // e.g. list<u8> [1, 2], map<s32, f32> { 1: 0.5 }, extref<assets.Texture> <tex>, Color 255
 ```
 
 An explicit type is required for any other type, e.g. `list<s32> [1, 2]`, `map<Class, u8> { Mage: 1 }` or `extref<Texture> <tex>`. An unqualified enum value or an unprefixed struct is an error in `any`.
+
+The explicit type MAY be or contain type aliases (`Color 255`, `list<Color> [1, 2]`), and enum values MAY be qualified with an alias of their enum. The value is typed with the resolved type, which is the type of the `any` value: aliases are not kept (binary spec §7.9). `Color 255` and `255u32` are the same value.
+
+### 6.6 Positional values
+
+A struct value MAY be written in positional form: its field values, in field sequence order (binary spec §4.2), between parentheses.
+
+```
+position: (1.5, 0.0, -3.0)          // Vec3 { x: 1.5, y: 0.0, z: -3.0 }
+path:     [(0, 0, 0), (1, 0, 0)]
+extra:    Vec3 (1, 2, 3)            // type prefix, as for braced values
+```
+
+- Accepted for any struct whose field sequence is non-empty and only contains non-nullable `bool`, integer, float, `string` or enum fields (possibly through aliases), whether or not it is declared `@positional`. Using it for another struct is an error.
+- Every field MUST be given, defaulted ones included: the number of values MUST equal the number of fields.
+- Each value is typed as its field (§6.2). Type prefix rules are those of braced values (§6.4); an anchor MAY precede a positional value at a reference position.
+- A positional value is a struct, never a map.
 
 ---
 
@@ -378,7 +424,7 @@ An explicit type is required for any other type, e.g. `list<s32> [1, 2]`, `map<C
 
 ### 7.1 Internal references
 
-- `&name` (anchor) is placed before an object at a `ref<T>` position, an export, or an `any` value; the object becomes referenceable.
+- `&name` (anchor) is placed before an object (braced or positional) at a `ref<T>` position, an export, or an `any` value; the object becomes referenceable.
 - `*name` refers to an anchored object. The concrete type of the target MUST be `T` or derive from `T`.
 - Anchor names are identifiers or decimal numbers, local to the document, and MUST be unique.
 - References MAY precede their anchor (forward references); every reference MUST resolve once the document is parsed.
@@ -403,14 +449,16 @@ Writers MUST produce the canonical form defined here, so that equal data gives i
 
 - `LF` line breaks, final line break, no trailing whitespace, indentation of 2 spaces per level (configurable).
 - Directives in this order: `@sbdl 1`, `@id` (if non-empty; qualified name form if valid, string otherwise), `@version` (if not 0), `@meta` (in order), `@schema` (one per file schema; in Inline mode, one block per schema of the closure), `@dep` (in order); then one blank line, the root value, and, if any, one blank line followed by the `@export` directives.
-- Schema sources: `@sgs 1`, `@id`, `@version` (if not 0), `@meta` (in order), `@import` (in order, without alias nor hash); then each type declaration preceded by one blank line, fields one per line, enum values one per line with explicit values, type names qualified by schema name when they belong to an import. Inside an inline `@schema` block, the same form without `@sgs` and indented by one level.
+- Schema sources: `@sgs 1`, `@id`, `@version` (if not 0), `@meta` (in order), `@import` (in order, without alias nor hash); then each type declaration preceded by one blank line, fields one per line, enum values one per line with explicit values, `@positional` after the base of positional structs, aliases as `type Name = Type`, `bytes` for `list<u8>`, type names qualified by schema name when they belong to an import, and type references written through their alias when they have one. Inside an inline `@schema` block, the same form without `@sgs` and indented by one level.
 - A list, map or struct is written on a **single line** if its whole representation fits within the maximum width (default 80 columns, measured from the start of the line) and contains no multi-line string: `[1, 2, 3]`, `{ name: "Potion", count: 3 }` (one space inside braces, none inside brackets). Otherwise it is written with one item per line, without commas.
 - Empty containers: `[]` and `{}`.
 
 **Values**
 
 - Struct fields in field sequence order (binary spec §4.2); fields equal to their default and null nullable fields are omitted (unless configured otherwise).
+- Values of positional structs (`isPositional`) in positional form (§6.6), always on a single line, every field included, strings in single-line form; values of other structs always braced.
 - Type prefixes only where mandatory (§6.4).
+- Explicit types of `any` values with resolved types: no aliases, `list<u8>` written `bytes`.
 - Map entries in their order; enum values unqualified unless in `any`.
 - Integers in decimal, without suffix outside `any`.
 - Floats: the shortest decimal representation that parses back to the same value (bitwise), with `.0` appended if it has neither `.` nor exponent; exponent notation (`1.5e-7`, `1e21`) when the decimal exponent is lower than −6 or greater than 20; `inf`, `-inf`, `nan`. Implementations MUST NOT rely on the .NET Framework `"R"` format, which is not round-trip safe.
@@ -431,6 +479,8 @@ Writers MUST produce the canonical form defined here, so that equal data gives i
 | Polymorphism tag | type prefix |
 | `ref` object ids | anchors |
 | `any` type descriptor | literal type, suffix or explicit type |
+| `StructDef.isPositional` | positional form of the struct values (§6.6) |
+| Type aliases | names in schemas only; data values have the resolved type |
 | Varints, fixed encoding, presence bitmap, string deduplication, packed bools | no equivalent (encoding details) |
 | Compression | no equivalent; the whole file MAY be compressed externally, but it is then no longer indexable by search paths |
 | Schema evolution (aliases, removed fields) | not applicable to text documents (§6.3); applies after conversion to binary |
@@ -464,6 +514,8 @@ Player {
   icon: <tex>
   hash: 11473521213003792385
   experience: 1200
+  position: (1.5, 0.0, -3.0)
+  colors: [4278190335, 255]
   extra: b64"AQID"
 }
 
@@ -501,7 +553,7 @@ Sep          = "," | LineBreak { LineBreak }
 (* Types *)
 IntType      = "u8" | "u16" | "u32" | "u64" | "s8" | "s16" | "s32" | "s64"
 Type         = BaseType [ "?" ]
-BaseType     = "bool" | IntType | "f32" | "f64" | "string" | "any"
+BaseType     = "bool" | IntType | "f32" | "f64" | "string" | "bytes" | "any"
              | "list" "<" Type ">" | "map" "<" Type "," Type ">"
              | "ref" "<" QName ">" | "extref" "<" QName ">" | QName
 
@@ -512,10 +564,11 @@ SchemaDirective = "@id" ( QName | String )
              | "@version" Decimal
              | "@meta" ( Ident | String ) "=" String
              | "@import" [ Ident "=" ] QName Decimal [ Hex ]
-TypeDecl     = EnumDecl | StructDecl
+TypeDecl     = EnumDecl | StructDecl | AliasDecl
 EnumDecl     = "enum" Ident ":" IntType "{" [ EnumValueDecl { Sep EnumValueDecl } [ "," ] ] "}"
 EnumValueDecl = Ident [ "=" Integer ]
-StructDecl   = [ "abstract" ] "struct" Ident [ ":" QName ] "{" [ FieldDecl { Sep FieldDecl } [ "," ] ] "}"
+StructDecl   = [ "abstract" ] "struct" Ident [ ":" QName ] [ "@positional" ] "{" [ FieldDecl { Sep FieldDecl } [ "," ] ] "}"
+AliasDecl    = "type" Ident "=" Type
 FieldDecl    = Ident ":" Type [ "=" Scalar ] { Annotation }
 Annotation   = "@fixed" | "@alias" "(" Ident { "," Ident } ")"
 
@@ -528,13 +581,14 @@ Directive    = "@id" ( QName | String )
              | "@schema" QName Decimal [ Hex ]
              | "@schema" "{" SchemaBody "}"
              | "@dep" Ident "=" ( QName | String ) Decimal
-ExportDirective = "@export" ( Ident | String ) "=" ( Reference | [ Anchor ] Braced )
+ExportDirective = "@export" ( Ident | String ) "=" ( Reference | [ Anchor ] ( Braced | Positional ) )
 
 (* Values *)
-Value        = "null" | Scalar | List | Braced | Anchor Braced | Reference | ExtRef | TypedValue
+Value        = "null" | Scalar | List | Braced | Positional | Anchor ( Braced | Positional ) | Reference | ExtRef | TypedValue
 Scalar       = "true" | "false" | Integer | Float | String | MultiString | Base64 | QName
 List         = "[" [ Value { Sep Value } [ "," ] ] "]"
 Braced       = [ QName ] "{" [ Entry { Sep Entry } [ "," ] ] "}"
+Positional   = [ QName ] "(" [ Value { Sep Value } [ "," ] ] ")"
 Entry        = Key ":" Value
 Key          = Ident | String | Integer | "true" | "false"
 Anchor       = "&" ( Ident | Decimal )
@@ -545,4 +599,4 @@ TypedValue   = Type Value
 
 ## Appendix B. Conformance checklist for readers
 
-A reader MUST reject: missing or misplaced `@sbdl` or `@sgs`; missing `@id` in a schema; unsupported format version; BOM or lone `CR`; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; unqualified enum value or unprefixed struct in `any`; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.
+A reader MUST reject: missing or misplaced `@sbdl` or `@sgs`; missing `@id` in a schema; unsupported format version; BOM or lone `CR`; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; positional value for a struct that does not allow it, or with a wrong number of values; cyclic or nullable type alias; unqualified enum value or unprefixed struct in `any`; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.

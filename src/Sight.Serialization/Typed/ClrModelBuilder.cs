@@ -19,9 +19,15 @@ internal sealed class ClrModelBuilder
     private static readonly ConcurrentDictionary<string, ClrModel> s_cache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<Type, ClrModel> s_single = new();
     private static readonly ConcurrentDictionary<(Type, Type), ClrModel> s_pairs = new();
+    private static readonly ConcurrentDictionary<Type, ISurrogateConverter?> s_typeConverters = new();
+    private static readonly Lazy<Dictionary<Type, SerializationConverterAttribute>> s_assemblyConverters = new(FindAssemblyConverters);
 
     private readonly ClrModel _model = new();
     private readonly Queue<Type> _pending = new();
+    private readonly Dictionary<MemberInfo, ISurrogateConverter?> _memberConverters = new();
+    private readonly Dictionary<Type, (string Schema, string Name)> _aliasIdentities = new();
+    private readonly Dictionary<Type, AliasDefinition> _aliases = new();
+    private readonly HashSet<Type> _converting = new();
 
     private ClrModelBuilder()
     {
@@ -107,7 +113,7 @@ internal sealed class ClrModelBuilder
             }
 
             foreach (var member in GetMembers(type))
-                DiscoverMemberType(GetMemberType(member));
+                DiscoverMemberType(GetMemberType(member), GetMemberConverter(member));
         }
 
         CreateSchemas();
@@ -158,10 +164,24 @@ internal sealed class ClrModelBuilder
             throw new SerializationException($"Type identity '{identity}' is used by '{existing}' and '{type}'");
     }
 
-    private void DiscoverMemberType(Type type)
+    private void DiscoverMemberType(Type type, ISurrogateConverter? converter = null)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
-        if (type == typeof(object) || type == typeof(string) || type == typeof(byte[]) || type.IsPrimitive || ScalarKind(type).HasValue)
+        converter ??= FindConverter(type);
+        if (converter != null)
+        {
+            if (!_converting.Add(type))
+                throw new SerializationException($"Converters of '{type}' are cyclic");
+
+            if (converter.GetType().GetCustomAttribute<SerializationTypeAttribute>(inherit: false) != null)
+                _aliasIdentities[converter.GetType()] = GetIdentity(converter.GetType());
+
+            DiscoverMemberType(converter.SurrogateType);
+            _converting.Remove(type);
+            return;
+        }
+
+        if (type == typeof(object) || type == typeof(string) || IsBytesType(type) || type.IsPrimitive || ScalarKind(type).HasValue)
             return;
 
         if (type.IsEnum)
@@ -194,7 +214,11 @@ internal sealed class ClrModelBuilder
     private void CreateSchemas()
     {
         // Schemas and definitions, sorted by name for a stable layout
-        var schemaNames = _model.Structs.Values.Select(x => x.SchemaName).Concat(_model.Enums.Values.Select(x => x.SchemaName)).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+        var schemaNames = _model.Structs.Values.Select(x => x.SchemaName)
+            .Concat(_model.Enums.Values.Select(x => x.SchemaName))
+            .Concat(_aliasIdentities.Values.Select(x => x.Schema))
+            .Distinct()
+            .OrderBy(x => x, StringComparer.Ordinal);
         foreach (var name in schemaNames)
             _model.Schemas.Add(name, new Schema(name, GetSchemaVersion(name)));
 
@@ -210,6 +234,7 @@ internal sealed class ClrModelBuilder
             {
                 case ClrTypeInfo info:
                     info.Definition = schema.AddStruct(info.Name, null, info.IsAbstract);
+                    info.Definition.IsPositional = info.Type.GetCustomAttribute<SerializationTypeAttribute>(inherit: false)?.IsPositional ?? false;
                     break;
                 case ClrEnumInfo info:
                     var underlying = ScalarKind(Enum.GetUnderlyingType(info.Type))!.Value;
@@ -263,13 +288,15 @@ internal sealed class ClrModelBuilder
         var name = member.GetCustomAttribute<SerializationFieldAttribute>()?.Name ?? CamelCase(member.Name);
         var isFixed = member.GetCustomAttribute<SerializationFixedAttribute>() != null;
         var isReference = member.GetCustomAttribute<SerializationReferenceAttribute>() != null;
-        var valueType = Map(schema, GetMemberType(member), NullabilityNode.Of(member), isReference, $"{member.DeclaringType}.{member.Name}");
+        var valueType = Map(schema, GetMemberType(member), NullabilityNode.Of(member), isReference, $"{member.DeclaringType}.{member.Name}", GetMemberConverter(member));
         if (isFixed)
         {
             if (!valueType.SchemaType.Kind.AllowsFixed())
                 throw new SerializationException($"[SerializationFixed] is not valid on '{member.DeclaringType}.{member.Name}'");
 
-            valueType.SchemaType = valueType.SchemaType.AsFixed();
+            // The surrogates of a converted value are written with the encoding of the member
+            for (var current = valueType; current != null; current = current.Surrogate)
+                current.SchemaType = current.SchemaType.AsFixed();
         }
 
         var clrMember = new ClrMember(member, name, valueType)
@@ -292,29 +319,42 @@ internal sealed class ClrModelBuilder
         return clrMember;
     }
 
-    private ClrValueType Map(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context)
+    private ClrValueType Map(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context, ISurrogateConverter? converter = null)
     {
-        var value = MapShape(schema, type, nullability, forceReference, context);
+        var value = MapShape(schema, type, nullability, forceReference, context, converter);
         value.Converter = ClrConverter.Create(value);
         return value;
     }
 
-    private ClrValueType MapShape(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context)
+    private ClrValueType MapShape(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context, ISurrogateConverter? converter)
     {
         var underlying = Nullable.GetUnderlyingType(type);
         if (underlying != null)
         {
-            var inner = Map(schema, underlying, NullabilityNode.Unknown, forceReference, context);
+            var inner = Map(schema, underlying, NullabilityNode.Unknown, forceReference, context, converter);
             var result = new ClrValueType(type, inner.Shape, inner.SchemaType.AsNullable())
             {
                 Struct = inner.Struct,
                 Enum = inner.Enum,
+                Complete = inner.Complete,
+                Surrogate = inner.Surrogate,
+                SurrogateConverter = inner.SurrogateConverter,
             };
 
             return result;
         }
 
         var nullable = !type.IsValueType && nullability.IsNullable != false;
+        converter ??= FindConverter(type);
+        if (converter != null)
+        {
+            var converted = MapConverted(schema, type, forceReference, context, converter);
+            if (nullable)
+                converted.SchemaType = converted.SchemaType.AsNullable();
+
+            return converted;
+        }
+
         ClrValueType value;
         var kind = ScalarKind(type);
         if (type == typeof(object))
@@ -331,9 +371,9 @@ internal sealed class ClrModelBuilder
             AddImport(schema, info.Definition.Schema);
             value = new ClrValueType(type, ClrShape.Enum, TypeReference.Of(info.Definition)) { Enum = info };
         }
-        else if (type == typeof(byte[]))
+        else if (IsBytesType(type))
         {
-            value = new ClrValueType(type, ClrShape.ByteArray, TypeReference.List(TypeReference.U8));
+            value = new ClrValueType(type, ClrShape.ByteArray, TypeReference.Bytes) { Complete = BytesFactory(type) };
         }
         else if (type.IsArray)
         {
@@ -412,6 +452,183 @@ internal sealed class ClrModelBuilder
             value.SchemaType = value.SchemaType.AsNullable();
 
         return value;
+    }
+
+    /// <summary>
+    /// Map a value serialized through a converter: the surrogate is mapped in place of the value, named by an alias
+    /// if the converter declares a type identity
+    /// </summary>
+    private ClrValueType MapConverted(Schema schema, Type type, bool forceReference, string context, ISurrogateConverter converter)
+    {
+        var converterType = converter.GetType();
+        var aliasSchema = _aliasIdentities.TryGetValue(converterType, out var identity) ? _model.Schemas[identity.Schema] : null;
+        if (!_converting.Add(type))
+            throw new SerializationException($"Converters of '{type}' are cyclic ({context})");
+
+        var surrogate = Map(aliasSchema ?? schema, converter.SurrogateType, NullabilityNode.Unknown, forceReference, context);
+        _converting.Remove(type);
+        surrogate.SchemaType = surrogate.SchemaType.AsNonNullable();
+
+        var schemaType = surrogate.SchemaType;
+        if (aliasSchema != null)
+        {
+            if (!_aliases.TryGetValue(converterType, out var alias))
+            {
+                if (aliasSchema.FindOwnType(identity.Name) != null)
+                    throw new SerializationException($"Type identity '{aliasSchema.Name}.{identity.Name}' of converter '{converterType}' is already used");
+
+                alias = aliasSchema.AddAlias(identity.Name, schemaType);
+                _aliases.Add(converterType, alias);
+            }
+            else if (!alias.Target.Equals(schemaType))
+            {
+                throw new SerializationException($"Converter '{converterType}' maps to {alias.Target} and {schemaType} ({context})");
+            }
+
+            AddImport(schema, aliasSchema);
+            schemaType = TypeReference.Of(alias);
+        }
+
+        return new ClrValueType(type, ClrShape.Converted, schemaType)
+        {
+            Surrogate = surrogate,
+            SurrogateConverter = converter,
+        };
+    }
+
+    /// <summary>
+    /// Converter applied to a member (<see cref="SerializationConverterAttribute"/> on the member), if any
+    /// </summary>
+    private ISurrogateConverter? GetMemberConverter(MemberInfo member)
+    {
+        if (_memberConverters.TryGetValue(member, out var converter))
+            return converter;
+
+        var attributes = member.GetCustomAttributes<SerializationConverterAttribute>().ToArray();
+        if (attributes.Length > 1)
+            throw new SerializationException($"'{member.DeclaringType}.{member.Name}' declares several converters");
+
+        if (attributes.Length == 1)
+        {
+            var type = GetMemberType(member);
+            converter = CreateConverter(attributes[0], Nullable.GetUnderlyingType(type) ?? type, $"{member.DeclaringType}.{member.Name}");
+        }
+
+        _memberConverters.Add(member, converter);
+        return converter;
+    }
+
+    /// <summary>
+    /// Converter of every value of a CLR type: declared on the type, or on a loaded assembly (cached)
+    /// </summary>
+    internal static ISurrogateConverter? FindConverter(Type type)
+    {
+        if (type.IsPrimitive || type == typeof(string) || type == typeof(object))
+            return null;
+
+        return s_typeConverters.GetOrAdd(type, x =>
+        {
+            var attributes = x.GetCustomAttributes<SerializationConverterAttribute>(inherit: false).ToArray();
+            if (attributes.Length > 1)
+                throw new SerializationException($"Type '{x}' declares several converters");
+
+            var attribute = attributes.Length == 1 ? attributes[0] : s_assemblyConverters.Value.TryGetValue(x, out var declared) ? declared : null;
+            return attribute != null ? CreateConverter(attribute, x, $"'{x}'") : null;
+        });
+    }
+
+    private static ISurrogateConverter CreateConverter(SerializationConverterAttribute attribute, Type expected, string context)
+    {
+        var (converted, _) = GetConvertedTypes(attribute.ConverterType)
+            ?? throw new SerializationException($"'{attribute.ConverterType}' does not derive from SerializationConverter<T, TSurrogate> ({context})");
+
+        if (converted != expected)
+            throw new SerializationException($"Converter '{attribute.ConverterType}' converts '{converted}', not '{expected}' ({context})");
+
+        try
+        {
+            return (ISurrogateConverter)Activator.CreateInstance(attribute.ConverterType, attribute.Arguments)!;
+        }
+        catch (Exception e) when (e is MissingMethodException or MemberAccessException or TargetInvocationException or ArgumentException)
+        {
+            var message = e is TargetInvocationException { InnerException: { } inner } ? inner.Message : e.Message;
+            throw new SerializationException($"Cannot create converter '{attribute.ConverterType}' ({context}): {message}");
+        }
+    }
+
+    /// <summary>
+    /// Type arguments of the <see cref="SerializationConverter{T, TSurrogate}"/> base of a converter type
+    /// </summary>
+    private static (Type Type, Type Surrogate)? GetConvertedTypes(Type converterType)
+    {
+        if (converterType.IsAbstract || converterType.IsGenericTypeDefinition)
+            return null;
+
+        for (var current = converterType; current != null; current = current.BaseType)
+        {
+            if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(SerializationConverter<,>))
+            {
+                var arguments = current.GetGenericArguments();
+                return (arguments[0], arguments[1]);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Converters declared with <c>[assembly: SerializationConverter(...)]</c> on the loaded assemblies, by converted type
+    /// </summary>
+    private static Dictionary<Type, SerializationConverterAttribute> FindAssemblyConverters()
+    {
+        var result = new Dictionary<Type, SerializationConverterAttribute>();
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            IEnumerable<SerializationConverterAttribute> attributes;
+            try
+            {
+                attributes = assembly.GetCustomAttributes<SerializationConverterAttribute>();
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            foreach (var attribute in attributes)
+            {
+                var (converted, _) = GetConvertedTypes(attribute.ConverterType)
+                    ?? throw new SerializationException($"'{attribute.ConverterType}' does not derive from SerializationConverter<T, TSurrogate> (assembly '{assembly.GetName().Name}')");
+
+                if (result.TryGetValue(converted, out var existing) && existing.ConverterType != attribute.ConverterType)
+                    throw new SerializationException($"Type '{converted}' has several assembly converters: '{existing.ConverterType}' and '{attribute.ConverterType}'");
+
+                result[converted] = attribute;
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsBytesType(Type type)
+    {
+        return type == typeof(byte[]) || type == typeof(ReadOnlyMemory<byte>) || type == typeof(Memory<byte>) || type == typeof(ArraySegment<byte>);
+    }
+
+    /// <summary>
+    /// Conversion of the byte array read from data to a memory type
+    /// </summary>
+    private static Func<object, object>? BytesFactory(Type type)
+    {
+        if (type == typeof(ReadOnlyMemory<byte>))
+            return bytes => new ReadOnlyMemory<byte>((byte[])bytes);
+
+        if (type == typeof(Memory<byte>))
+            return bytes => new Memory<byte>((byte[])bytes);
+
+        if (type == typeof(ArraySegment<byte>))
+            return bytes => new ArraySegment<byte>((byte[])bytes);
+
+        return null;
     }
 
     private static void AddImport(Schema schema, Schema import)

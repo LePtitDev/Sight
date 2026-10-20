@@ -26,6 +26,12 @@ public sealed class SerializationTypeAttribute : Attribute
     /// Indicates whether every use of this type is an internal reference (<c>ref&lt;T&gt;</c>): identity is preserved, cycles are allowed
     /// </summary>
     public bool IsReference { get; set; }
+
+    /// <summary>
+    /// Indicates whether values of this struct are written in positional form in text documents: <c>(1.5, 0.0, -3.0)</c>
+    /// (every serialized member must be a non-nullable scalar or enum)
+    /// </summary>
+    public bool IsPositional { get; set; }
 }
 
 /// <summary>

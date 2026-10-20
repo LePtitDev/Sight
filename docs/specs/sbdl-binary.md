@@ -83,6 +83,7 @@ Constraints:
 - `T?` is allowed for every type except `any` (which can already hold `null`) and nullable types (`T??` is invalid).
 - `K` in `map<K, V>` MUST be `bool`, an integer type, `string` or an `enum` type, and MUST NOT be nullable.
 - `T` in `ref<T>` and `extref<T>` MUST be a struct type.
+- A **type alias** (§4.3) gives a name to another type. It is not a distinct type: a position whose type is an alias has the type of its target, for every purpose (encoding, `any` values, schema evolution). `bytes`, in the text languages, is a built-in shorthand of `list<u8>`.
 
 ### 3.2 Values
 
@@ -119,7 +120,7 @@ A schema is a named, versioned set of type definitions:
 | `name` | qualified name, e.g. `game` |
 | `version` | `u32` |
 | `imports` | ordered list of `(name, version, hash)` of other schemas whose types are usable by this one |
-| `types` | ordered list of type definitions (structs and enums) |
+| `types` | ordered list of type definitions (structs, enums and type aliases) |
 
 Rules:
 
@@ -136,17 +137,21 @@ Rules:
 | `base` | optional parent struct (single inheritance) |
 | `isAbstract` | an abstract struct is never instantiated directly |
 | `fields` | ordered list of fields |
+| `isPositional` | text writers use the positional form `(a, b, c)` for values of this struct (text specification §6.6); no effect on the binary encoding |
 
 A **field** has a `name`, a `type`, an optional list of `aliases` (former names, §9) and an optional `default` value.
 
 Rules:
 
-- Inheritance MUST NOT be cyclic. A base MUST be a struct.
+- Inheritance MUST NOT be cyclic. A base MUST be a struct (not a type alias).
 - Field names, including inherited ones, MUST be unique within a struct. An alias MUST NOT equal another field's name.
 - A field MAY have a default only if its type is `bool`, an integer, a float, `string` or an enum, and is not nullable. The default MUST be a valid value of the field type.
 - The **field sequence** of a struct is the fields of its root-most base first, then each derived level in order, ending with its own fields.
+- A positional struct MUST NOT be abstract, and its field sequence MUST be non-empty and only contain fields whose type is `bool`, an integer, a float, `string` or an enum, not nullable (possibly through type aliases).
 
-### 4.3 Enum definition
+### 4.3 Enum and type alias definitions
+
+**Enum definition**
 
 | Property | Description |
 |---|---|
@@ -156,13 +161,28 @@ Rules:
 
 Value names MUST be unique, values MUST be unique and MUST fit the underlying type.
 
+**Type alias definition**
+
+| Property | Description |
+|---|---|
+| `name` | identifier |
+| `target` | aliased type, any type of §3.1 (including another alias) |
+
+Rules:
+
+- The target MUST NOT be nullable nor fixed. A reference to an alias MAY add the nullable and fixed flags, under the rules of the resolved type (`Color?`, `Hash @fixed`).
+- Aliases MUST NOT be cyclic, directly or through other aliases.
+- An alias is resolved to its target wherever its type is used: values are encoded as the target (§7), `any` descriptors describe the target (§7.9), and schema evolution compares targets (§9.3). Renaming or removing an alias, or replacing a type by an alias of it, therefore never changes the data. It does change the schema hash.
+- The target of `ref<T>` and `extref<T>`, and the base of a struct, MUST be struct definitions, not aliases.
+- Data never designates an alias: no type index of the data (§7) refers to one.
+
 ### 4.4 Type tables
 
 **File schemas.** A file uses an ordered, non-empty list of schemas, its **file schemas** (§6.3). Several schemas are needed when the data uses types of schemas that do not import each other, typically derived types declared in an extension schema (`mods.Dragon` deriving from `game.Character`: `game` cannot import `mods` without a cycle).
 
 **Schema closure.** The closure of a list of schemas is the ordered list obtained by a depth-first, pre-order traversal of each schema of the list in order, following `imports` in declaration order, and skipping schemas already visited (compared by name). A closure MUST NOT contain two schemas with the same name and different versions.
 
-**File type table.** The type table of a file is the concatenation of the `types` lists of every schema of the closure of the file schemas, in closure order. A **type index** in the data (§7) is an index in this table. Any type of the table may be used by the data, including as root type.
+**File type table.** The type table of a file is the concatenation of the `types` lists of every schema of the closure of the file schemas, in closure order. A **type index** in the data (§7) is an index in this table. Any struct or enum of the table may be used by the data, including as root type. Type aliases have an index too, but data never uses it.
 
 **Local type space.** Inside a schema definition, type references use the **local** type space of that schema: its own `types`, followed by the `types` of each direct import in import order.
 
@@ -181,7 +201,7 @@ enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
   S8 = 6, S16 = 7, S32 = 8, S64 = 9, F32 = 10, F64 = 11,
   String = 12, Enum = 13, List = 14, Map = 15, Struct = 16,
-  Ref = 17, ExtRef = 18, Any = 19
+  Ref = 17, ExtRef = 18, Any = 19, Alias = 20
 }
 
 struct SchemaRef {                  // 1
@@ -193,7 +213,7 @@ struct SchemaRef {                  // 1
 struct TypeRef {                    // 2
   kind:  Kind
   flags: u8                         // bit 0 nullable, bit 1 fixed, other bits 0
-  index: u32?                       // Enum, Struct, Ref, ExtRef: local type index
+  index: u32?                       // Enum, Struct, Ref, ExtRef, Alias: local type index
   args:  list<TypeRef>              // List: [T], Map: [K, V], otherwise empty
 }
 
@@ -202,9 +222,10 @@ abstract struct TypeDef {           // 3
 }
 
 struct StructDef : TypeDef {        // 4
-  base:       u32?                  // local type index of the parent
-  isAbstract: bool
-  fields:     list<Field>
+  base:         u32?                // local type index of the parent
+  isAbstract:   bool
+  fields:       list<Field>
+  isPositional: bool = false
 }
 
 struct EnumDef : TypeDef {          // 5
@@ -230,14 +251,22 @@ struct Schema {                     // 8
   imports: list<SchemaRef>
   types:   list<TypeDef>
 }
+
+struct AliasDef : TypeDef {         // 9
+  target: TypeRef
+}
 ```
+
+`C(TypeDef)` is `[StructDef, EnumDef, AliasDef]`: the polymorphism tags of type definitions are `0`, `1` and `2`.
 
 `TypeRef` rules:
 
 - `Ref` and `ExtRef` use `index` for their target struct and have no `args`.
 - `Enum` and `Struct` use `index`; primitives, `String` and `Any` have neither `index` nor `args`.
+- `Alias` uses `index` for an `AliasDef` and has no `args`. Its `flags` are those of the reference, not of the target. `Alias` is only valid in a `TypeRef`, never in a type descriptor (§7.9).
+- An `index` MUST designate a definition matching the kind: an `EnumDef` for `Enum`, a `StructDef` for `Struct`, `Ref` and `ExtRef`, an `AliasDef` for `Alias`.
 - `Null` MUST NOT appear in a `TypeRef`.
-- The **fixed** flag is only valid on `U16`, `U32`, `U64`, `S16`, `S32`, `S64`. It changes the encoding (§7.1), not the type.
+- The **fixed** flag is only valid on `U16`, `U32`, `U64`, `S16`, `S32`, `S64` (for `Alias`, on the resolved kind). It changes the encoding (§7.1), not the type.
 - `Field.default` is `Null` when the field has no default. Otherwise it MUST be a scalar `any` value of the field kind (e.g. `u16` for a `u16` field); for an enum field, it is the **name** of the enum value, as a `string` (enum values cannot be described with the `core` type table).
 
 ### 4.6 Canonical form and hash
@@ -484,6 +513,7 @@ value             encoded per the descriptor (nothing for Null)
 Rules:
 
 - The top-level descriptor of an `any` value MUST NOT have the nullable bit; a null value is kind `Null`.
+- Kind `Alias` (20) is invalid in a descriptor: a value always carries its resolved type (§4.3).
 - A struct described by the descriptor is the **exact** concrete type: no polymorphism tag follows.
 - `Any` as element kind (e.g. `list<any>`) is allowed; each element then carries its own descriptor.
 
@@ -526,7 +556,7 @@ For each struct, a reader field `R` matches a writer field `W` when `W.name` equ
 
 ### 9.3 Type compatibility
 
-A writer type converts to a reader type if:
+Type aliases are resolved first, on both sides (§4.3). A writer type converts to a reader type if:
 
 - they are equal; or
 - integer widening: `u8 → u16 → u32 → u64`, `s8 → s16 → s32 → s64`, `uN → sM` with `M > N`;
@@ -614,8 +644,8 @@ Value: `Point { x: 3, y: -2, label: "p" }`, id `"p"`, version 0, inline schema, 
 | `01` | `Schema.version`: 1 |
 | `00` | `Schema.imports`: empty |
 | `01` | `Schema.types`: 1 element |
-| `00` | polymorphism tag: `C(TypeDef)` = [StructDef, EnumDef] → StructDef |
-| `00` | `StructDef` presence bitmap: `base` absent |
+| `00` | polymorphism tag: `C(TypeDef)` = [StructDef, EnumDef, AliasDef] → StructDef |
+| `00` | `StructDef` presence bitmap: `base` absent, `isPositional` equal to its default |
 | `0A 50 6F 69 6E 74` | `name`: `"Point"` → string #1 |
 | `00` | `isAbstract`: false |
 | `03` | `fields`: 3 elements |
@@ -646,7 +676,8 @@ Total: 63 bytes, including the embedded schema.
 | 7 | S16 | 17 | Ref |
 | 8 | S32 | 18 | ExtRef |
 | 9 | S64 | 19 | Any |
+| | | 20 | Alias (`TypeRef` only) |
 
 ## Appendix B. Conformance checklist for readers
 
-A reader MUST reject: wrong magic; unknown format version; reserved flag bits or values; invalid `bool` or presence byte; invalid UTF-8; string table index out of range; enum value not declared; polymorphism tag out of range; reference to an unassigned object id; dependency index out of range; duplicate map keys, metadata keys, dependency ids or export names; non-zero unused bits in bitmaps; schema hash mismatch (Reference mode); trailing bytes; exceeded limits.
+A reader MUST reject: wrong magic; unknown format version; reserved flag bits or values; invalid `bool` or presence byte; invalid UTF-8; string table index out of range; enum value not declared; polymorphism tag out of range; `Alias` kind in a type descriptor; cyclic type aliases; reference to an unassigned object id; dependency index out of range; duplicate map keys, metadata keys, dependency ids or export names; non-zero unused bits in bitmaps; schema hash mismatch (Reference mode); trailing bytes; exceeded limits.

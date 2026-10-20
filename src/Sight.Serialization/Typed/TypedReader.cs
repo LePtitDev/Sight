@@ -119,6 +119,12 @@ internal sealed class TypedReader
     /// </summary>
     public object? ReadValue(TypeReference type, ClrValueType target)
     {
+        if (target.Shape == ClrShape.Converted)
+        {
+            var surrogate = ReadValue(type, target.Surrogate!) ?? throw Error($"null cannot be converted to '{target.Type}'");
+            return target.SurrogateConverter!.FromSurrogate(surrogate);
+        }
+
         switch (type.Kind)
         {
             case TypeKind.Bool:
@@ -298,7 +304,7 @@ internal sealed class TypedReader
 
             var bytes = new byte[count];
             _decoder.ReadBytes(bytes);
-            result = bytes;
+            result = target.Shape == ClrShape.ByteArray && target.Complete != null ? target.Complete(bytes) : bytes;
         }
         else if (target.Shape is ClrShape.List or ClrShape.Any)
         {
@@ -307,14 +313,16 @@ internal sealed class TypedReader
             var add = target.AddItem ?? ((collection, item) => ((List<object?>)collection).Add(item));
             if (elementType.Kind == TypeKind.Bool && !elementType.IsNullable)
             {
-                CheckScalar(TypeKind.Bool, element);
+                var converter = element.Shape == ClrShape.Converted ? element.SurrogateConverter : null;
+                CheckScalar(TypeKind.Bool, converter != null ? element.Surrogate! : element);
                 byte current = 0;
                 for (var i = 0; i < count; i++)
                 {
                     if ((i & 7) == 0)
                         current = _decoder.ReadByte();
 
-                    add(list, (current & (1 << (i & 7))) != 0);
+                    var bit = (current & (1 << (i & 7))) != 0;
+                    add(list, converter != null ? converter.FromSurrogate(bit) : bit);
                 }
 
                 if ((count & 7) != 0 && (current >> (count & 7)) != 0)

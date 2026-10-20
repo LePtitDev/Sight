@@ -378,9 +378,13 @@ internal static partial class TextFormat
         {
             if (elementType.Kind == TypeKind.U8 && !elementType.IsNullable)
             {
-                var bytes = new byte[list.Count];
-                for (var i = 0; i < bytes.Length; i++)
-                    bytes[i] = (byte)DataConvert.CoerceScalar(list[i], elementType, "list").AsUInt64();
+                var bytes = list.RawBytes;
+                if (bytes == null)
+                {
+                    bytes = new byte[list.Count];
+                    for (var i = 0; i < bytes.Length; i++)
+                        bytes[i] = (byte)DataConvert.CoerceScalar(list[i], elementType, "list").AsUInt64();
+                }
 
                 _builder.Append("b64\"").Append(Convert.ToBase64String(bytes)).Append('"');
                 return;
@@ -502,6 +506,12 @@ internal static partial class TextFormat
             if (includePrefix)
                 _builder.Append(TypeName(value.Definition)).Append(' ');
 
+            if (value.Definition.IsPositional)
+            {
+                WritePositional(value);
+                return;
+            }
+
             // One list of fields per nesting level: the fields of a struct are written at level + 1
             while (_fieldLists.Count <= level)
                 _fieldLists.Add(new List<(FieldDefinition Field, DataValue Value)>());
@@ -561,6 +571,33 @@ internal static partial class TextFormat
             }
 
             _builder.Append(Indent(level)).Append('}');
+        }
+
+        /// <summary>
+        /// Positional form: every field in field sequence order, defaults included, always on one line
+        /// </summary>
+        private void WritePositional(DataStruct value)
+        {
+            _builder.Append('(');
+            var fields = value.Definition.AllFields;
+            for (var i = 0; i < fields.Count; i++)
+            {
+                if (i > 0)
+                    _builder.Append(", ");
+
+                var field = fields[i];
+                var fieldValue = value.GetAt(i) ?? DataValue.Null;
+                if (fieldValue.IsNull)
+                    fieldValue = field.DefaultValue ?? throw new SerializationException($"Required field '{field.Name}' of '{value.Definition.QualifiedName}' is not set");
+
+                var scalar = DataConvert.CoerceScalar(fieldValue, field.Type, field.Name);
+                if (scalar is DataEnum data)
+                    _builder.Append(data.Name);
+                else
+                    TextFormatting.AppendScalar(_builder, scalar, withSuffix: false);
+            }
+
+            _builder.Append(')');
         }
 
         private void WriteStructInline(List<(FieldDefinition Field, DataValue Value)> fields, int level)
@@ -663,6 +700,8 @@ internal static partial class TextFormat
         {
             switch (type.Kind)
             {
+                case TypeKind.List when type.IsBytes:
+                    return "bytes" + (type.IsNullable ? "?" : string.Empty);
                 case TypeKind.List:
                     return "list<" + TypeText(type.ElementType!) + ">" + (type.IsNullable ? "?" : string.Empty);
                 case TypeKind.Map:
@@ -674,7 +713,7 @@ internal static partial class TextFormat
                 case TypeKind.ExtRef:
                     return type.Kind.ToKeyword() + "<" + TypeName(type.Definition!) + ">" + (type.IsNullable ? "?" : string.Empty);
                 default:
-                    return type.ToString();
+                    return type.Kind.ToKeyword() + (type.IsNullable ? "?" : string.Empty);
             }
         }
 

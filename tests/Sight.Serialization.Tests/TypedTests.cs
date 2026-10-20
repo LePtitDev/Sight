@@ -113,7 +113,7 @@ public class TypedTests
         StringAssert.Contains("guild: ref<Guild>?", text);
         StringAssert.Contains("hash: u64 @fixed", text);
         StringAssert.Contains("bonus: s32?", text);
-        StringAssert.Contains("data: list<u8>", text);
+        StringAssert.Contains("data: bytes", text);
         StringAssert.Contains("extra: any", text);
         StringAssert.Contains("icon: extref<Texture>?", text);
         StringAssert.DoesNotContain("cache", text);

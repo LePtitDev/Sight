@@ -44,6 +44,9 @@ internal static class SchemaValidator
                 case EnumDefinition definition:
                     ValidateEnum(schema, definition);
                     break;
+                case AliasDefinition definition:
+                    ValidateAlias(schema, definition, local);
+                    break;
             }
         }
     }
@@ -101,12 +104,49 @@ internal static class SchemaValidator
             if (field.DefaultValue != null && field.Type.Kind == TypeKind.Enum && field.DefaultValue is DataEnum value && !ReferenceEquals(value.Definition, field.Type.Definition))
                 throw Error(schema, $"invalid default value of '{fieldContext}'");
         }
+
+        if (definition.IsPositional)
+        {
+            if (definition.IsAbstract)
+                throw Error(schema, $"abstract struct '{context}' cannot be positional");
+
+            if (!definition.AllowsPositional)
+                throw Error(schema, $"positional struct '{context}' must have at least one field, and only non-nullable scalar or enum fields");
+        }
+    }
+
+    private static void ValidateAlias(Schema schema, AliasDefinition definition, HashSet<TypeDefinition> local)
+    {
+        var context = definition.QualifiedName;
+        if (!definition.IsResolved)
+            throw Error(schema, $"target of alias '{context}' is not resolved");
+
+        var target = definition.Target;
+        if (target.IsNullable || target.IsFixed)
+            throw Error(schema, $"target of alias '{context}' cannot be nullable nor @fixed");
+
+        if (target.Kind == TypeKind.Null)
+            throw Error(schema, $"null is not a declarable type ({context})");
+
+        ValidateType(schema, target, local, context);
     }
 
     private static void ValidateType(Schema schema, TypeReference type, HashSet<TypeDefinition> local, string context)
     {
         if (type.IsFixed && !type.Kind.AllowsFixed())
             throw Error(schema, $"@fixed is not allowed on {type.Kind.ToKeyword()} ({context})");
+
+        if (type.Alias != null)
+        {
+            if (!local.Contains(type.Alias))
+                throw Error(schema, $"type '{type.Alias.QualifiedName}' is not declared by the schema or a direct import ({context})");
+
+            // The aliased type is validated with the alias, in the scope of its own schema
+            if (type.Kind == TypeKind.Any && type.IsNullable)
+                throw Error(schema, $"any cannot be nullable ({context})");
+
+            return;
+        }
 
         switch (type.Kind)
         {

@@ -199,7 +199,11 @@ internal sealed class DataBinaryWriter
     {
         Enter(path);
         _encoder.WriteVarUInt((ulong)list.Count);
-        if (elementType.Kind == TypeKind.Bool && !elementType.IsNullable)
+        if (elementType.Kind == TypeKind.U8 && !elementType.IsNullable && list.RawBytes is { } bytes)
+        {
+            _encoder.WriteBytes(bytes);
+        }
+        else if (elementType.Kind == TypeKind.Bool && !elementType.IsNullable)
         {
             byte current = 0;
             for (var i = 0; i < list.Count; i++)

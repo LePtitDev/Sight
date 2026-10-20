@@ -200,19 +200,43 @@ internal sealed class SchemaParser
 
         _aliases = header.Aliases;
 
-        // First pass: declarations (and enum values), second pass: bases and fields
+        // First pass: declarations (and enum values), second pass: alias targets, third pass: bases and fields
         var structs = new List<(StructDefinition Definition, Token? BaseToken, string? BaseName, List<FieldSyntax> Fields)>();
+        var aliases = new Dictionary<AliasDefinition, TypeSyntax>();
         while (!_reader.IsAtEnd)
         {
             if (_reader.Current.IsIdentifier("enum"))
                 ParseEnum(schema);
             else if (_reader.Current.IsIdentifier("struct") || _reader.Current.IsIdentifier("abstract"))
                 structs.Add(ParseStruct(schema));
+            else if (_reader.Current.IsIdentifier("type"))
+                ParseAlias(schema, aliases);
             else
-                throw _reader.Error($"Expected 'enum' or 'struct', found {_reader.Current}");
+                throw _reader.Error($"Expected 'enum', 'struct' or 'type', found {_reader.Current}");
         }
 
-        TypeDefinition Resolve(string name, Token token) => ResolveType(schema, name, token);
+        // Aliases are resolved on demand: an alias may refer to another one declared later
+        var resolving = new HashSet<AliasDefinition>();
+        TypeDefinition Resolve(string name, Token token)
+        {
+            var definition = ResolveType(schema, name, token);
+            if (definition is AliasDefinition alias && !alias.IsResolved && aliases.TryGetValue(alias, out var target))
+            {
+                if (!resolving.Add(alias))
+                    throw TokenReader.Error(token, $"Cyclic type alias '{alias.Name}'");
+
+                var type = ResolveTypeSyntax(Resolve, target);
+                if (type.IsNullable)
+                    throw TokenReader.Error(target.Token, "The target of a type alias cannot be nullable");
+
+                alias.Resolve(type);
+            }
+
+            return definition;
+        }
+
+        foreach (var alias in aliases.Keys)
+            Resolve(alias.Name, aliases[alias].Token);
 
         foreach (var (definition, baseToken, baseName, fields) in structs)
         {
@@ -330,10 +354,29 @@ internal sealed class SchemaParser
         }
 
         var definition = schema.AddStruct(nameToken.Text, null, isAbstract);
+        while (_reader.Current.Kind == TokenKind.Directive && !_reader.Current.AfterNewLine)
+        {
+            var annotation = _reader.Next();
+            if (annotation.Text != "positional" || definition.IsPositional)
+                throw TokenReader.Error(annotation, $"Invalid or duplicate annotation '@{annotation.Text}'");
+
+            definition.IsPositional = true;
+        }
+
         var fields = new List<FieldSyntax>();
         _reader.Expect('{');
         _reader.ParseItems('}', () => fields.Add(ParseField()));
         return (definition, baseToken, baseName, fields);
+    }
+
+    private void ParseAlias(Schema schema, Dictionary<AliasDefinition, TypeSyntax> aliases)
+    {
+        _reader.ExpectIdentifier("type");
+        var nameToken = _reader.ExpectIdentifier();
+        CheckTypeName(schema, nameToken);
+        _reader.Expect('=');
+        var target = ParseTypeSyntax(_reader);
+        aliases.Add(schema.AddUnresolvedAlias(nameToken.Text), target);
     }
 
     private FieldSyntax ParseField()
@@ -442,6 +485,9 @@ internal sealed class SchemaParser
                 var target = resolve(syntax.Arguments[0].Name, syntax.Arguments[0].Token) as StructDefinition
                     ?? throw TokenReader.Error(syntax.Arguments[0].Token, $"{syntax.Name} target must be a struct");
                 type = syntax.Name == "ref" ? TypeReference.Ref(target) : TypeReference.ExtRef(target);
+                break;
+            case "bytes":
+                type = TypeReference.Bytes;
                 break;
             default:
                 var primitive = ParsePrimitive(syntax.Name);

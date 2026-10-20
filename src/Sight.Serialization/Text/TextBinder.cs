@@ -31,17 +31,17 @@ internal sealed class TextBinder
     /// </summary>
     public DataStruct BindTopLevel(SyntaxNode node)
     {
-        var (braced, anchor) = node switch
+        var (prefixed, anchor) = node switch
         {
-            BracedNode b => (b, (string?)null),
+            PrefixedNode p => (p, (string?)null),
             AnchorNode a => (a.Value, a.Name),
             _ => throw Error(node, "Expected a struct value with a type prefix"),
         };
 
-        if (braced.TypeName == null)
+        if (prefixed.TypeName == null)
             throw Error(node, "A type prefix is mandatory here");
 
-        var type = ResolveStruct(braced.TypeName, node);
+        var type = ResolveStruct(prefixed.TypeName, node);
         if (type.IsAbstract)
             throw Error(node, $"Cannot instantiate abstract struct '{type.QualifiedName}'");
 
@@ -49,7 +49,7 @@ internal sealed class TextBinder
         if (anchor != null)
             RegisterAnchor(anchor, value, node);
 
-        BindFields(braced, value);
+        BindContent(prefixed, value);
         return value;
     }
 
@@ -127,7 +127,7 @@ internal sealed class TextBinder
                 if (node is AnchorNode)
                     throw Error(node, "An anchor is only allowed at a reference position");
 
-                return BindStruct(node as BracedNode ?? throw Error(node, $"Expected a struct value of type '{type.StructDefinition!.QualifiedName}'"), type.StructDefinition!);
+                return BindStruct(node as PrefixedNode ?? throw Error(node, $"Expected a struct value of type '{type.StructDefinition!.QualifiedName}'"), type.StructDefinition!);
             case TypeKind.Ref:
                 return BindRef(node, type.StructDefinition!);
             case TypeKind.ExtRef:
@@ -159,7 +159,7 @@ internal sealed class TextBinder
             if (base64.Token.Value!.Length % 4 != 0)
                 throw Error(node, "Invalid Base64 literal (padding is mandatory)");
 
-            return new DataList(bytes.Select(x => (DataValue)x), elementType);
+            return new DataList(bytes, elementType);
         }
 
         if (node is not ListNode listNode)
@@ -229,7 +229,7 @@ internal sealed class TextBinder
         throw TokenReader.Error(key, $"Invalid key {key} for type {keyType}");
     }
 
-    private DataStruct BindStruct(BracedNode node, StructDefinition declared)
+    private DataStruct BindStruct(PrefixedNode node, StructDefinition declared)
     {
         var type = declared;
         if (node.TypeName != null)
@@ -243,8 +243,33 @@ internal sealed class TextBinder
             throw Error(node, $"A type prefix is mandatory: '{type.QualifiedName}' is abstract");
 
         var value = new DataStruct(type);
-        BindFields(node, value);
+        BindContent(node, value);
         return value;
+    }
+
+    private void BindContent(PrefixedNode node, DataStruct value)
+    {
+        if (node is PositionalNode positional)
+            BindPositional(positional, value);
+        else
+            BindFields((BracedNode)node, value);
+    }
+
+    private void BindPositional(PositionalNode node, DataStruct value)
+    {
+        var definition = value.Definition;
+        if (!definition.AllowsPositional)
+            throw Error(node, $"Struct '{definition.QualifiedName}' cannot be written in positional form (only non-nullable scalar or enum fields)");
+
+        var fields = definition.AllFields;
+        if (node.Items.Count != fields.Count)
+            throw Error(node, $"Struct '{definition.QualifiedName}' has {fields.Count} fields, {node.Items.Count} values are given");
+
+        Enter(node);
+        for (var i = 0; i < fields.Count; i++)
+            value[fields[i].Name] = Bind(node.Items[i], fields[i].Type);
+
+        _depth--;
     }
 
     private void BindFields(BracedNode node, DataStruct value)
@@ -300,8 +325,8 @@ internal sealed class TextBinder
                 var anchored = BindStruct(anchor.Value, declared);
                 RegisterAnchor(anchor.Name, anchored, node);
                 return anchored;
-            case BracedNode braced:
-                return BindStruct(braced, declared);
+            case PrefixedNode prefixed:
+                return BindStruct(prefixed, declared);
             default:
                 throw Error(node, $"Expected a reference or a struct value of type '{declared.QualifiedName}'");
         }
@@ -342,7 +367,12 @@ internal sealed class TextBinder
                     throw Error(node, $"Enum value '{name.Name}' must be qualified with its type in 'any'");
 
                 var enumName = name.Name.Substring(0, separator);
-                var definition = ResolveType(enumName, node) as EnumDefinition ?? throw Error(node, $"'{enumName}' is not an enum");
+                var definition = ResolveType(enumName, node) switch
+                {
+                    EnumDefinition enumDefinition => enumDefinition,
+                    AliasDefinition { Target.Kind: TypeKind.Enum } alias => alias.Target.EnumDefinition!,
+                    _ => throw Error(node, $"'{enumName}' is not an enum"),
+                };
                 return new DataEnum(definition.FindValue(name.Name.Substring(separator + 1)) ?? throw Error(node, $"Enum '{definition.QualifiedName}' has no value '{name.Name.Substring(separator + 1)}'"));
             case LiteralNode literal:
                 return literal.Token.Kind switch
@@ -364,6 +394,17 @@ internal sealed class TextBinder
                 var value = new DataStruct(type);
                 BindFields(braced, value);
                 return value;
+            case PositionalNode positional:
+                if (positional.TypeName == null)
+                    throw Error(node, "A type prefix is mandatory in 'any'");
+
+                var positionalType = ResolveStruct(positional.TypeName, node);
+                if (positionalType.IsAbstract)
+                    throw Error(node, $"Cannot instantiate abstract struct '{positionalType.QualifiedName}'");
+
+                var positionalValue = new DataStruct(positionalType);
+                BindPositional(positional, positionalValue);
+                return positionalValue;
             case AnchorNode anchor:
                 if (anchor.Value.TypeName == null)
                     throw Error(node, "A type prefix is mandatory in 'any'");
@@ -414,7 +455,12 @@ internal sealed class TextBinder
 
     private StructDefinition ResolveStruct(string name, SyntaxNode node)
     {
-        return ResolveType(name, node) as StructDefinition ?? throw Error(node, $"'{name}' is not a struct");
+        return ResolveType(name, node) switch
+        {
+            StructDefinition definition => definition,
+            AliasDefinition { Target.Kind: TypeKind.Struct } alias => alias.Target.StructDefinition!,
+            _ => throw Error(node, $"'{name}' is not a struct"),
+        };
     }
 
     private TypeDefinition ResolveType(string name, SyntaxNode node)

@@ -17,6 +17,9 @@ internal static class ClrConvert
         if (value.IsNull)
             return null;
 
+        if (target.Shape == ClrShape.Converted)
+            return target.SurrogateConverter!.FromSurrogate(FromData(value, target.Surrogate!) ?? throw new SerializationException($"null cannot be converted to '{target.Type}'"));
+
         switch (value)
         {
             case DataEnum data:

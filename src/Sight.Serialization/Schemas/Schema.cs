@@ -121,6 +121,28 @@ public sealed partial class Schema
     }
 
     /// <summary>
+    /// Declare a new type alias
+    /// </summary>
+    public AliasDefinition AddAlias(string name, TypeReference target)
+    {
+        EnsureMutable();
+        var definition = new AliasDefinition(this, name, target ?? throw new ArgumentNullException(nameof(target)));
+        _types.Add(definition);
+        return definition;
+    }
+
+    /// <summary>
+    /// Declare a type alias whose target is resolved later (<see cref="AliasDefinition.Resolve"/>)
+    /// </summary>
+    internal AliasDefinition AddUnresolvedAlias(string name)
+    {
+        EnsureMutable();
+        var definition = new AliasDefinition(this, name, null);
+        _types.Add(definition);
+        return definition;
+    }
+
+    /// <summary>
     /// Find a type by name: qualified (<c>schema.Type</c>), or unqualified in this schema then in its direct imports
     /// </summary>
     /// <exception cref="SerializationException">The unqualified name is ambiguous</exception>

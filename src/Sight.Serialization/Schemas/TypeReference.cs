@@ -8,7 +8,7 @@ namespace Sight.Serialization.Schemas;
 /// </summary>
 public sealed class TypeReference : IEquatable<TypeReference>
 {
-    private TypeReference(TypeKind kind, bool isNullable, bool isFixed, TypeDefinition? definition, TypeReference? first, TypeReference? second)
+    private TypeReference(TypeKind kind, bool isNullable, bool isFixed, TypeDefinition? definition, TypeReference? first, TypeReference? second, AliasDefinition? alias = null)
     {
         Kind = kind;
         IsNullable = isNullable;
@@ -16,6 +16,7 @@ public sealed class TypeReference : IEquatable<TypeReference>
         Definition = definition;
         First = first;
         Second = second;
+        Alias = alias;
     }
 
     /// <summary>
@@ -79,6 +80,11 @@ public sealed class TypeReference : IEquatable<TypeReference>
     public static TypeReference String { get; } = Primitive(TypeKind.String);
 
     /// <summary>
+    /// <c>bytes</c> type: shorthand of <c>list&lt;u8&gt;</c>
+    /// </summary>
+    public static TypeReference Bytes { get; } = List(U8);
+
+    /// <summary>
     /// <c>any</c> type
     /// </summary>
     public static TypeReference Any { get; } = Primitive(TypeKind.Any);
@@ -108,6 +114,16 @@ public sealed class TypeReference : IEquatable<TypeReference>
     /// <see cref="TypeKind.Ref"/> and <see cref="TypeKind.ExtRef"/>)
     /// </summary>
     public TypeDefinition? Definition { get; }
+
+    /// <summary>
+    /// Type alias through which the type is referenced, if any: the other properties describe the aliased type
+    /// </summary>
+    public AliasDefinition? Alias { get; }
+
+    /// <summary>
+    /// Indicates whether the type is <c>list&lt;u8&gt;</c> (<c>bytes</c>)
+    /// </summary>
+    public bool IsBytes => Kind == TypeKind.List && First!.Kind == TypeKind.U8 && !First.IsNullable;
 
     /// <summary>
     /// Struct definition, if the type refers to one
@@ -150,10 +166,16 @@ public sealed class TypeReference : IEquatable<TypeReference>
     }
 
     /// <summary>
-    /// Create a reference to an enum or a struct
+    /// Create a reference to an enum, a struct or a type alias
     /// </summary>
     public static TypeReference Of(TypeDefinition definition)
     {
+        if (definition is AliasDefinition alias)
+        {
+            var target = alias.Target;
+            return new TypeReference(target.Kind, false, false, target.Definition, target.First, target.Second, alias);
+        }
+
         var kind = definition is EnumDefinition ? TypeKind.Enum : TypeKind.Struct;
         return new TypeReference(kind, false, false, definition, null, null);
     }
@@ -193,12 +215,12 @@ public sealed class TypeReference : IEquatable<TypeReference>
     /// <summary>
     /// Get the nullable version of this type
     /// </summary>
-    public TypeReference AsNullable() => IsNullable ? this : new TypeReference(Kind, true, IsFixed, Definition, First, Second);
+    public TypeReference AsNullable() => IsNullable ? this : new TypeReference(Kind, true, IsFixed, Definition, First, Second, Alias);
 
     /// <summary>
     /// Get the non-nullable version of this type
     /// </summary>
-    public TypeReference AsNonNullable() => !IsNullable ? this : new TypeReference(Kind, false, IsFixed, Definition, First, Second);
+    public TypeReference AsNonNullable() => !IsNullable ? this : new TypeReference(Kind, false, IsFixed, Definition, First, Second, Alias);
 
     /// <summary>
     /// Get the fixed-width version of this integer type
@@ -208,15 +230,30 @@ public sealed class TypeReference : IEquatable<TypeReference>
         if (!Kind.AllowsFixed())
             throw new InvalidOperationException($"Fixed encoding is not allowed on {Kind}");
 
-        return IsFixed ? this : new TypeReference(Kind, IsNullable, true, Definition, First, Second);
+        return IsFixed ? this : new TypeReference(Kind, IsNullable, true, Definition, First, Second, Alias);
     }
 
-    internal TypeReference AsNonFixed() => IsFixed ? new TypeReference(Kind, IsNullable, false, Definition, First, Second) : this;
+    internal TypeReference AsNonFixed() => IsFixed ? new TypeReference(Kind, IsNullable, false, Definition, First, Second, Alias) : this;
+
+    /// <summary>
+    /// Get the same type without aliases (at any depth), as described in <c>any</c> values
+    /// </summary>
+    public TypeReference WithoutAliases()
+    {
+        var first = First?.WithoutAliases();
+        var second = Second?.WithoutAliases();
+        if (Alias == null && ReferenceEquals(first, First) && ReferenceEquals(second, Second))
+            return this;
+
+        return new TypeReference(Kind, IsNullable, IsFixed, Definition, first, second);
+    }
 
     internal TypeReference WithFlags(bool isNullable, bool isFixed) =>
-        isNullable == IsNullable && isFixed == IsFixed ? this : new TypeReference(Kind, isNullable, isFixed, Definition, First, Second);
+        isNullable == IsNullable && isFixed == IsFixed ? this : new TypeReference(Kind, isNullable, isFixed, Definition, First, Second, Alias);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Structural equality: aliases are ignored
+    /// </summary>
     public bool Equals(TypeReference? other)
     {
         if (ReferenceEquals(this, other))
@@ -266,6 +303,24 @@ public sealed class TypeReference : IEquatable<TypeReference>
 
     internal void Append(StringBuilder builder, Schema? context)
     {
+        if (Alias != null)
+        {
+            builder.Append(Alias.GetName(context));
+            if (IsNullable)
+                builder.Append('?');
+
+            return;
+        }
+
+        if (IsBytes)
+        {
+            builder.Append("bytes");
+            if (IsNullable)
+                builder.Append('?');
+
+            return;
+        }
+
         switch (Kind)
         {
             case TypeKind.Enum:

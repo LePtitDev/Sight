@@ -155,7 +155,7 @@ public class SchemaTests
     public void CoreSchemaHashIsZero()
     {
         Assert.AreEqual(0UL, Schema.Core.Hash);
-        Assert.AreEqual(9, Schema.Core.Types.Count);
+        Assert.AreEqual(10, Schema.Core.Types.Count);
         Assert.AreEqual("Schema", Schema.Core.Types[8].Name);
     }
 }

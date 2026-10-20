@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Sight.Serialization.Internal;
 
 namespace Sight.Serialization.Text;
 
@@ -51,24 +52,48 @@ internal sealed class ListNode : SyntaxNode
 }
 
 /// <summary>
-/// <c>[Type] { key: value, ... }</c>: struct or map
+/// Value with an optional type prefix: braced (struct or map) or positional (struct)
 /// </summary>
-internal sealed class BracedNode : SyntaxNode
+internal abstract class PrefixedNode : SyntaxNode
 {
-    public BracedNode(Token token, string? typeName)
+    protected PrefixedNode(Token token, string? typeName)
         : base(token)
     {
         TypeName = typeName;
     }
 
     public string? TypeName { get; }
+}
+
+/// <summary>
+/// <c>[Type] { key: value, ... }</c>: struct or map
+/// </summary>
+internal sealed class BracedNode : PrefixedNode
+{
+    public BracedNode(Token token, string? typeName)
+        : base(token, typeName)
+    {
+    }
 
     public List<KeyValuePair<Token, SyntaxNode>> Entries { get; } = new();
 }
 
+/// <summary>
+/// <c>[Type] ( value, ... )</c>: struct whose fields are given in field sequence order
+/// </summary>
+internal sealed class PositionalNode : PrefixedNode
+{
+    public PositionalNode(Token token, string? typeName)
+        : base(token, typeName)
+    {
+    }
+
+    public List<SyntaxNode> Items { get; } = new();
+}
+
 internal sealed class AnchorNode : SyntaxNode
 {
-    public AnchorNode(Token token, string name, BracedNode value)
+    public AnchorNode(Token token, string name, PrefixedNode value)
         : base(token)
     {
         Name = name;
@@ -77,7 +102,7 @@ internal sealed class AnchorNode : SyntaxNode
 
     public string Name { get; }
 
-    public BracedNode Value { get; }
+    public PrefixedNode Value { get; }
 }
 
 internal sealed class ReferenceNode : SyntaxNode
@@ -145,8 +170,19 @@ internal static class ValueParser
                 }
 
                 var name = reader.ExpectQualifiedName();
-                if (reader.Current.Is('{') && reader.Current.Line == token.Line)
+                var next = reader.Current;
+                if (next.Line != token.Line || next.AfterNewLine)
+                    return new NameNode(token, name);
+
+                if (next.Is('{'))
                     return ParseBraced(reader, token, name);
+
+                if (next.Is('('))
+                    return ParsePositional(reader, token, name);
+
+                // Explicit type followed by its value on the same line (any positions): `Color 0xFF8040FF`, `bytes b64"..."`
+                if (StartsValue(next) && !Names.ReservedWords.Contains(name))
+                    return new TypedNode(token, new TypeSyntax(token, name), ParseValue(reader));
 
                 return new NameNode(token, name);
             case TokenKind.Punctuation:
@@ -156,6 +192,8 @@ internal static class ValueParser
                         return ParseList(reader);
                     case '{':
                         return ParseBraced(reader, token, null);
+                    case '(':
+                        return ParsePositional(reader, token, null);
                     case '&':
                         reader.Next();
                         var anchor = ParseAnchorName(reader);
@@ -164,9 +202,12 @@ internal static class ValueParser
                         if (valueToken.Kind == TokenKind.Identifier)
                         {
                             typeName = reader.ExpectQualifiedName();
-                            if (!reader.Current.Is('{') || reader.Current.Line != valueToken.Line)
-                                throw reader.Error("Expected '{' after the type prefix, on the same line");
+                            if (!(reader.Current.Is('{') || reader.Current.Is('(')) || reader.Current.Line != valueToken.Line)
+                                throw reader.Error("Expected '{' or '(' after the type prefix, on the same line");
                         }
+
+                        if (reader.Current.Is('('))
+                            return new AnchorNode(token, anchor, ParsePositional(reader, valueToken, typeName));
 
                         if (!reader.Current.Is('{'))
                             throw reader.Error("An anchor must be followed by a struct value");
@@ -226,6 +267,27 @@ internal static class ValueParser
         var node = new ListNode(reader.Expect('['));
         reader.ParseItems(']', () => node.Items.Add(ParseValue(reader)));
         return node;
+    }
+
+    private static PositionalNode ParsePositional(TokenReader reader, Token token, string? typeName)
+    {
+        reader.Expect('(');
+        var node = new PositionalNode(token, typeName);
+        reader.ParseItems(')', () => node.Items.Add(ParseValue(reader)));
+        return node;
+    }
+
+    /// <summary>
+    /// Indicates whether a token can start a value (after an explicit type)
+    /// </summary>
+    private static bool StartsValue(Token token)
+    {
+        return token.Kind switch
+        {
+            TokenKind.Number or TokenKind.String or TokenKind.Base64 or TokenKind.Identifier => true,
+            TokenKind.Punctuation => token.Text[0] is '[' or '<' or '*' or '&',
+            _ => false,
+        };
     }
 
     private static BracedNode ParseBraced(TokenReader reader, Token token, string? typeName)

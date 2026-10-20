@@ -6,11 +6,12 @@ using Sight.Serialization.Schemas;
 namespace Sight.Serialization.Data;
 
 /// <summary>
-/// List value
+/// List value; a list of <c>u8</c> created from bytes stores them as a byte array until it is modified
 /// </summary>
 public sealed class DataList : DataValue, IList<DataValue>
 {
-    private readonly List<DataValue> _items;
+    private List<DataValue>? _items;
+    private byte[]? _bytes;
 
     /// <summary>
     /// Initialize a new instance of <see cref="DataList"/>
@@ -32,6 +33,21 @@ public sealed class DataList : DataValue, IList<DataValue>
     }
 
     /// <summary>
+    /// Initialize a new instance of <see cref="DataList"/> holding bytes (<c>list&lt;u8&gt;</c>), without copying them
+    /// </summary>
+    /// <param name="bytes">Content of the list, owned by the list from now on</param>
+    /// <param name="elementType">Element type: <c>u8</c> (default), possibly through an alias</param>
+    public DataList(byte[] bytes, TypeReference? elementType = null)
+    {
+        elementType ??= TypeReference.U8;
+        if (elementType.Kind != TypeKind.U8 || elementType.IsNullable)
+            throw new ArgumentException($"A list created from bytes must have u8 elements, not {elementType}", nameof(elementType));
+
+        ElementType = elementType;
+        _bytes = bytes ?? throw new ArgumentNullException(nameof(bytes));
+    }
+
+    /// <summary>
     /// Element type, if known
     /// </summary>
     public TypeReference? ElementType { get; set; }
@@ -40,46 +56,118 @@ public sealed class DataList : DataValue, IList<DataValue>
     public override TypeKind Kind => TypeKind.List;
 
     /// <inheritdoc cref="DataValue.Count" />
-    public override int Count => _items.Count;
+    public override int Count => _bytes?.Length ?? _items!.Count;
 
     /// <inheritdoc />
     public bool IsReadOnly => false;
 
+    /// <summary>
+    /// Bytes stored without conversion to values (lists read or created from bytes), otherwise <c>null</c>
+    /// </summary>
+    internal byte[]? RawBytes => _bytes;
+
     /// <inheritdoc cref="DataValue.this[int]" />
     public override DataValue this[int index]
     {
-        get => _items[index];
-        set => _items[index] = value ?? Null;
+        get => _bytes != null ? DataScalar.FromUInt64(TypeKind.U8, _bytes[index]) : _items![index];
+        set => Items[index] = value ?? Null;
+    }
+
+    private List<DataValue> Items
+    {
+        get
+        {
+            if (_bytes != null)
+            {
+                _items = new List<DataValue>(_bytes.Length);
+                foreach (var item in _bytes)
+                    _items.Add(DataScalar.FromUInt64(TypeKind.U8, item));
+
+                _bytes = null;
+            }
+
+            return _items!;
+        }
     }
 
     /// <inheritdoc />
-    public void Add(DataValue item) => _items.Add(item ?? Null);
+    public override ReadOnlyMemory<byte> AsBytes()
+    {
+        if (_bytes != null)
+            return _bytes;
+
+        var bytes = new byte[_items!.Count];
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            var item = _items[i];
+            if (item.Kind is not TypeKind.U8 and not TypeKind.U16 and not TypeKind.U32 and not TypeKind.U64 and not TypeKind.S8 and not TypeKind.S16 and not TypeKind.S32 and not TypeKind.S64)
+                throw new InvalidOperationException($"Item {i} of the list is not an integer ({item.Kind})");
+
+            var value = item.AsInt64();
+            if (value is < 0 or > byte.MaxValue)
+                throw new InvalidOperationException($"Item {i} of the list is out of range for u8 ({value})");
+
+            bytes[i] = (byte)value;
+        }
+
+        return bytes;
+    }
 
     /// <inheritdoc />
-    public void Clear() => _items.Clear();
+    public void Add(DataValue item) => Items.Add(item ?? Null);
 
     /// <inheritdoc />
-    public bool Contains(DataValue item) => _items.Contains(item);
+    public void Clear() => Items.Clear();
 
     /// <inheritdoc />
-    public void CopyTo(DataValue[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+    public bool Contains(DataValue item) => IndexOf(item) >= 0;
 
     /// <inheritdoc />
-    public int IndexOf(DataValue item) => _items.IndexOf(item);
+    public void CopyTo(DataValue[] array, int arrayIndex)
+    {
+        for (var i = 0; i < Count; i++)
+            array[arrayIndex + i] = this[i];
+    }
 
     /// <inheritdoc />
-    public void Insert(int index, DataValue item) => _items.Insert(index, item ?? Null);
+    public int IndexOf(DataValue item) => _bytes != null ? IndexOfByte(item) : _items!.IndexOf(item);
 
     /// <inheritdoc />
-    public bool Remove(DataValue item) => _items.Remove(item);
+    public void Insert(int index, DataValue item) => Items.Insert(index, item ?? Null);
 
     /// <inheritdoc />
-    public void RemoveAt(int index) => _items.RemoveAt(index);
+    public bool Remove(DataValue item) => Items.Remove(item);
 
     /// <inheritdoc />
-    public IEnumerator<DataValue> GetEnumerator() => _items.GetEnumerator();
+    public void RemoveAt(int index) => Items.RemoveAt(index);
+
+    /// <inheritdoc />
+    public IEnumerator<DataValue> GetEnumerator()
+    {
+        if (_items != null)
+            return _items.GetEnumerator();
+
+        return EnumerateBytes(_bytes!);
+    }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    private static IEnumerator<DataValue> EnumerateBytes(byte[] bytes)
+    {
+        foreach (var item in bytes)
+            yield return DataScalar.FromUInt64(TypeKind.U8, item);
+    }
+
+    private int IndexOfByte(DataValue item)
+    {
+        for (var i = 0; i < _bytes!.Length; i++)
+        {
+            if (this[i].Equals(item))
+                return i;
+        }
+
+        return -1;
+    }
 }
 
 /// <summary>

@@ -173,6 +173,14 @@ internal sealed class DataBinaryReader
     {
         Enter();
         var count = ReadCount();
+        if (elementType.Kind == TypeKind.U8 && !elementType.IsNullable)
+        {
+            var bytes = new byte[count];
+            _decoder.ReadBytes(bytes);
+            _depth--;
+            return new DataList(bytes, elementType);
+        }
+
         var list = new DataList(elementType);
         if (elementType.Kind == TypeKind.Bool && !elementType.IsNullable)
         {

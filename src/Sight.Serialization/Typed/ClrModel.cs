@@ -19,6 +19,11 @@ internal enum ClrShape
     Struct,
     ExtRef,
     Any,
+
+    /// <summary>
+    /// Value serialized as a surrogate (<see cref="SerializationConverter{T, TSurrogate}"/>)
+    /// </summary>
+    Converted,
 }
 
 /// <summary>
@@ -68,9 +73,19 @@ internal sealed class ClrValueType
     public Action<object, object?>? AddItem { get; set; }
 
     /// <summary>
-    /// Converts a list being read to the final value (arrays)
+    /// Converts a list being read to the final value (arrays), or a byte array to the final value (memory types)
     /// </summary>
     public Func<object, object>? Complete { get; set; }
+
+    /// <summary>
+    /// Value position of the surrogate of a converted value
+    /// </summary>
+    public ClrValueType? Surrogate { get; set; }
+
+    /// <summary>
+    /// Converter of a converted value
+    /// </summary>
+    public ISurrogateConverter? SurrogateConverter { get; set; }
 
     /// <summary>
     /// Target type of an <see cref="ExternalRef{T}"/>
