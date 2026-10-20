@@ -15,6 +15,7 @@
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Sight.IoC.Benchmarks/Sight.IoC.Benchmarks.csproj" />
+    <Project Path="benchmarks/Sight.Serialization.Benchmarks/Sight.Serialization.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Sight.Logging.Sample/Sight.Logging.Sample.csproj" />

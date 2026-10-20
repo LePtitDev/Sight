@@ -4,7 +4,6 @@
 |---|---|
 | **Format** | Sight Bundle, binary encoding (`.sbdl`) |
 | **Format version** | 1 |
-| **Document status** | Final, to be implemented |
 | **Date** | 2026-10-20 |
 | **Companion document** | [SBDL Text Format Specification](sbdl-text.md) |
 

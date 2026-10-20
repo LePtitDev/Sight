@@ -235,6 +235,45 @@ public sealed class BinaryDecoder : IDisposable
     }
 
     /// <summary>
+    /// Number of deduplicated strings read so far
+    /// </summary>
+    internal int DedupStringCount => _strings.Count;
+
+    /// <summary>
+    /// Deduplicated strings read since an index of the string table
+    /// </summary>
+    internal string[] GetDedupStrings(int start) => _strings.GetRange(start, _strings.Count - start).ToArray();
+
+    /// <summary>
+    /// Register strings as if they had been read, in order (decoder state after a cached prefix)
+    /// </summary>
+    internal void AddDedupStrings(IEnumerable<string> strings) => _strings.AddRange(strings);
+
+    /// <summary>
+    /// Consume the next bytes if they are equal to <paramref name="expected"/>; nothing is consumed otherwise
+    /// </summary>
+    internal bool TrySkipMatching(ReadOnlySpan<byte> expected)
+    {
+        if (!TryEnsure(expected.Length) || !new ReadOnlySpan<byte>(_buffer, _position, expected.Length).SequenceEqual(expected))
+            return false;
+
+        _position += expected.Length;
+        return true;
+    }
+
+    /// <summary>
+    /// Bytes read since a position, if they are still buffered
+    /// </summary>
+    internal byte[]? GetBytesReadSince(long position)
+    {
+        var start = position - _consumed;
+        if (start < 0 || start > _position)
+            return null;
+
+        return new ReadOnlySpan<byte>(_buffer, (int)start, _position - (int)start).ToArray();
+    }
+
+    /// <summary>
     /// Get a stream returning the remaining unread bytes (buffered ones first, then the underlying stream)
     /// </summary>
     public Stream GetRemainingStream()

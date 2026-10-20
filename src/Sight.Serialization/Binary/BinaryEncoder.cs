@@ -152,6 +152,32 @@ public sealed class BinaryEncoder : IDisposable
     }
 
     /// <summary>
+    /// Set bits of a byte already written (presence bitmaps completed after the values)
+    /// </summary>
+    internal void SetBits(int position, byte mask) => _buffer[position] |= mask;
+
+    /// <summary>
+    /// Register strings as if they had been written, in order (encoder state after a cached prefix)
+    /// </summary>
+    internal void AddDedupStrings(IReadOnlyList<string> strings)
+    {
+        foreach (var value in strings)
+            _strings.Add(value, _strings.Count);
+    }
+
+    /// <summary>
+    /// Deduplicated strings written so far, in order
+    /// </summary>
+    internal string[] GetDedupStrings()
+    {
+        var strings = new string[_strings.Count];
+        foreach (var entry in _strings)
+            strings[entry.Value] = entry.Key;
+
+        return strings;
+    }
+
+    /// <summary>
     /// Copy written bytes into a stream
     /// </summary>
     public void CopyTo(Stream stream) => stream.Write(_buffer, 0, _length);

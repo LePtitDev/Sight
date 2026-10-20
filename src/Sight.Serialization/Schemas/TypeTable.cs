@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Sight.Serialization.Schemas;
 
@@ -8,9 +11,15 @@ namespace Sight.Serialization.Schemas;
 /// </summary>
 internal sealed class TypeTable
 {
+    private const int MaxCachedTables = 8;
+
+    // Tables of frozen schema lists, by first schema
+    private static readonly ConditionalWeakTable<Schema, List<(Schema[] Schemas, TypeTable Table)>> s_cache = new();
+
     private readonly Dictionary<TypeDefinition, int> _indexes = new();
-    private readonly Dictionary<StructDefinition, StructDefinition[]> _concreteSets = new();
+    private readonly ConcurrentDictionary<StructDefinition, StructDefinition[]> _concreteSets = new();
     private readonly Dictionary<string, TypeDefinition> _byIdentity = new(System.StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<byte, InlineSchemaSection> _inlineSections = new();
 
     public TypeTable(IReadOnlyList<Schema> closure)
     {
@@ -28,7 +37,42 @@ internal sealed class TypeTable
     /// <summary>
     /// Type table of a list of file schemas
     /// </summary>
-    public static TypeTable For(IEnumerable<Schema> schemas) => new(Schema.ClosureOf(schemas));
+    public static TypeTable For(IEnumerable<Schema> schemas)
+    {
+        var list = schemas as Schema[] ?? schemas.ToArray();
+        if (list.Length == 0 || list.Any(x => !x.IsFrozen))
+            return new TypeTable(Schema.ClosureOf(list));
+
+        // Frozen schemas cannot change: their table is shared
+        var tables = s_cache.GetValue(list[0], _ => new List<(Schema[] Schemas, TypeTable Table)>());
+        lock (tables)
+        {
+            foreach (var (key, cached) in tables)
+            {
+                if (key.Length == list.Length && key.Zip(list, ReferenceEquals).All(x => x))
+                    return cached;
+            }
+        }
+
+        var table = new TypeTable(Schema.ClosureOf(list));
+        lock (tables)
+        {
+            if (tables.Count >= MaxCachedTables)
+                tables.RemoveAt(0);
+
+            tables.Add((list, table));
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Encoded inline schema section of this table (binary specification §5): bytes and deduplicated strings it defines
+    /// </summary>
+    public InlineSchemaSection GetInlineSection(byte dedupMaxLength, Func<byte, InlineSchemaSection> encode)
+    {
+        return _inlineSections.TryGetValue(dedupMaxLength, out var section) ? section : _inlineSections.GetOrAdd(dedupMaxLength, encode);
+    }
 
     /// <summary>
     /// Find a type by identity (<c>schema.Type</c>) or by unqualified name, unique among all the schemas of the table
@@ -91,4 +135,20 @@ internal sealed class TypeTable
         _concreteSets[type] = set;
         return set;
     }
+}
+
+/// <summary>
+/// Encoded schema section, with the deduplicated strings it defines
+/// </summary>
+internal sealed class InlineSchemaSection
+{
+    public InlineSchemaSection(byte[] bytes, string[] strings)
+    {
+        Bytes = bytes;
+        Strings = strings;
+    }
+
+    public byte[] Bytes { get; }
+
+    public string[] Strings { get; }
 }

@@ -287,4 +287,38 @@ public class TypedTests
         // Short strings are deduplicated: 100 distinct paths stored once each
         Assert.Less(bytes.Length, 10000 * 3);
     }
+
+    [Test]
+    public void InlineSchemasAreReusedAcrossReads()
+    {
+        var bytes = BinarySerializer.Write(CreatePlayer());
+        var first = BinarySerializer.Read(bytes);
+        var second = BinarySerializer.Read(new MemoryStream(bytes));
+        Assert.AreSame(first.Schemas[0], second.Schemas[0]);
+        AssertPlayer(BinarySerializer.Read<Player>(bytes));
+        AssertPlayer(BinarySerializer.Read<Player>(new MemoryStream(bytes)));
+
+        // Same schemas, other encodings of the section: not mixed up
+        var noDedup = BinarySerializer.Write(CreatePlayer(), new SerializationOptions { StringDedupMaxLength = 0 });
+        AssertPlayer(BinarySerializer.Read<Player>(noDedup));
+        var deflate = new SerializationOptions { Compression = Compression.Deflate };
+        AssertPlayer(BinarySerializer.Read<Player>(BinarySerializer.Write(CreatePlayer(), deflate), deflate));
+        AssertPlayer(BinarySerializer.Read<Player>(bytes));
+
+        // Other schemas
+        var library = new Library { Textures = { new Texture { Path = "a" } } };
+        Assert.AreEqual("a", BinarySerializer.Read<Library>(BinarySerializer.Write(library)).Textures[0].Path);
+        AssertPlayer(BinarySerializer.Read<Player>(bytes));
+    }
+
+    [Test]
+    public void InlineSchemasAreNotReusedWithOtherLimits()
+    {
+        var bytes = BinarySerializer.Write(CreatePlayer());
+        var first = BinarySerializer.Read(bytes);
+        var options = new SerializationOptions();
+        options.Limits.MaxCollectionCount = 1000;
+        var second = BinarySerializer.Read(bytes, options);
+        Assert.AreNotSame(first.Schemas[0], second.Schemas[0]);
+    }
 }

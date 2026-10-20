@@ -17,12 +17,30 @@ namespace Sight.Serialization.Typed;
 internal sealed class ClrModelBuilder
 {
     private static readonly ConcurrentDictionary<string, ClrModel> s_cache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<Type, ClrModel> s_single = new();
+    private static readonly ConcurrentDictionary<(Type, Type), ClrModel> s_pairs = new();
 
     private readonly ClrModel _model = new();
     private readonly Queue<Type> _pending = new();
 
     private ClrModelBuilder()
     {
+    }
+
+    /// <summary>
+    /// Get the model of a type (cached)
+    /// </summary>
+    public static ClrModel Get(Type type)
+    {
+        return s_single.TryGetValue(type, out var model) ? model : s_single.GetOrAdd(type, Get(new[] { type }));
+    }
+
+    /// <summary>
+    /// Get the model of a pair of types (cached)
+    /// </summary>
+    public static ClrModel Get(Type first, Type second)
+    {
+        return s_pairs.TryGetValue((first, second), out var model) ? model : s_pairs.GetOrAdd((first, second), Get(new[] { first, second }));
     }
 
     /// <summary>
@@ -236,6 +254,7 @@ internal sealed class ClrModelBuilder
                 chain.Insert(0, current);
 
             info.AllMembers = chain.SelectMany(x => x.OwnMembers).ToArray();
+            info.SlotCount = info.AllMembers.Count(x => x.Field.HasPresenceSlot);
         }
     }
 
@@ -256,8 +275,7 @@ internal sealed class ClrModelBuilder
         var clrMember = new ClrMember(member, name, valueType)
         {
             Aliases = member.GetCustomAttribute<SerializationAliasAttribute>()?.Aliases ?? Array.Empty<string>(),
-            Getter = Accessors.Getter(member),
-            Setter = Accessors.Setter(member),
+            Accessor = valueType.Converter.CreateAccessor(member, valueType),
         };
 
         var defaultAttribute = member.GetCustomAttribute<DefaultValueAttribute>();
@@ -268,12 +286,20 @@ internal sealed class ClrModelBuilder
             var data = raw != null && raw.GetType().IsEnum ? DataScalar.FromString(raw.ToString() ?? string.Empty) : DataValue.From(raw);
             clrMember.DefaultValue = DataConvert.CoerceScalar(data, type, $"Default value of '{member.DeclaringType}.{member.Name}'");
             clrMember.DefaultClrValue = ClrConvert.FromData(clrMember.DefaultValue, valueType);
+            clrMember.Accessor.SetDefault(clrMember.DefaultClrValue);
         }
 
         return clrMember;
     }
 
     private ClrValueType Map(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context)
+    {
+        var value = MapShape(schema, type, nullability, forceReference, context);
+        value.Converter = ClrConverter.Create(value);
+        return value;
+    }
+
+    private ClrValueType MapShape(Schema schema, Type type, NullabilityNode nullability, bool forceReference, string context)
     {
         var underlying = Nullable.GetUnderlyingType(type);
         if (underlying != null)

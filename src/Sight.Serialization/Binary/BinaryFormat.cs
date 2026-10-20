@@ -284,8 +284,10 @@ internal static class BinaryFormat
 
     private static T ReadRegion<T>(BinaryDecoder decoder, FileHeader header, SerializationOptions options, ResourceResolver resolver, Func<BinaryDecoder, FileHeader, IReadOnlyList<Schema>, TypeTable, T> readBody)
     {
-        var schemas = ReadSchemaSection(decoder, header.SchemaMode, options, resolver);
-        var table = TypeTable.For(schemas);
+        var schemas = ReadSchemaSection(decoder, header.SchemaMode, options, resolver, out var shared);
+
+        // Inline schemas decoded for this file only: their table is not worth sharing
+        var table = shared ? TypeTable.For(schemas) : new TypeTable(Schema.ClosureOf(schemas));
         var result = readBody(decoder, header, schemas, table);
         if (!decoder.IsAtEnd)
             throw new SerializationException($"Invalid SBDL file: unexpected data after the body at position {decoder.Position}");
@@ -298,12 +300,10 @@ internal static class BinaryFormat
         switch (mode)
         {
             case SchemaMode.Inline:
-                var closure = table.Closure;
-                encoder.WriteVarUInt((ulong)closure.Count);
-                var writer = new DataBinaryWriter(encoder, CoreSchema.Table, null, int.MaxValue);
-                foreach (var item in closure)
-                    writer.WriteExactStruct(CoreSchema.SchemaType, SchemaCodec.ToData(item), "schema");
-
+                // The section starts the region: its encoding only depends on the table and is reused
+                var section = table.GetInlineSection(encoder.DedupMaxLength, dedupMaxLength => EncodeInlineSection(table, dedupMaxLength));
+                encoder.WriteBytes(section.Bytes);
+                encoder.AddDedupStrings(section.Strings);
                 break;
             case SchemaMode.Reference:
                 var names = new HashSet<string>(StringComparer.Ordinal);
@@ -326,11 +326,34 @@ internal static class BinaryFormat
         }
     }
 
-    private static IReadOnlyList<Schema> ReadSchemaSection(BinaryDecoder decoder, SchemaMode mode, SerializationOptions options, ResourceResolver resolver)
+    private static InlineSchemaSection EncodeInlineSection(TypeTable table, byte dedupMaxLength)
     {
+        using var encoder = new BinaryEncoder { DedupMaxLength = dedupMaxLength };
+        var closure = table.Closure;
+        encoder.WriteVarUInt((ulong)closure.Count);
+        var writer = new DataBinaryWriter(encoder, CoreSchema.Table, null, int.MaxValue);
+        foreach (var item in closure)
+            writer.WriteExactStruct(CoreSchema.SchemaType, SchemaCodec.ToData(item), "schema");
+
+        return new InlineSchemaSection(encoder.WrittenSpan.ToArray(), encoder.GetDedupStrings());
+    }
+
+    /// <summary>
+    /// Read the schema section; <paramref name="shared"/> is false if the schemas were decoded for this file only
+    /// </summary>
+    private static IReadOnlyList<Schema> ReadSchemaSection(BinaryDecoder decoder, SchemaMode mode, SerializationOptions options, ResourceResolver resolver, out bool shared)
+    {
+        shared = true;
         switch (mode)
         {
             case SchemaMode.Inline:
+                var cached = InlineSchemaCache.TryRead(decoder, options.Limits);
+                if (cached != null)
+                    return cached;
+
+                shared = false;
+                var start = decoder.Position;
+                var cacheable = decoder.DedupStringCount == 0;
                 var count = ReadNonEmptyCount(decoder, "schemas");
                 var reader = new DataBinaryReader(decoder, CoreSchema.Table, null, options.Limits);
                 var values = new List<DataStruct>();
@@ -341,6 +364,9 @@ internal static class BinaryFormat
                 var closure = Schema.ClosureOf(schemas);
                 if (closure.Length != schemas.Count || closure.Where((x, i) => !ReferenceEquals(x, schemas[i])).Any())
                     throw new SerializationException("Inline schemas must be a closed list in closure order");
+
+                if (cacheable)
+                    InlineSchemaCache.Add(decoder, start, options.Limits, schemas);
 
                 return schemas;
             case SchemaMode.Reference:

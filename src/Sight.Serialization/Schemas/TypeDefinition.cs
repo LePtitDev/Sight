@@ -10,6 +10,8 @@ namespace Sight.Serialization.Schemas;
 /// </summary>
 public abstract class TypeDefinition
 {
+    private string? _qualifiedName;
+
     private protected TypeDefinition(Schema schema, string name)
     {
         Schema = schema;
@@ -29,7 +31,7 @@ public abstract class TypeDefinition
     /// <summary>
     /// Type identity: <c>schema.Type</c>
     /// </summary>
-    public string QualifiedName => Schema.Name + "." + Name;
+    public string QualifiedName => _qualifiedName ??= Schema.Name + "." + Name;
 
     /// <inheritdoc />
     public override string ToString() => QualifiedName;

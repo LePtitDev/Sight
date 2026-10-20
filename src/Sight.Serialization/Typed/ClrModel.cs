@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -52,6 +53,11 @@ internal sealed class ClrValueType
     public ClrEnumInfo? Enum { get; set; }
 
     /// <summary>
+    /// Encoding and decoding of the values (typed when possible)
+    /// </summary>
+    public ClrConverter Converter { get; set; } = null!;
+
+    /// <summary>
     /// Creates a collection (list or map) from a capacity
     /// </summary>
     public Func<int, object>? CreateCollection { get; set; }
@@ -82,6 +88,7 @@ internal sealed class ClrTypeInfo
         Type = type;
         SchemaName = schemaName;
         Name = name;
+        QualifiedName = schemaName + "." + name;
     }
 
     public Type Type { get; }
@@ -90,7 +97,17 @@ internal sealed class ClrTypeInfo
 
     public string Name { get; }
 
-    public string QualifiedName => SchemaName + "." + Name;
+    public string QualifiedName { get; }
+
+    /// <summary>
+    /// Number of presence slots of <see cref="AllMembers"/>
+    /// </summary>
+    public int SlotCount { get; set; }
+
+    /// <summary>
+    /// Plans reading data of writer struct types into this type, by writer schema hash and writer type name
+    /// </summary>
+    public ConcurrentDictionary<(ulong SchemaHash, string TypeName), ClrReadPlan> ReadPlans { get; } = new();
 
     public bool IsReference { get; set; }
 
@@ -133,6 +150,7 @@ internal sealed class ClrEnumInfo
         Type = type;
         SchemaName = schemaName;
         Name = name;
+        QualifiedName = schemaName + "." + name;
     }
 
     public Type Type { get; }
@@ -141,7 +159,7 @@ internal sealed class ClrEnumInfo
 
     public string Name { get; }
 
-    public string QualifiedName => SchemaName + "." + Name;
+    public string QualifiedName { get; }
 
     public EnumDefinition Definition { get; set; } = null!;
 
@@ -183,9 +201,10 @@ internal sealed class ClrMember
     /// </summary>
     public object? DefaultClrValue { get; set; }
 
-    public Func<object, object?> Getter { get; set; } = null!;
-
-    public Action<object, object?> Setter { get; set; } = null!;
+    /// <summary>
+    /// Typed access to the member value
+    /// </summary>
+    public ClrMemberAccessor Accessor { get; set; } = null!;
 
     public FieldDefinition Field { get; set; } = null!;
 }
@@ -204,6 +223,11 @@ internal sealed class ClrModel
     public Dictionary<string, ClrEnumInfo> EnumsByIdentity { get; } = new(StringComparer.Ordinal);
 
     public Dictionary<string, Schema> Schemas { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// File schemas of files written with a root schema
+    /// </summary>
+    public ConcurrentDictionary<Schema, IReadOnlyList<Schema>> FileSchemas { get; } = new();
 
     public ClrTypeInfo GetStruct(Type type)
     {
@@ -228,31 +252,61 @@ internal sealed class ClrModel
 }
 
 /// <summary>
+/// How data of a writer struct type is read into a CLR type (binary specification §9)
+/// </summary>
+internal sealed class ClrReadPlan
+{
+    public ClrReadPlan(int fieldCount)
+    {
+        Members = new ClrMember?[fieldCount];
+        Defaults = new object?[fieldCount];
+    }
+
+    /// <summary>
+    /// Member of each writer field (null: skipped)
+    /// </summary>
+    public ClrMember?[] Members { get; }
+
+    /// <summary>
+    /// CLR default value of each writer field, assigned when the field is absent
+    /// </summary>
+    public object?[] Defaults { get; }
+
+    /// <summary>
+    /// Members missing in the writer type and their value
+    /// </summary>
+    public List<(ClrMember Member, object? Default)> Missing { get; } = new();
+
+    public int SlotCount { get; set; }
+
+    public int BitmapSize { get; set; }
+}
+
+/// <summary>
 /// Accessors compiled with expression trees
 /// </summary>
 internal static class Accessors
 {
-    public static Func<object, object?> Getter(MemberInfo member)
+    public static Func<object, T> Getter<T>(MemberInfo member)
     {
         var instance = Expression.Parameter(typeof(object), "instance");
         var declaring = member.DeclaringType!;
         Expression target = declaring.IsValueType ? Expression.Unbox(instance, declaring) : Expression.Convert(instance, declaring);
         var access = Expression.MakeMemberAccess(target, member);
-        return Expression.Lambda<Func<object, object?>>(Expression.Convert(access, typeof(object)), instance).Compile();
+        return Expression.Lambda<Func<object, T>>(access, instance).Compile();
     }
 
-    public static Action<object, object?> Setter(MemberInfo member)
+    public static Action<object, T> Setter<T>(MemberInfo member)
     {
         if (member is PropertyInfo property && property.SetMethod == null)
             throw new SerializationException($"Property '{member.DeclaringType}.{member.Name}' has no setter");
 
         var instance = Expression.Parameter(typeof(object), "instance");
-        var value = Expression.Parameter(typeof(object), "value");
+        var value = Expression.Parameter(typeof(T), "value");
         var declaring = member.DeclaringType!;
-        var memberType = member is PropertyInfo p ? p.PropertyType : ((FieldInfo)member).FieldType;
         Expression target = declaring.IsValueType ? Expression.Unbox(instance, declaring) : Expression.Convert(instance, declaring);
-        var assign = Expression.Assign(Expression.MakeMemberAccess(target, member), Expression.Convert(value, memberType));
-        return Expression.Lambda<Action<object, object?>>(assign, instance, value).Compile();
+        var assign = Expression.Assign(Expression.MakeMemberAccess(target, member), value);
+        return Expression.Lambda<Action<object, T>>(assign, instance, value).Compile();
     }
 
     public static Func<object>? Constructor(Type type)

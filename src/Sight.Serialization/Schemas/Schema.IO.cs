@@ -20,7 +20,7 @@ public sealed partial class Schema
     /// </summary>
     public static Schema FromType(Type type)
     {
-        var model = Typed.ClrModelBuilder.Get(new[] { type });
+        var model = Typed.ClrModelBuilder.Get(type);
         if (type.IsEnum)
             return model.Enums[type].Definition.Schema;
 

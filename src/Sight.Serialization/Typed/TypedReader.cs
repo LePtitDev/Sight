@@ -21,7 +21,9 @@ internal sealed class TypedReader
     private readonly DependencyContext _context;
     private readonly SerializationLimits _limits;
     private readonly List<object?> _objects = new();
-    private readonly Dictionary<(StructDefinition, ClrTypeInfo), StructPlan> _plans = new();
+    private readonly Dictionary<StructDefinition, StructEntry> _structs = new();
+    private readonly Dictionary<(StructDefinition, ClrTypeInfo), ClrReadPlan> _plans = new();
+    private StructEntry? _lastStruct;
     private int _depth;
 
     public TypedReader(BinaryDecoder decoder, TypeTable table, ClrModel model, IReadOnlyList<DependencyReference> dependencies, DependencyContext context, SerializationLimits limits)
@@ -33,6 +35,8 @@ internal sealed class TypedReader
         _context = context;
         _limits = limits;
     }
+
+    public BinaryDecoder Decoder => _decoder;
 
     /// <summary>
     /// Read a struct of an exact writer type (root, exports) into its mapped CLR type
@@ -87,7 +91,22 @@ internal sealed class TypedReader
         return ReadValue(type, target);
     }
 
-    private object? Null(ClrValueType target)
+    /// <summary>
+    /// Read the presence byte of a nullable item
+    /// </summary>
+    public bool ReadPresence()
+    {
+        var presence = _decoder.ReadByte();
+        if (presence > 1)
+            throw Error($"invalid presence byte 0x{presence:X2}");
+
+        return presence == 1;
+    }
+
+    /// <summary>
+    /// Null value of a target (fails for non-nullable value types)
+    /// </summary>
+    public object? Null(ClrValueType target)
     {
         if (target.Type.IsValueType && Nullable.GetUnderlyingType(target.Type) == null)
             throw Error($"null cannot be assigned to '{target.Type}'");
@@ -95,7 +114,10 @@ internal sealed class TypedReader
         return null;
     }
 
-    private object? ReadValue(TypeReference type, ClrValueType target)
+    /// <summary>
+    /// Read a value through the generic (boxed) path
+    /// </summary>
+    public object? ReadValue(TypeReference type, ClrValueType target)
     {
         switch (type.Kind)
         {
@@ -203,7 +225,7 @@ internal sealed class TypedReader
         return writer == TypeKind.F32 && reader == TypeKind.F64;
     }
 
-    private ulong ReadUnsigned(TypeKind kind, bool isFixed)
+    public ulong ReadUnsigned(TypeKind kind, bool isFixed)
     {
         ulong value = kind switch
         {
@@ -220,7 +242,7 @@ internal sealed class TypedReader
         return value;
     }
 
-    private long ReadSigned(TypeKind kind, bool isFixed)
+    public long ReadSigned(TypeKind kind, bool isFixed)
     {
         long value = kind switch
         {
@@ -237,7 +259,7 @@ internal sealed class TypedReader
         return value;
     }
 
-    private long ReadEnumValue(EnumDefinition definition)
+    public long ReadEnumValue(EnumDefinition definition)
     {
         return definition.Underlying.IsSignedInteger()
             ? ReadSigned(definition.Underlying, false)
@@ -446,16 +468,36 @@ internal sealed class TypedReader
 
     private ClrTypeInfo MapStruct(StructDefinition writerType, Type expected)
     {
-        if (!_model.StructsByIdentity.TryGetValue(writerType.QualifiedName, out var info))
-            throw Error($"type '{writerType.QualifiedName}' has no CLR type (declare it with [SerializationDerivedType] on its base type)");
-
-        if (!expected.IsAssignableFrom(info.Type))
+        var info = GetStructEntry(writerType).Info;
+        if (expected != info.Type && !expected.IsAssignableFrom(info.Type))
             throw Error($"type '{writerType.QualifiedName}' ('{info.Type}') cannot be assigned to '{expected}'");
 
         if (info.Create == null)
             throw Error($"cannot instantiate abstract type '{info.Type}'");
 
         return info;
+    }
+
+    /// <summary>
+    /// CLR type mapped to a writer struct type, cached for the reader (the last one first: lists are mostly homogeneous)
+    /// </summary>
+    private StructEntry GetStructEntry(StructDefinition writerType)
+    {
+        var entry = _lastStruct;
+        if (entry != null && ReferenceEquals(entry.WriterType, writerType))
+            return entry;
+
+        if (!_structs.TryGetValue(writerType, out entry))
+        {
+            if (!_model.StructsByIdentity.TryGetValue(writerType.QualifiedName, out var info))
+                throw Error($"type '{writerType.QualifiedName}' has no CLR type (declare it with [SerializationDerivedType] on its base type)");
+
+            entry = new StructEntry(writerType, info);
+            _structs.Add(writerType, entry);
+        }
+
+        _lastStruct = entry;
+        return entry;
     }
 
     private void ReadStructBody(StructDefinition writerType, ClrTypeInfo info, object value)
@@ -488,30 +530,59 @@ internal sealed class TypedReader
                 continue;
             }
 
-            object? memberValue;
             if (present)
-                memberValue = ReadValue(field.Type, member.ValueType);
+                member.Accessor.Read(this, field.Type, value);
             else if (field.DefaultValue != null)
-                memberValue = plan.Defaults[i];
+                member.Accessor.SetValue(value, plan.Defaults[i]);
             else
-                memberValue = Null(member.ValueType);
-
-            member.Setter(value, memberValue);
+                member.Accessor.SetValue(value, Null(member.ValueType));
         }
 
         foreach (var (member, defaultValue) in plan.Missing)
-            member.Setter(value, defaultValue);
+            member.Accessor.SetValue(value, defaultValue);
 
         _depth--;
     }
 
-    private StructPlan GetPlan(StructDefinition writerType, ClrTypeInfo info)
+    /// <summary>
+    /// Plan reading a writer struct type into a CLR type: cached by the reader, and globally by writer schema hash
+    /// when it is already known (computing it for schemas decoded from the file would cost more than the plan)
+    /// </summary>
+    private ClrReadPlan GetPlan(StructDefinition writerType, ClrTypeInfo info)
     {
+        var entry = GetStructEntry(writerType);
+        if (ReferenceEquals(entry.Info, info) && entry.Plan != null)
+            return entry.Plan;
+
         if (_plans.TryGetValue((writerType, info), out var plan))
             return plan;
 
+        if (writerType.Schema.HasHash)
+        {
+            var key = (writerType.Schema.Hash, writerType.Name);
+            if (!info.ReadPlans.TryGetValue(key, out plan))
+            {
+                plan = CreatePlan(writerType, info);
+                info.ReadPlans.TryAdd(key, plan);
+            }
+        }
+        else
+        {
+            plan = CreatePlan(writerType, info);
+        }
+
+        if (ReferenceEquals(entry.Info, info))
+            entry.Plan = plan;
+        else
+            _plans.Add((writerType, info), plan);
+
+        return plan;
+    }
+
+    private ClrReadPlan CreatePlan(StructDefinition writerType, ClrTypeInfo info)
+    {
         var fields = writerType.AllFields;
-        plan = new StructPlan(fields.Count);
+        var plan = new ClrReadPlan(fields.Count);
         var matched = new HashSet<ClrMember>();
         for (var i = 0; i < fields.Count; i++)
         {
@@ -556,7 +627,6 @@ internal sealed class TypedReader
         }
 
         plan.BitmapSize = (plan.SlotCount + 7) / 8;
-        _plans.Add((writerType, info), plan);
         return plan;
     }
 
@@ -685,7 +755,7 @@ internal sealed class TypedReader
         _depth--;
     }
 
-    private int ReadCount()
+    public int ReadCount()
     {
         var count = _decoder.ReadVarUInt();
         if (count > (ulong)_limits.MaxCollectionCount)
@@ -707,30 +777,31 @@ internal sealed class TypedReader
         _objects.Add(value);
     }
 
-    private void Enter()
+    public void Enter()
     {
         if (++_depth > _limits.MaxDepth)
             throw Error($"nesting depth exceeds the limit of {_limits.MaxDepth}");
     }
 
-    private SerializationException Error(string message) => new($"Invalid data at position {_decoder.Position}: {message}");
+    public void Exit() => _depth--;
 
-    private sealed class StructPlan
+    public SerializationException Error(string message) => new($"Invalid data at position {_decoder.Position}: {message}");
+
+    /// <summary>
+    /// CLR type mapped to a writer struct type, and plan reading it
+    /// </summary>
+    private sealed class StructEntry
     {
-        public StructPlan(int fieldCount)
+        public StructEntry(StructDefinition writerType, ClrTypeInfo info)
         {
-            Members = new ClrMember?[fieldCount];
-            Defaults = new object?[fieldCount];
+            WriterType = writerType;
+            Info = info;
         }
 
-        public ClrMember?[] Members { get; }
+        public StructDefinition WriterType { get; }
 
-        public object?[] Defaults { get; }
+        public ClrTypeInfo Info { get; }
 
-        public List<(ClrMember Member, object? Default)> Missing { get; } = new();
-
-        public int SlotCount { get; set; }
-
-        public int BitmapSize { get; set; }
+        public ClrReadPlan? Plan { get; set; }
     }
 }

@@ -22,12 +22,7 @@ internal static class TypedBinary
         if (value == null)
             throw new ArgumentNullException(nameof(value), "The root value cannot be null");
 
-        var types = new List<Type> { value.GetType() };
-        if (staticType != typeof(object) && !staticType.IsInterface)
-            types.Add(staticType);
-
-        types.AddRange(options.Exports.Values.Select(x => x?.GetType() ?? throw new SerializationException("Exported objects cannot be null")));
-        var model = ClrModelBuilder.Get(types);
+        var model = GetModel(value.GetType(), staticType, options);
         var rootInfo = model.GetStruct(value.GetType());
         if (rootInfo.Create == null && !value.GetType().IsValueType)
             throw new SerializationException($"Root type '{value.GetType()}' is abstract");
@@ -43,7 +38,11 @@ internal static class TypedBinary
             header.Metadata.Add(entry.Key, entry.Value);
 
         var tracker = new DependencyTracker(Array.Empty<DependencyReference>(), id => options.Dependencies.FindVersion(id), allowDiscovery: true);
-        using var region = BinaryFormat.EncodeRegion(header, GetFileSchemas(model, rootInfo.Definition.Schema), options, (encoder, table) =>
+        var fileSchemas = model.FileSchemas.TryGetValue(rootInfo.Definition.Schema, out var schemas)
+            ? schemas
+            : model.FileSchemas.GetOrAdd(rootInfo.Definition.Schema, root => GetFileSchemas(model, root));
+
+        using var region = BinaryFormat.EncodeRegion(header, fileSchemas, options, (encoder, table) =>
         {
             var writer = new TypedWriter(encoder, table, model, tracker, options.Limits.MaxDepth);
             encoder.WriteVarUInt((ulong)table.IndexOf(rootInfo.Definition));
@@ -68,6 +67,23 @@ internal static class TypedBinary
 
         header.Dependencies.AddRange(tracker.Dependencies);
         BinaryFormat.WriteRegion(stream, header, region);
+    }
+
+    /// <summary>
+    /// Model of the root type, the static type (unless object or interface) and the exported types
+    /// </summary>
+    private static ClrModel GetModel(Type rootType, Type staticType, SerializationOptions options)
+    {
+        var hasStaticType = staticType != rootType && staticType != typeof(object) && !staticType.IsInterface;
+        if (options.Exports.Count == 0)
+            return hasStaticType ? ClrModelBuilder.Get(rootType, staticType) : ClrModelBuilder.Get(rootType);
+
+        var types = new List<Type> { rootType };
+        if (hasStaticType)
+            types.Add(staticType);
+
+        types.AddRange(options.Exports.Values.Select(x => x?.GetType() ?? throw new SerializationException("Exported objects cannot be null")));
+        return ClrModelBuilder.Get(types);
     }
 
     /// <summary>
@@ -100,7 +116,7 @@ internal static class TypedBinary
     /// </summary>
     public static LoadedFile ReadWithExports(Stream stream, Type type, SerializationOptions options, bool readRoot)
     {
-        var model = ClrModelBuilder.Get(new[] { type });
+        var model = ClrModelBuilder.Get(type);
         var resolver = ResourceResolver.For(options);
         var context = DependencyContext.For(options);
         return BinaryFormat.ReadFile(stream, options, resolver, (decoder, header, schema, table) =>

@@ -80,6 +80,11 @@ public sealed partial class Schema
     }
 
     /// <summary>
+    /// Indicates whether <see cref="Hash"/> has already been computed
+    /// </summary>
+    internal bool HasHash => _hash.HasValue;
+
+    /// <summary>
     /// Built-in <c>core</c> meta-schema
     /// </summary>
     public static Schema Core => CoreSchema.Instance;

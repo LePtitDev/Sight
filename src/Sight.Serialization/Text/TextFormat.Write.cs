@@ -30,7 +30,17 @@ internal static partial class TextFormat
         private readonly Dictionary<string, string> _aliases = new(StringComparer.Ordinal);
         private readonly Dictionary<DataStruct, string> _anchors = new(ReferenceComparer<DataStruct>.Instance);
         private readonly HashSet<DataStruct> _written = new(ReferenceComparer<DataStruct>.Instance);
+        private readonly List<string> _indents = new() { string.Empty };
+        private readonly Dictionary<TypeDefinition, string> _typeNames = new();
+        private readonly List<List<(FieldDefinition Field, DataValue Value)>> _fieldLists = new();
         private readonly string _indent;
+
+        // Inline attempt in progress: the container being tried and everything it contains are written on one line,
+        // the attempt is abandoned as soon as the line exceeds _inlineLimit (or a line break is required)
+        private readonly List<DataStruct> _inlineWritten = new();
+        private int _inlineLimit = -1;
+        private int _inlineStart;
+        private bool _inlineFailed;
 
         public DocumentWriter(DataDocument document, SerializationOptions options)
         {
@@ -193,8 +203,14 @@ internal static partial class TextFormat
             if (_anchors.TryGetValue(value, out var anchor))
                 _builder.Append('&').Append(anchor).Append(' ');
 
-            _written.Add(value);
+            MarkWritten(value);
             WriteStruct(value, includePrefix: true, level: 0);
+        }
+
+        private void MarkWritten(DataStruct value)
+        {
+            if (_written.Add(value) && _inlineLimit >= 0)
+                _inlineWritten.Add(value);
         }
 
         private void WriteValue(DataValue value, TypeReference type, int level)
@@ -239,11 +255,18 @@ internal static partial class TextFormat
         {
             if (value.Kind == TypeKind.String && value.AsString().IndexOf('\n') >= 0)
             {
+                // A multi-line string cannot be written on a single line
+                if (_inlineLimit >= 0)
+                {
+                    _inlineFailed = true;
+                    return;
+                }
+
                 WriteMultiLineString(value.AsString(), level);
                 return;
             }
 
-            _builder.Append(TextFormatting.FormatScalar(value, withSuffix));
+            TextFormatting.AppendScalar(_builder, value, withSuffix);
         }
 
         private void WriteMultiLineString(string value, int level)
@@ -278,7 +301,7 @@ internal static partial class TextFormat
             if (_anchors.TryGetValue(target, out var anchor))
                 _builder.Append('&').Append(anchor).Append(' ');
 
-            _written.Add(target);
+            MarkWritten(target);
             WriteStruct(target, !ReferenceEquals(target.Definition, declared), level);
         }
 
@@ -318,7 +341,7 @@ internal static partial class TextFormat
                     }
 
                     _builder.Append('&').Append(_anchors[reference.Target]).Append(' ');
-                    _written.Add(reference.Target);
+                    MarkWritten(reference.Target);
                     WriteStruct(reference.Target, includePrefix: true, level);
                     break;
                 case DataList list:
@@ -355,7 +378,10 @@ internal static partial class TextFormat
         {
             if (elementType.Kind == TypeKind.U8 && !elementType.IsNullable)
             {
-                var bytes = list.Select(x => (byte)DataConvert.CoerceScalar(x, elementType, "list").AsUInt64()).ToArray();
+                var bytes = new byte[list.Count];
+                for (var i = 0; i < bytes.Length; i++)
+                    bytes[i] = (byte)DataConvert.CoerceScalar(list[i], elementType, "list").AsUInt64();
+
                 _builder.Append("b64\"").Append(Convert.ToBase64String(bytes)).Append('"');
                 return;
             }
@@ -366,30 +392,45 @@ internal static partial class TextFormat
                 return;
             }
 
-            if (TryWriteInline(() =>
+            if (_inlineLimit >= 0)
             {
-                _builder.Append('[');
-                for (var i = 0; i < list.Count; i++)
-                {
-                    if (i > 0)
-                        _builder.Append(", ");
-
-                    WriteValue(list[i], elementType, level + 1);
-                }
-
-                _builder.Append(']');
-            }))
+                WriteListInline(list, elementType, level);
                 return;
+            }
+
+            if (BeginInline())
+            {
+                WriteListInline(list, elementType, level);
+                if (EndInline())
+                    return;
+            }
 
             _builder.Append("[\n");
+            var indentation = Indent(level + 1);
             foreach (var item in list)
             {
-                _builder.Append(Indent(level + 1));
+                _builder.Append(indentation);
                 WriteValue(item, elementType, level + 1);
                 _builder.Append('\n');
             }
 
             _builder.Append(Indent(level)).Append(']');
+        }
+
+        private void WriteListInline(DataList list, TypeReference elementType, int level)
+        {
+            _builder.Append('[');
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (i > 0)
+                    _builder.Append(", ");
+
+                WriteValue(list[i], elementType, level + 1);
+                if (IsInlineOverflow)
+                    return;
+            }
+
+            _builder.Append(']');
         }
 
         private void WriteMap(DataMap map, TypeReference keyType, TypeReference valueType, int level)
@@ -400,29 +441,24 @@ internal static partial class TextFormat
                 return;
             }
 
-            if (TryWriteInline(() =>
+            if (_inlineLimit >= 0)
             {
-                _builder.Append("{ ");
-                var first = true;
-                foreach (var entry in map)
-                {
-                    if (!first)
-                        _builder.Append(", ");
-
-                    first = false;
-                    WriteKey(entry.Key, keyType);
-                    _builder.Append(": ");
-                    WriteValue(entry.Value, valueType, level + 1);
-                }
-
-                _builder.Append(" }");
-            }))
+                WriteMapInline(map, keyType, valueType, level);
                 return;
+            }
+
+            if (BeginInline())
+            {
+                WriteMapInline(map, keyType, valueType, level);
+                if (EndInline())
+                    return;
+            }
 
             _builder.Append("{\n");
+            var indentation = Indent(level + 1);
             foreach (var entry in map)
             {
-                _builder.Append(Indent(level + 1));
+                _builder.Append(indentation);
                 WriteKey(entry.Key, keyType);
                 _builder.Append(": ");
                 WriteValue(entry.Value, valueType, level + 1);
@@ -432,10 +468,33 @@ internal static partial class TextFormat
             _builder.Append(Indent(level)).Append('}');
         }
 
+        private void WriteMapInline(DataMap map, TypeReference keyType, TypeReference valueType, int level)
+        {
+            _builder.Append("{ ");
+            var first = true;
+            foreach (var entry in map)
+            {
+                if (!first)
+                    _builder.Append(", ");
+
+                first = false;
+                WriteKey(entry.Key, keyType);
+                _builder.Append(": ");
+                WriteValue(entry.Value, valueType, level + 1);
+                if (IsInlineOverflow)
+                    return;
+            }
+
+            _builder.Append(" }");
+        }
+
         private void WriteKey(DataValue key, TypeReference keyType)
         {
             var value = DataConvert.CoerceScalar(key, keyType, "map key");
-            _builder.Append(value is DataEnum data ? data.Name : TextFormatting.FormatScalar(value, withSuffix: false));
+            if (value is DataEnum data)
+                _builder.Append(data.Name);
+            else
+                TextFormatting.AppendScalar(_builder, value, withSuffix: false);
         }
 
         private void WriteStruct(DataStruct value, bool includePrefix, int level)
@@ -443,7 +502,12 @@ internal static partial class TextFormat
             if (includePrefix)
                 _builder.Append(TypeName(value.Definition)).Append(' ');
 
-            var fields = new List<(FieldDefinition Field, DataValue Value)>();
+            // One list of fields per nesting level: the fields of a struct are written at level + 1
+            while (_fieldLists.Count <= level)
+                _fieldLists.Add(new List<(FieldDefinition Field, DataValue Value)>());
+
+            var fields = _fieldLists[level];
+            fields.Clear();
             var definitions = value.Definition.AllFields;
             for (var i = 0; i < definitions.Count; i++)
             {
@@ -474,26 +538,24 @@ internal static partial class TextFormat
                 return;
             }
 
-            if (TryWriteInline(() =>
+            if (_inlineLimit >= 0)
             {
-                _builder.Append("{ ");
-                for (var i = 0; i < fields.Count; i++)
-                {
-                    if (i > 0)
-                        _builder.Append(", ");
-
-                    _builder.Append(fields[i].Field.Name).Append(": ");
-                    WriteValue(fields[i].Value, fields[i].Field.Type, level + 1);
-                }
-
-                _builder.Append(" }");
-            }))
+                WriteStructInline(fields, level);
                 return;
+            }
+
+            if (BeginInline())
+            {
+                WriteStructInline(fields, level);
+                if (EndInline())
+                    return;
+            }
 
             _builder.Append("{\n");
+            var indentation = Indent(level + 1);
             foreach (var (field, fieldValue) in fields)
             {
-                _builder.Append(Indent(level + 1)).Append(field.Name).Append(": ");
+                _builder.Append(indentation).Append(field.Name).Append(": ");
                 WriteValue(fieldValue, field.Type, level + 1);
                 _builder.Append('\n');
             }
@@ -501,22 +563,57 @@ internal static partial class TextFormat
             _builder.Append(Indent(level)).Append('}');
         }
 
-        /// <summary>
-        /// Write a container on a single line if it fits and has no line break, otherwise restore the builder
-        /// </summary>
-        private bool TryWriteInline(Action write)
+        private void WriteStructInline(List<(FieldDefinition Field, DataValue Value)> fields, int level)
         {
-            var start = _builder.Length;
-            var lineStart = start;
+            _builder.Append("{ ");
+            for (var i = 0; i < fields.Count; i++)
+            {
+                if (i > 0)
+                    _builder.Append(", ");
+
+                _builder.Append(fields[i].Field.Name).Append(": ");
+                WriteValue(fields[i].Value, fields[i].Field.Type, level + 1);
+                if (IsInlineOverflow)
+                    return;
+            }
+
+            _builder.Append(" }");
+        }
+
+        /// <summary>
+        /// Indicates whether the inline attempt in progress cannot succeed (the line is too long or requires a line break)
+        /// </summary>
+        private bool IsInlineOverflow => _inlineFailed || _builder.Length > _inlineLimit;
+
+        /// <summary>
+        /// Start writing a container on a single line; nested containers are written inline too, until <see cref="EndInline"/>
+        /// </summary>
+        /// <returns>false if the current line is already too long</returns>
+        private bool BeginInline()
+        {
+            var lineStart = _builder.Length;
             while (lineStart > 0 && _builder[lineStart - 1] != '\n')
                 lineStart--;
 
-            var written = new HashSet<DataStruct>(_written, ReferenceComparer<DataStruct>.Instance);
-            write();
-            var fits = _builder.Length - lineStart <= _options.MaxInlineWidth;
+            if (_builder.Length - lineStart > _options.MaxInlineWidth)
+                return false;
+
+            _inlineLimit = lineStart + _options.MaxInlineWidth;
+            _inlineFailed = false;
+            _inlineWritten.Clear();
+            _inlineStart = _builder.Length;
+            return true;
+        }
+
+        /// <summary>
+        /// End an inline attempt: keep it if it fits and has no line break, otherwise restore the builder
+        /// </summary>
+        private bool EndInline()
+        {
+            var fits = !IsInlineOverflow;
             if (fits)
             {
-                for (var i = start; i < _builder.Length; i++)
+                for (var i = _inlineStart; i < _builder.Length; i++)
                 {
                     if (_builder[i] == '\n')
                     {
@@ -526,28 +623,37 @@ internal static partial class TextFormat
                 }
             }
 
-            if (fits)
-                return true;
+            _inlineLimit = -1;
+            _inlineFailed = false;
+            if (!fits)
+            {
+                _builder.Length = _inlineStart;
+                foreach (var value in _inlineWritten)
+                    _written.Remove(value);
+            }
 
-            _builder.Length = start;
-            _written.Clear();
-            _written.UnionWith(written);
-            return false;
+            _inlineWritten.Clear();
+            return fits;
         }
 
         private string TypeName(TypeDefinition definition)
         {
+            if (_typeNames.TryGetValue(definition, out var name))
+                return name;
+
+            name = definition.QualifiedName;
             try
             {
                 if (ReferenceEquals(_table.FindByName(definition.Name), definition))
-                    return definition.Name;
+                    name = definition.Name;
             }
             catch (SerializationException)
             {
                 // Ambiguous short name
             }
 
-            return definition.QualifiedName;
+            _typeNames.Add(definition, name);
+            return name;
         }
 
         /// <summary>
@@ -574,11 +680,10 @@ internal static partial class TextFormat
 
         private string Indent(int level)
         {
-            var builder = new StringBuilder();
-            for (var i = 0; i < level; i++)
-                builder.Append(_indent);
+            while (_indents.Count <= level)
+                _indents.Add(_indents[_indents.Count - 1] + _indent);
 
-            return builder.ToString();
+            return _indents[level];
         }
     }
 }
