@@ -26,11 +26,13 @@
     <Project Path="src/Sight.IoC/Sight.IoC.csproj" />
     <Project Path="src/Sight.Linq/Sight.Linq.csproj" />
     <Project Path="src/Sight.Logging/Sight.Logging.csproj" />
+    <Project Path="src/Sight.Serialization/Sight.Serialization.csproj" />
     <Project Path="src/Sight.Tokenize/Sight.Tokenize.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Sight.Encoding.Tests/Sight.Encoding.Tests.csproj" />
     <Project Path="tests/Sight.IoC.Tests/Sight.IoC.Tests.csproj" />
+    <Project Path="tests/Sight.Serialization.Tests/Sight.Serialization.Tests.csproj" />
     <Project Path="tests/Sight.Tokenize.Tests/Sight.Tokenize.Tests.csproj" />
   </Folder>
 </Solution>

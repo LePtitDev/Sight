@@ -141,7 +141,7 @@ td code { white-space: nowrap; }
   <article>
 
 <h2 id="1-introduction"><span class="num">1.</span> Introduction<a class="anchor" href="#1-introduction" aria-label="Link to this section">#</a></h2>
-<p>SBDL (Sight Bundle) is a schema-driven serialization format. A file carries a header, a schema (embedded, referenced, or omitted) and a single root value. Values are encoded <strong>untagged</strong>: the schema provides every type, so the data contains only payload bytes, except where the type cannot be known statically (polymorphism and <code>any</code>).</p>
+<p>SBDL (Sight Bundle) is a schema-driven serialization format. A file carries a header, one or more schemas (embedded, referenced, or omitted) and a single root value. Values are encoded <strong>untagged</strong>: the schema provides every type, so the data contains only payload bytes, except where the type cannot be known statically (polymorphism and <code>any</code>).</p>
 <p>Design goals, in priority order:</p>
 <ol>
 <li>Small files (variable-length integers, string deduplication, presence bitmaps, no field identifiers).</li>
@@ -204,7 +204,7 @@ td code { white-space: nowrap; }
 │ Body                         │  root type index, root value, [exports]
 └──────────────────────────────┘
 </code></pre>
-<p>A single <strong>string table</strong> (§5.4) spans the whole file, header included.</p>
+<p>A single <strong>string table</strong> (§5.4) spans the schema section and the body. Header strings are never deduplicated.</p>
 <hr>
 <h2 id="3-data-model"><span class="num">3.</span> Data model<a class="anchor" href="#3-data-model" aria-label="Link to this section">#</a></h2>
 <h3 id="3-1-types"><span class="num">3.1</span> Types<a class="anchor" href="#3-1-types" aria-label="Link to this section">#</a></h3>
@@ -333,6 +333,7 @@ td code { white-space: nowrap; }
 <li>Type names <span class="kw">MUST</span> be unique within a schema.</li>
 <li>A schema <span class="kw">MUST NOT</span> import itself, directly or transitively.</li>
 <li>Only types of the schema itself and of its <strong>direct</strong> imports are usable in its definitions.</li>
+<li>A schema <span class="kw">MAY</span> also carry metadata (string keys and values). Metadata is not part of the schema model: it is not encoded in <code>core.Schema</code> and does not change the hash. It is stored in the header of compiled schema files (§4.7).</li>
 </ul>
 <h3 id="4-2-struct-definition"><span class="num">4.2</span> Struct definition<a class="anchor" href="#4-2-struct-definition" aria-label="Link to this section">#</a></h3>
 <div class="table-wrap"><table>
@@ -390,13 +391,16 @@ td code { white-space: nowrap; }
 </tbody></table></div>
 <p>Value names <span class="kw">MUST</span> be unique, values <span class="kw">MUST</span> be unique and <span class="kw">MUST</span> fit the underlying type.</p>
 <h3 id="4-4-type-tables"><span class="num">4.4</span> Type tables<a class="anchor" href="#4-4-type-tables" aria-label="Link to this section">#</a></h3>
-<p><strong>Schema closure.</strong> The closure of a schema <code>S</code> is the ordered list obtained by a depth-first, pre-order traversal starting at <code>S</code>, following <code>imports</code> in declaration order, and skipping schemas already visited (compared by name). A closure <span class="kw">MUST NOT</span> contain two schemas with the same name and different versions.</p>
-<p><strong>File type table.</strong> The type table of a file is the concatenation of the <code>types</code> lists of every schema of the closure, in closure order. A <strong>type index</strong> in the data (§7) is an index in this table.</p>
+<p><strong>File schemas.</strong> A file uses an ordered, non-empty list of schemas, its <strong>file schemas</strong> (§6.3). Several schemas are needed when the data uses types of schemas that do not import each other, typically derived types declared in an extension schema (<code>mods.Dragon</code> deriving from <code>game.Character</code>: <code>game</code> cannot import <code>mods</code> without a cycle).</p>
+<p><strong>Schema closure.</strong> The closure of a list of schemas is the ordered list obtained by a depth-first, pre-order traversal of each schema of the list in order, following <code>imports</code> in declaration order, and skipping schemas already visited (compared by name). A closure <span class="kw">MUST NOT</span> contain two schemas with the same name and different versions.</p>
+<p><strong>File type table.</strong> The type table of a file is the concatenation of the <code>types</code> lists of every schema of the closure of the file schemas, in closure order. A <strong>type index</strong> in the data (§7) is an index in this table. Any type of the table may be used by the data, including as root type.</p>
 <p><strong>Local type space.</strong> Inside a schema definition, type references use the <strong>local</strong> type space of that schema: its own <code>types</code>, followed by the <code>types</code> of each direct import in import order.</p>
 <p><strong>Concrete set.</strong> For a struct type <code>T</code>, the concrete set <code>C(T)</code> is <code>T</code> (if not abstract) plus every non-abstract struct deriving from <code>T</code> directly or indirectly that is present in the file type table, ordered by file type table index.</p>
 <h3 id="4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code><a class="anchor" href="#4-5-meta-schema-core" aria-label="Link to this section">#</a></h3>
 <p>Schemas are themselves SBDL values of type <code>core.Schema</code>. The <code>core</code> schema, version 1, is built into every implementation and <span class="kw">MUST NOT</span> be redefined. It is defined as follows (in the schema language of the companion document):</p>
-<pre><code>schema core 1
+<pre><code>@sgs 1
+@id core
+@version 1
 
 enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
@@ -442,7 +446,7 @@ struct Field {                      // 7
   name:    string
   type:    TypeRef
   aliases: list&lt;string&gt;
-  default: any?
+  default: any                     // Null when the field has no default
 }
 
 struct Schema {                     // 8
@@ -458,7 +462,7 @@ struct Schema {                     // 8
 <li><code>Enum</code> and <code>Struct</code> use <code>index</code>; primitives, <code>String</code> and <code>Any</code> have neither <code>index</code> nor <code>args</code>.</li>
 <li><code>Null</code> <span class="kw">MUST NOT</span> appear in a <code>TypeRef</code>.</li>
 <li>The <strong>fixed</strong> flag is only valid on <code>U16</code>, <code>U32</code>, <code>U64</code>, <code>S16</code>, <code>S32</code>, <code>S64</code>. It changes the encoding (§7.1), not the type.</li>
-<li><code>Field.default</code>, when present, <span class="kw">MUST</span> be an <code>any</code> value whose kind and type index match the field type.</li>
+<li><code>Field.default</code> is <code>Null</code> when the field has no default. Otherwise it <span class="kw">MUST</span> be a scalar <code>any</code> value of the field kind (e.g. <code>u16</code> for a <code>u16</code> field); for an enum field, it is the <strong>name</strong> of the enum value, as a <code>string</code> (enum values cannot be described with the <code>core</code> type table).</li>
 </ul>
 <h3 id="4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash<a class="anchor" href="#4-6-canonical-form-and-hash" aria-label="Link to this section">#</a></h3>
 <p>The <strong>canonical encoding</strong> of a schema is the encoding of its <code>core.Schema</code> value (§7) with a fresh string table and string deduplication disabled (<code>dedupMax = 0</code>), without header.</p>
@@ -467,10 +471,11 @@ struct Schema {                     // 8
 <h3 id="4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files<a class="anchor" href="#4-7-compiled-schema-files" aria-label="Link to this section">#</a></h3>
 <p>A compiled schema is an SBDL file whose:</p>
 <ul>
-<li>header <code>id</code> is the schema name and header <code>version</code> is the schema version;</li>
+<li>header <code>id</code> is the schema name, header <code>version</code> is the schema version, and header metadata is the schema metadata;</li>
 <li>schema section uses mode <em>Reference</em> to <code>core</code>, version 1, hash <code>0</code>;</li>
 <li>root value is the <code>core.Schema</code> value (type index 8).</li>
 </ul>
+<p>A compiled schema contains a single schema; its imports are referenced by <code>SchemaRef</code> and resolved externally (§10).</p>
 <hr>
 <h2 id="5-primitive-encodings"><span class="num">5.</span> Primitive encodings<a class="anchor" href="#5-primitive-encodings" aria-label="Link to this section">#</a></h2>
 <h3 id="5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)<a class="anchor" href="#5-1-variable-length-unsigned-integer-vu" aria-label="Link to this section">#</a></h3>
@@ -582,7 +587,8 @@ value = LE(next 8 bytes)                                                for n = 
 </ul>
 <p>Rules:</p>
 <ul>
-<li>The string table is empty at the start of the file and is shared by the header, the schema section and the body. <code>dedupMax</code> is read from the header (§6.1).</li>
+<li>The string table is empty at the start of the schema section and is shared by the schema section and the body. <code>dedupMax</code> is read from the header (§6.1).</li>
+<li>Header strings (id, metadata, dependencies) are always inline and are <strong>never</strong> added to the string table, whatever their length. The dependency list is only known once the body is encoded (§8.2): keeping the header out of the table lets writers encode the body first and emit the header afterwards.</li>
 <li>Writers <span class="kw">MUST NOT</span> emit an inline string that is already present in the table (the table never contains duplicates).</li>
 <li>The bytes <span class="kw">MUST</span> be valid UTF-8 (no surrogate code points, no overlong forms).</li>
 <li>Length is in bytes. Strings longer than 2³¹ − 1 bytes are malformed.</li>
@@ -693,21 +699,21 @@ value = LE(next 8 bytes)                                                for n = 
 </thead>
 <tbody><tr>
 <td>Inline (<code>0</code>)</td>
-<td><code>vu n</code> (<code>n ≥ 1</code>), then <code>n</code> values of type <code>core.Schema</code> (§7), in closure order (§4.4). The first one is the <strong>file schema</strong>.</td>
+<td><code>vu n</code> (<code>n ≥ 1</code>), then <code>n</code> values of type <code>core.Schema</code> (§7). The list is the closure of the file schemas, in closure order (§4.4): it is itself the list of file schemas.</td>
 </tr>
 <tr>
 <td>Reference (<code>1</code>)</td>
-<td><code>str name</code>, <code>vu version</code>, <code>u64le hash</code> — the file schema is resolved externally (§10).</td>
+<td><code>vu n</code> (<code>n ≥ 1</code>), then <code>n</code> × (<code>str name</code>, <code>vu version</code>, <code>u64le hash</code>): the file schemas, resolved externally (§10). Names <span class="kw">MUST</span> be unique.</td>
 </tr>
 <tr>
 <td>None (<code>2</code>)</td>
-<td>nothing — the reader <span class="kw">MUST</span> be given the file schema by the caller.</td>
+<td>nothing — the reader <span class="kw">MUST</span> be given the file schemas by the caller.</td>
 </tr>
 </tbody></table></div>
-<p>Values of the schema section are decoded with the type table of the built-in <code>core</code> schema (§4.5), not with the file type table. They share the file string table.</p>
+<p>Values of the schema section are decoded with the type table of the built-in <code>core</code> schema (§4.5), not with the file type table. They share the string table with the body.</p>
 <p>Inline mode:</p>
 <ul>
-<li>The list <span class="kw">MUST</span> contain the whole closure of the file schema, so that the file is self-contained.</li>
+<li>The list <span class="kw">MUST</span> be closed (every import of a schema of the list is in the list) and in closure order, so that the file is self-contained and the type table is the same whether it is computed from the list or from its closure.</li>
 <li>Writers <span class="kw">MAY</span> prune types and imports that are unreachable from the values of the file. Pruned schemas keep their name and version; readers <span class="kw">MUST NOT</span> verify <code>SchemaRef.hash</code> between inline schemas.</li>
 </ul>
 <p>Reference mode: readers <span class="kw">MUST</span> verify that the resolved schema has the given hash, except for the built-in <code>core</code> schema.</p>
@@ -940,7 +946,8 @@ value             encoded per the descriptor (nothing for Null)
 <p>The requested version <span class="kw">MUST</span> be found exactly. If the caller allows newer dependencies, and the exact version is not found, the highest available version greater than the requested one is used. Schemas always require an exact match and a matching hash.</p>
 <h3 id="10-3-search-paths"><span class="num">10.3</span> Search paths<a class="anchor" href="#10-3-search-paths" aria-label="Link to this section">#</a></h3>
 <ul>
-<li>Files with extension <code>.sbdl</code> (binary) and <code>.sbdt</code> (text) in each search path are indexed by <code>(id, version)</code> by reading <strong>their header only</strong>. The index <span class="kw">MAY</span> be cached.</li>
+<li>Files with extension <code>.sbdl</code> (binary) and <code>.sbdt</code> (text) in each search path, including its sub-folders, are indexed by <code>(id, version)</code> by reading <strong>their header only</strong>. The index <span class="kw">MAY</span> be cached.</li>
+<li>Schema sources (<code>.sgs</code>, see the companion document) are also indexed, by their <code>@id</code> and <code>@version</code> directives, so that referenced schemas and imports can be resolved without compiling them first.</li>
 <li>The same <code>(id, version)</code> in several search paths: the first path in the list wins; shadowed files <span class="kw">SHOULD</span> be reported as diagnostics.</li>
 <li>The same <code>(id, version)</code> twice within the same search path is an error.</li>
 <li>Files with an empty id are not indexed.</li>
@@ -980,7 +987,9 @@ value             encoded per the descriptor (nothing for Null)
 <hr>
 <h2 id="12-example"><span class="num">12.</span> Example<a class="anchor" href="#12-example" aria-label="Link to this section">#</a></h2>
 <p>Schema:</p>
-<pre><code>schema demo 1
+<pre><code>@sgs 1
+@id demo
+@version 1
 
 struct Point {
   x:     s32
@@ -1014,7 +1023,7 @@ struct Point {
 </tr>
 <tr>
 <td><code>02 70</code></td>
-<td>id: inline, length 1, <code>&quot;p&quot;</code> → string #0</td>
+<td>id: inline, length 1, <code>&quot;p&quot;</code> (header strings are not deduplicated)</td>
 </tr>
 <tr>
 <td><code>00</code></td>
@@ -1022,11 +1031,11 @@ struct Point {
 </tr>
 <tr>
 <td><code>01</code></td>
-<td>schema section: 1 schema</td>
+<td>schema section: 1 schema (inline)</td>
 </tr>
 <tr>
 <td><code>08 64 65 6D 6F</code></td>
-<td><code>Schema.name</code>: <code>&quot;demo&quot;</code> → string #1</td>
+<td><code>Schema.name</code>: <code>&quot;demo&quot;</code> → string #0</td>
 </tr>
 <tr>
 <td><code>01</code></td>
@@ -1050,7 +1059,7 @@ struct Point {
 </tr>
 <tr>
 <td><code>0A 50 6F 69 6E 74</code></td>
-<td><code>name</code>: <code>&quot;Point&quot;</code> → string #2</td>
+<td><code>name</code>: <code>&quot;Point&quot;</code> → string #1</td>
 </tr>
 <tr>
 <td><code>00</code></td>
@@ -1061,15 +1070,15 @@ struct Point {
 <td><code>fields</code>: 3 elements</td>
 </tr>
 <tr>
-<td><code>00</code> <code>02 78</code> <code>00 08 00 00</code> <code>00</code></td>
-<td>field: bitmap (no default), <code>&quot;x&quot;</code>, TypeRef (bitmap, kind S32, flags 0, no args), no aliases</td>
+<td><code>02 78</code> <code>00 08 00 00</code> <code>00</code> <code>00</code></td>
+<td>field: <code>&quot;x&quot;</code>, TypeRef (bitmap, kind S32, flags 0, no args), no aliases, default <code>Null</code></td>
 </tr>
 <tr>
-<td><code>00</code> <code>02 79</code> <code>00 08 00 00</code> <code>00</code></td>
+<td><code>02 79</code> <code>00 08 00 00</code> <code>00</code> <code>00</code></td>
 <td>field <code>&quot;y&quot;</code>, S32</td>
 </tr>
 <tr>
-<td><code>00</code> <code>0A 6C 61 62 65 6C</code> <code>00 0C 01 00</code> <code>00</code></td>
+<td><code>0A 6C 61 62 65 6C</code> <code>00 0C 01 00</code> <code>00</code> <code>00</code></td>
 <td>field <code>&quot;label&quot;</code>, String, flags = nullable</td>
 </tr>
 <tr>
@@ -1089,11 +1098,11 @@ struct Point {
 <td>y = −2 (ZigZag 3)</td>
 </tr>
 <tr>
-<td><code>01</code></td>
-<td>label: string #0 (<code>&quot;p&quot;</code>, deduplicated)</td>
+<td><code>02 70</code></td>
+<td>label: inline <code>&quot;p&quot;</code></td>
 </tr>
 </tbody></table></div>
-<p>Total: 62 bytes, including the embedded schema.</p>
+<p>Total: 63 bytes, including the embedded schema.</p>
 <hr>
 <h2 id="appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values<a class="anchor" href="#appendix-a-kind-values" aria-label="Link to this section">#</a></h2>
 <div class="table-wrap"><table>

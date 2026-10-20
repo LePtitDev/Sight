@@ -55,7 +55,7 @@ QName = Ident { "." Ident }
 
 **Type keywords**, which cannot be used as user type names: `bool`, `u8`, `u16`, `u32`, `u64`, `s8`, `s16`, `s32`, `s64`, `f32`, `f64`, `string`, `list`, `map`, `ref`, `extref`, `any`.
 
-Other words (`schema`, `import`, `enum`, `struct`, `abstract`) are keywords only where the grammar expects them; they remain valid field names.
+Other words (`enum`, `struct`, `abstract`) are keywords only where the grammar expects them; they remain valid field names.
 
 ### 2.4 Literals
 
@@ -146,7 +146,9 @@ BaseType  = "bool" | "u8" | "u16" | "u32" | "u64" | "s8" | "s16" | "s32" | "s64"
 
 Constraints of the data model apply (binary spec §3.1): no `any?`, map keys restricted, `ref`/`extref` targets are structs.
 
-**Type name resolution.** An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one place, it is ambiguous and MUST be qualified (`assets.Texture`). A qualified name is `<schema name>.<type name>`.
+**Type name resolution in a schema.** An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one import, it is ambiguous and MUST be qualified. A qualified name is `<prefix>.<type name>`, where the prefix is an import alias (§4.2) or a schema name (`assets.Texture`).
+
+**Type name resolution in a data document.** An unqualified name is looked up among the types of every schema of the file type table (binary spec §4.4). If it is found in more than one schema, it is ambiguous and MUST be qualified with the schema name.
 
 ---
 
@@ -155,8 +157,12 @@ Constraints of the data model apply (binary spec §3.1): no `any?`, map keys res
 ### 4.1 Grammar
 
 ```
-SchemaFile  = "schema" QName Decimal { Import } { TypeDecl }
-Import      = "import" QName Decimal [ Hex ]
+SchemaFile  = "@sgs" Decimal SchemaBody
+SchemaBody  = { SchemaDirective } { TypeDecl }
+SchemaDirective = "@id" ( QName | String )
+            | "@version" Decimal
+            | "@meta" ( Ident | String ) "=" String
+            | "@import" [ Ident "=" ] QName Decimal [ Hex ]
 TypeDecl    = EnumDecl | StructDecl
 
 EnumDecl    = "enum" Ident ":" IntType "{" [ EnumValue { Sep EnumValue } [ "," ] ] "}"
@@ -170,14 +176,27 @@ Annotation  = "@fixed" | "@alias" "(" Ident { "," Ident } ")"
 
 `Sep` is a separator per §2.6. `Literal` is a scalar value literal (§6.2): boolean, number, string or enum value.
 
+Directives follow the rules of data documents (§5.1): each starts at the beginning of a line and ends at the end of that line, and they all precede the type declarations.
+
+| Directive | Occurrences | Meaning |
+|---|---|---|
+| `@sgs 1` | exactly once, **first line** of the file | schema language version (only in `.sgs` files, see §5.1 for inline schemas) |
+| `@id` | exactly once | schema name; it MUST be a qualified name |
+| `@version` | at most once | schema version (default 0) |
+| `@meta` | any; keys unique | schema metadata (binary spec §4.1) |
+| `@import` | any; names unique | import of another schema, with an optional local alias and an optional hash |
+
+A `.sgs` file has the same header directives as a data document (`@id`, `@version`, `@meta`), so that search path indexing reads both the same way, and a compiled schema has the same header as its source.
+
 ### 4.2 Semantics
 
 Mapping to `core.Schema` (binary spec §4.5):
 
 | Source | `core.Schema` |
 |---|---|
-| `schema game 3` | `name = "game"`, `version = 3` |
-| `import assets 2` | `SchemaRef { name: "assets", version: 2, hash }` — hash computed from the resolved import; if a hex hash is written, it MUST match |
+| `@id game` / `@version 3` | `name = "game"`, `version = 3` |
+| `@import assets 2` | `SchemaRef { name: "assets", version: 2, hash }` — hash computed from the resolved import; if a hex hash is written, it MUST match |
+| `@import tex = assets.textures 2` | same, and `tex.Texture` designates `assets.textures.Texture` in this source; the alias is not stored |
 | type declarations | `types`, in declaration order |
 | `enum E : u8 { A, B = 5, C }` | `EnumDef`; a value without `=` is the previous value + 1, the first one defaults to 0 → `A = 0, B = 5, C = 6` |
 | `abstract struct B : A { … }` | `StructDef { base: index of A, isAbstract: true, … }` |
@@ -191,12 +210,16 @@ Rules:
 - A field MUST NOT be both nullable and defaulted (`T? = v` is invalid): `null` is the implicit default of a nullable field.
 - `@fixed` is only valid on `u16`, `u32`, `u64`, `s16`, `s32`, `s64`, possibly nullable. Each annotation appears at most once per field.
 - Types may be referenced before their declaration.
+- An import alias MUST be an identifier, unique among aliases, and different from the schema name and from the first segment of every imported schema name.
 
 ### 4.3 Example
 
 ```
-schema game 3
-import assets 2
+@sgs 1
+@id game
+@version 3
+@meta author = "Arthur"
+@import assets 2
 
 enum Class : u8 { Warrior, Mage }
 
@@ -238,17 +261,18 @@ Document  = FormatDirective { Directive } RootValue { ExportDirective }
 | Directive | Occurrences | Binary equivalent |
 |---|---|---|
 | `@sbdl 1` | exactly once, **first line** of the file | magic + format version |
-| `@id` String | at most once | header `id` (default `""`) |
+| `@id` (QName \| String) | at most once | header `id` (default `""`) |
 | `@version` Decimal | at most once | header `version` (default 0) |
 | `@meta` (Ident \| String) `=` String | any; keys unique | metadata |
-| `@schema` QName Decimal [ Hex ] | at most once | schema mode Reference (name, version, optional hash) |
-| `@schema` `{` SchemaFile `}` | one or more | schema mode Inline; the block contains a schema in the schema language |
+| `@schema` QName Decimal [ Hex ] | one or more; names unique | schema mode Reference: the file schemas, in order (name, version, optional hash) |
+| `@schema` `{` SchemaBody `}` | one or more | schema mode Inline; each block contains a schema in the schema language, without the `@sgs` directive |
 | `@dep` Ident `=` (QName \| String) Decimal | any; aliases and ids unique | dependency list, in order |
 | `@export` (Ident \| String) `=` Value | any, **after** the root | exports, in order |
 
 - `@sbdl` MUST be the very first characters of the file (no comment or blank line before it). The format version MUST be `1`.
 - Directives other than `@export` MUST appear before the root value, in any order. A reference `@schema` and inline `@schema` blocks MUST NOT be mixed. No `@schema` at all means schema mode None.
-- With inline schemas, the first block is the file schema. Imports not provided as an inline block are resolved externally (binary spec §10).
+- The file schemas (binary spec §4.4) are the schemas of the `@schema` directives, in order. Several schemas are allowed, e.g. a base schema and an extension declaring derived types.
+- With inline schemas, imports not provided as an inline block are resolved externally (binary spec §10).
 - With a reference `@schema`, the hash is verified when present. Writers SHOULD omit it.
 - A `@dep` **alias** is local to the file and is only used by `extref` values (§7.2). The dependency **id** is what is stored in the binary header.
 
@@ -379,7 +403,8 @@ Writers MUST produce the canonical form defined here, so that equal data gives i
 **Layout**
 
 - `LF` line breaks, final line break, no trailing whitespace, indentation of 2 spaces per level (configurable).
-- Directives in this order: `@sbdl 1`, `@id` (if non-empty), `@version` (if not 0), `@meta` (in order), `@schema`, `@dep` (in order); then one blank line, the root value, and, if any, one blank line followed by the `@export` directives.
+- Directives in this order: `@sbdl 1`, `@id` (if non-empty; qualified name form if valid, string otherwise), `@version` (if not 0), `@meta` (in order), `@schema` (one per file schema; in Inline mode, one block per schema of the closure), `@dep` (in order); then one blank line, the root value, and, if any, one blank line followed by the `@export` directives.
+- Schema sources: `@sgs 1`, `@id`, `@version` (if not 0), `@meta` (in order), `@import` (in order, without alias nor hash); then each type declaration preceded by one blank line, fields one per line, enum values one per line with explicit values, type names qualified by schema name when they belong to an import. Inside an inline `@schema` block, the same form without `@sgs` and indented by one level.
 - A list, map or struct is written on a **single line** if its whole representation fits within the maximum width (default 80 columns, measured from the start of the line) and contains no multi-line string: `[1, 2, 3]`, `{ name: "Potion", count: 3 }` (one space inside braces, none inside brackets). Otherwise it is written with one item per line, without commas.
 - Empty containers: `[]` and `{}`.
 
@@ -402,7 +427,7 @@ Writers MUST produce the canonical form defined here, so that equal data gives i
 | Binary feature | Text |
 |---|---|
 | Header fields, metadata, dependencies | directives (§5.1) |
-| Schema modes Inline / Reference / None | `@schema { … }` / `@schema name version` / no `@schema` |
+| Schema modes Inline / Reference / None | `@schema { … }` blocks / `@schema name version` lines / no `@schema` |
 | Exports | `@export` |
 | Polymorphism tag | type prefix |
 | `ref` object ids | anchors |
@@ -482,8 +507,12 @@ BaseType     = "bool" | IntType | "f32" | "f64" | "string" | "any"
              | "ref" "<" QName ">" | "extref" "<" QName ">" | QName
 
 (* Schema language *)
-SchemaFile   = "schema" QName Decimal { Import } { TypeDecl }
-Import       = "import" QName Decimal [ Hex ]
+SchemaFile   = "@sgs" Decimal LineBreak SchemaBody
+SchemaBody   = { SchemaDirective LineBreak } { TypeDecl }
+SchemaDirective = "@id" ( QName | String )
+             | "@version" Decimal
+             | "@meta" ( Ident | String ) "=" String
+             | "@import" [ Ident "=" ] QName Decimal [ Hex ]
 TypeDecl     = EnumDecl | StructDecl
 EnumDecl     = "enum" Ident ":" IntType "{" [ EnumValueDecl { Sep EnumValueDecl } [ "," ] ] "}"
 EnumValueDecl = Ident [ "=" Integer ]
@@ -494,11 +523,11 @@ Annotation   = "@fixed" | "@alias" "(" Ident { "," Ident } ")"
 (* Data document *)
 Document     = FormatDirective { LineBreak } { Directive LineBreak } Braced { LineBreak } { ExportDirective LineBreak }
 FormatDirective = "@sbdl" Decimal
-Directive    = "@id" String
+Directive    = "@id" ( QName | String )
              | "@version" Decimal
              | "@meta" ( Ident | String ) "=" String
              | "@schema" QName Decimal [ Hex ]
-             | "@schema" "{" SchemaFile "}"
+             | "@schema" "{" SchemaBody "}"
              | "@dep" Ident "=" ( QName | String ) Decimal
 ExportDirective = "@export" ( Ident | String ) "=" ( Reference | [ Anchor ] Braced )
 
@@ -517,4 +546,4 @@ TypedValue   = Type Value
 
 ## Appendix B. Conformance checklist for readers
 
-A reader MUST reject: missing or misplaced `@sbdl`; unsupported format version; BOM or lone `CR`; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; unqualified enum value or unprefixed struct in `any`; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.
+A reader MUST reject: missing or misplaced `@sbdl` or `@sgs`; missing `@id` in a schema; unsupported format version; BOM or lone `CR`; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; unqualified enum value or unprefixed struct in `any`; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.

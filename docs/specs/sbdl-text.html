@@ -171,7 +171,7 @@ QName = Ident { &quot;.&quot; Ident }
 </code></pre>
 <p><strong>Reserved words</strong>, which can never be used as an identifier value (enum value, alias, anchor): <code>null</code>, <code>true</code>, <code>false</code>, <code>inf</code>, <code>nan</code>.</p>
 <p><strong>Type keywords</strong>, which cannot be used as user type names: <code>bool</code>, <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>s8</code>, <code>s16</code>, <code>s32</code>, <code>s64</code>, <code>f32</code>, <code>f64</code>, <code>string</code>, <code>list</code>, <code>map</code>, <code>ref</code>, <code>extref</code>, <code>any</code>.</p>
-<p>Other words (<code>schema</code>, <code>import</code>, <code>enum</code>, <code>struct</code>, <code>abstract</code>) are keywords only where the grammar expects them; they remain valid field names.</p>
+<p>Other words (<code>enum</code>, <code>struct</code>, <code>abstract</code>) are keywords only where the grammar expects them; they remain valid field names.</p>
 <h3 id="2-4-literals"><span class="num">2.4</span> Literals<a class="anchor" href="#2-4-literals" aria-label="Link to this section">#</a></h3>
 <p><strong>Integers</strong></p>
 <pre><code>Integer   = [ &quot;-&quot; ] ( Decimal | Hex | Binary ) [ IntSuffix ]
@@ -239,12 +239,17 @@ BaseType  = &quot;bool&quot; | &quot;u8&quot; | &quot;u16&quot; | &quot;u32&quot
           | QName                               // enum or struct
 </code></pre>
 <p>Constraints of the data model apply (binary spec §3.1): no <code>any?</code>, map keys restricted, <code>ref</code>/<code>extref</code> targets are structs.</p>
-<p><strong>Type name resolution.</strong> An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one place, it is ambiguous and <span class="kw">MUST</span> be qualified (<code>assets.Texture</code>). A qualified name is <code>&lt;schema name&gt;.&lt;type name&gt;</code>.</p>
+<p><strong>Type name resolution in a schema.</strong> An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one import, it is ambiguous and <span class="kw">MUST</span> be qualified. A qualified name is <code>&lt;prefix&gt;.&lt;type name&gt;</code>, where the prefix is an import alias (§4.2) or a schema name (<code>assets.Texture</code>).</p>
+<p><strong>Type name resolution in a data document.</strong> An unqualified name is looked up among the types of every schema of the file type table (binary spec §4.4). If it is found in more than one schema, it is ambiguous and <span class="kw">MUST</span> be qualified with the schema name.</p>
 <hr>
 <h2 id="4-schema-language-sgs"><span class="num">4.</span> Schema language (<code>.sgs</code>)<a class="anchor" href="#4-schema-language-sgs" aria-label="Link to this section">#</a></h2>
 <h3 id="4-1-grammar"><span class="num">4.1</span> Grammar<a class="anchor" href="#4-1-grammar" aria-label="Link to this section">#</a></h3>
-<pre><code>SchemaFile  = &quot;schema&quot; QName Decimal { Import } { TypeDecl }
-Import      = &quot;import&quot; QName Decimal [ Hex ]
+<pre><code>SchemaFile  = &quot;@sgs&quot; Decimal SchemaBody
+SchemaBody  = { SchemaDirective } { TypeDecl }
+SchemaDirective = &quot;@id&quot; ( QName | String )
+            | &quot;@version&quot; Decimal
+            | &quot;@meta&quot; ( Ident | String ) &quot;=&quot; String
+            | &quot;@import&quot; [ Ident &quot;=&quot; ] QName Decimal [ Hex ]
 TypeDecl    = EnumDecl | StructDecl
 
 EnumDecl    = &quot;enum&quot; Ident &quot;:&quot; IntType &quot;{&quot; [ EnumValue { Sep EnumValue } [ &quot;,&quot; ] ] &quot;}&quot;
@@ -256,6 +261,42 @@ FieldDecl   = Ident &quot;:&quot; Type [ &quot;=&quot; Literal ] { Annotation }
 Annotation  = &quot;@fixed&quot; | &quot;@alias&quot; &quot;(&quot; Ident { &quot;,&quot; Ident } &quot;)&quot;
 </code></pre>
 <p><code>Sep</code> is a separator per §2.6. <code>Literal</code> is a scalar value literal (§6.2): boolean, number, string or enum value.</p>
+<p>Directives follow the rules of data documents (§5.1): each starts at the beginning of a line and ends at the end of that line, and they all precede the type declarations.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Directive</th>
+<th>Occurrences</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@sgs 1</code></td>
+<td>exactly once, <strong>first line</strong> of the file</td>
+<td>schema language version (only in <code>.sgs</code> files, see §5.1 for inline schemas)</td>
+</tr>
+<tr>
+<td><code>@id</code></td>
+<td>exactly once</td>
+<td>schema name; it <span class="kw">MUST</span> be a qualified name</td>
+</tr>
+<tr>
+<td><code>@version</code></td>
+<td>at most once</td>
+<td>schema version (default 0)</td>
+</tr>
+<tr>
+<td><code>@meta</code></td>
+<td>any; keys unique</td>
+<td>schema metadata (binary spec §4.1)</td>
+</tr>
+<tr>
+<td><code>@import</code></td>
+<td>any; names unique</td>
+<td>import of another schema, with an optional local alias and an optional hash</td>
+</tr>
+</tbody></table></div>
+<p>A <code>.sgs</code> file has the same header directives as a data document (<code>@id</code>, <code>@version</code>, <code>@meta</code>), so that search path indexing reads both the same way, and a compiled schema has the same header as its source.</p>
 <h3 id="4-2-semantics"><span class="num">4.2</span> Semantics<a class="anchor" href="#4-2-semantics" aria-label="Link to this section">#</a></h3>
 <p>Mapping to <code>core.Schema</code> (binary spec §4.5):</p>
 <div class="table-wrap"><table>
@@ -266,12 +307,16 @@ Annotation  = &quot;@fixed&quot; | &quot;@alias&quot; &quot;(&quot; Ident { &quo
 </tr>
 </thead>
 <tbody><tr>
-<td><code>schema game 3</code></td>
+<td><code>@id game</code> / <code>@version 3</code></td>
 <td><code>name = &quot;game&quot;</code>, <code>version = 3</code></td>
 </tr>
 <tr>
-<td><code>import assets 2</code></td>
+<td><code>@import assets 2</code></td>
 <td><code>SchemaRef { name: &quot;assets&quot;, version: 2, hash }</code> — hash computed from the resolved import; if a hex hash is written, it <span class="kw">MUST</span> match</td>
+</tr>
+<tr>
+<td><code>@import tex = assets.textures 2</code></td>
+<td>same, and <code>tex.Texture</code> designates <code>assets.textures.Texture</code> in this source; the alias is not stored</td>
 </tr>
 <tr>
 <td>type declarations</td>
@@ -304,10 +349,14 @@ Annotation  = &quot;@fixed&quot; | &quot;@alias&quot; &quot;(&quot; Ident { &quo
 <li>A field <span class="kw">MUST NOT</span> be both nullable and defaulted (<code>T? = v</code> is invalid): <code>null</code> is the implicit default of a nullable field.</li>
 <li><code>@fixed</code> is only valid on <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>s16</code>, <code>s32</code>, <code>s64</code>, possibly nullable. Each annotation appears at most once per field.</li>
 <li>Types may be referenced before their declaration.</li>
+<li>An import alias <span class="kw">MUST</span> be an identifier, unique among aliases, and different from the schema name and from the first segment of every imported schema name.</li>
 </ul>
 <h3 id="4-3-example"><span class="num">4.3</span> Example<a class="anchor" href="#4-3-example" aria-label="Link to this section">#</a></h3>
-<pre><code>schema game 3
-import assets 2
+<pre><code>@sgs 1
+@id game
+@version 3
+@meta author = &quot;Arthur&quot;
+@import assets 2
 
 enum Class : u8 { Warrior, Mage }
 
@@ -354,7 +403,7 @@ struct Player {
 <td>magic + format version</td>
 </tr>
 <tr>
-<td><code>@id</code> String</td>
+<td><code>@id</code> (QName | String)</td>
 <td>at most once</td>
 <td>header <code>id</code> (default <code>&quot;&quot;</code>)</td>
 </tr>
@@ -370,13 +419,13 @@ struct Player {
 </tr>
 <tr>
 <td><code>@schema</code> QName Decimal [ Hex ]</td>
-<td>at most once</td>
-<td>schema mode Reference (name, version, optional hash)</td>
+<td>one or more; names unique</td>
+<td>schema mode Reference: the file schemas, in order (name, version, optional hash)</td>
 </tr>
 <tr>
-<td><code>@schema</code> <code>{</code> SchemaFile <code>}</code></td>
+<td><code>@schema</code> <code>{</code> SchemaBody <code>}</code></td>
 <td>one or more</td>
-<td>schema mode Inline; the block contains a schema in the schema language</td>
+<td>schema mode Inline; each block contains a schema in the schema language, without the <code>@sgs</code> directive</td>
 </tr>
 <tr>
 <td><code>@dep</code> Ident <code>=</code> (QName | String) Decimal</td>
@@ -392,7 +441,8 @@ struct Player {
 <ul>
 <li><code>@sbdl</code> <span class="kw">MUST</span> be the very first characters of the file (no comment or blank line before it). The format version <span class="kw">MUST</span> be <code>1</code>.</li>
 <li>Directives other than <code>@export</code> <span class="kw">MUST</span> appear before the root value, in any order. A reference <code>@schema</code> and inline <code>@schema</code> blocks <span class="kw">MUST NOT</span> be mixed. No <code>@schema</code> at all means schema mode None.</li>
-<li>With inline schemas, the first block is the file schema. Imports not provided as an inline block are resolved externally (binary spec §10).</li>
+<li>The file schemas (binary spec §4.4) are the schemas of the <code>@schema</code> directives, in order. Several schemas are allowed, e.g. a base schema and an extension declaring derived types.</li>
+<li>With inline schemas, imports not provided as an inline block are resolved externally (binary spec §10).</li>
 <li>With a reference <code>@schema</code>, the hash is verified when present. Writers <span class="kw">SHOULD</span> omit it.</li>
 <li>A <code>@dep</code> <strong>alias</strong> is local to the file and is only used by <code>extref</code> values (§7.2). The dependency <strong>id</strong> is what is stored in the binary header.</li>
 </ul>
@@ -583,7 +633,8 @@ ExtRef     = &quot;&lt;&quot; Ident [ &quot;#&quot; ( Ident | String ) ] &quot;&
 <p><strong>Layout</strong></p>
 <ul>
 <li><code>LF</code> line breaks, final line break, no trailing whitespace, indentation of 2 spaces per level (configurable).</li>
-<li>Directives in this order: <code>@sbdl 1</code>, <code>@id</code> (if non-empty), <code>@version</code> (if not 0), <code>@meta</code> (in order), <code>@schema</code>, <code>@dep</code> (in order); then one blank line, the root value, and, if any, one blank line followed by the <code>@export</code> directives.</li>
+<li>Directives in this order: <code>@sbdl 1</code>, <code>@id</code> (if non-empty; qualified name form if valid, string otherwise), <code>@version</code> (if not 0), <code>@meta</code> (in order), <code>@schema</code> (one per file schema; in Inline mode, one block per schema of the closure), <code>@dep</code> (in order); then one blank line, the root value, and, if any, one blank line followed by the <code>@export</code> directives.</li>
+<li>Schema sources: <code>@sgs 1</code>, <code>@id</code>, <code>@version</code> (if not 0), <code>@meta</code> (in order), <code>@import</code> (in order, without alias nor hash); then each type declaration preceded by one blank line, fields one per line, enum values one per line with explicit values, type names qualified by schema name when they belong to an import. Inside an inline <code>@schema</code> block, the same form without <code>@sgs</code> and indented by one level.</li>
 <li>A list, map or struct is written on a <strong>single line</strong> if its whole representation fits within the maximum width (default 80 columns, measured from the start of the line) and contains no multi-line string: <code>[1, 2, 3]</code>, <code>{ name: &quot;Potion&quot;, count: 3 }</code> (one space inside braces, none inside brackets). Otherwise it is written with one item per line, without commas.</li>
 <li>Empty containers: <code>[]</code> and <code>{}</code>.</li>
 </ul>
@@ -614,7 +665,7 @@ ExtRef     = &quot;&lt;&quot; Ident [ &quot;#&quot; ( Ident | String ) ] &quot;&
 </tr>
 <tr>
 <td>Schema modes Inline / Reference / None</td>
-<td><code>@schema { … }</code> / <code>@schema name version</code> / no <code>@schema</code></td>
+<td><code>@schema { … }</code> blocks / <code>@schema name version</code> lines / no <code>@schema</code></td>
 </tr>
 <tr>
 <td>Exports</td>
@@ -708,8 +759,12 @@ BaseType     = &quot;bool&quot; | IntType | &quot;f32&quot; | &quot;f64&quot; | 
              | &quot;ref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot; | &quot;extref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot; | QName
 
 (* Schema language *)
-SchemaFile   = &quot;schema&quot; QName Decimal { Import } { TypeDecl }
-Import       = &quot;import&quot; QName Decimal [ Hex ]
+SchemaFile   = &quot;@sgs&quot; Decimal LineBreak SchemaBody
+SchemaBody   = { SchemaDirective LineBreak } { TypeDecl }
+SchemaDirective = &quot;@id&quot; ( QName | String )
+             | &quot;@version&quot; Decimal
+             | &quot;@meta&quot; ( Ident | String ) &quot;=&quot; String
+             | &quot;@import&quot; [ Ident &quot;=&quot; ] QName Decimal [ Hex ]
 TypeDecl     = EnumDecl | StructDecl
 EnumDecl     = &quot;enum&quot; Ident &quot;:&quot; IntType &quot;{&quot; [ EnumValueDecl { Sep EnumValueDecl } [ &quot;,&quot; ] ] &quot;}&quot;
 EnumValueDecl = Ident [ &quot;=&quot; Integer ]
@@ -720,11 +775,11 @@ Annotation   = &quot;@fixed&quot; | &quot;@alias&quot; &quot;(&quot; Ident { &qu
 (* Data document *)
 Document     = FormatDirective { LineBreak } { Directive LineBreak } Braced { LineBreak } { ExportDirective LineBreak }
 FormatDirective = &quot;@sbdl&quot; Decimal
-Directive    = &quot;@id&quot; String
+Directive    = &quot;@id&quot; ( QName | String )
              | &quot;@version&quot; Decimal
              | &quot;@meta&quot; ( Ident | String ) &quot;=&quot; String
              | &quot;@schema&quot; QName Decimal [ Hex ]
-             | &quot;@schema&quot; &quot;{&quot; SchemaFile &quot;}&quot;
+             | &quot;@schema&quot; &quot;{&quot; SchemaBody &quot;}&quot;
              | &quot;@dep&quot; Ident &quot;=&quot; ( QName | String ) Decimal
 ExportDirective = &quot;@export&quot; ( Ident | String ) &quot;=&quot; ( Reference | [ Anchor ] Braced )
 
@@ -741,7 +796,7 @@ ExtRef       = &quot;&lt;&quot; Ident [ &quot;#&quot; ( Ident | String ) ] &quot
 TypedValue   = Type Value
 </code></pre>
 <h2 id="appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers<a class="anchor" href="#appendix-b-conformance-checklist-for-readers" aria-label="Link to this section">#</a></h2>
-<p>A reader <span class="kw">MUST</span> reject: missing or misplaced <code>@sbdl</code>; unsupported format version; BOM or lone <code>CR</code>; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; unqualified enum value or unprefixed struct in <code>any</code>; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.</p>
+<p>A reader <span class="kw">MUST</span> reject: missing or misplaced <code>@sbdl</code> or <code>@sgs</code>; missing <code>@id</code> in a schema; unsupported format version; BOM or lone <code>CR</code>; invalid escape or control character in a string; malformed multi-line string indentation; invalid Base64; items on the same line without comma; duplicate directives, metadata keys, dependency aliases or ids, export names, anchors, struct fields or map keys; unknown or missing required fields; values not accepted for the expected type or out of range; unqualified enum value or unprefixed struct in <code>any</code>; missing mandatory type prefix; unresolved reference or undeclared dependency alias; anchor at a non-reference position; schema hash mismatch.</p>
 
   </article>
 </div>

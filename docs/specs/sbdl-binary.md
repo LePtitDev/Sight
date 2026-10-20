@@ -12,7 +12,7 @@
 
 ## 1. Introduction
 
-SBDL (Sight Bundle) is a schema-driven serialization format. A file carries a header, a schema (embedded, referenced, or omitted) and a single root value. Values are encoded **untagged**: the schema provides every type, so the data contains only payload bytes, except where the type cannot be known statically (polymorphism and `any`).
+SBDL (Sight Bundle) is a schema-driven serialization format. A file carries a header, one or more schemas (embedded, referenced, or omitted) and a single root value. Values are encoded **untagged**: the schema provides every type, so the data contains only payload bytes, except where the type cannot be known statically (polymorphism and `any`).
 
 Design goals, in priority order:
 
@@ -57,7 +57,7 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT** and **MAY** are
 └──────────────────────────────┘
 ```
 
-A single **string table** (§5.4) spans the whole file, header included.
+A single **string table** (§5.4) spans the schema section and the body. Header strings are never deduplicated.
 
 ---
 
@@ -127,6 +127,7 @@ Rules:
 - Type names MUST be unique within a schema.
 - A schema MUST NOT import itself, directly or transitively.
 - Only types of the schema itself and of its **direct** imports are usable in its definitions.
+- A schema MAY also carry metadata (string keys and values). Metadata is not part of the schema model: it is not encoded in `core.Schema` and does not change the hash. It is stored in the header of compiled schema files (§4.7).
 
 ### 4.2 Struct definition
 
@@ -158,9 +159,11 @@ Value names MUST be unique, values MUST be unique and MUST fit the underlying ty
 
 ### 4.4 Type tables
 
-**Schema closure.** The closure of a schema `S` is the ordered list obtained by a depth-first, pre-order traversal starting at `S`, following `imports` in declaration order, and skipping schemas already visited (compared by name). A closure MUST NOT contain two schemas with the same name and different versions.
+**File schemas.** A file uses an ordered, non-empty list of schemas, its **file schemas** (§6.3). Several schemas are needed when the data uses types of schemas that do not import each other, typically derived types declared in an extension schema (`mods.Dragon` deriving from `game.Character`: `game` cannot import `mods` without a cycle).
 
-**File type table.** The type table of a file is the concatenation of the `types` lists of every schema of the closure, in closure order. A **type index** in the data (§7) is an index in this table.
+**Schema closure.** The closure of a list of schemas is the ordered list obtained by a depth-first, pre-order traversal of each schema of the list in order, following `imports` in declaration order, and skipping schemas already visited (compared by name). A closure MUST NOT contain two schemas with the same name and different versions.
+
+**File type table.** The type table of a file is the concatenation of the `types` lists of every schema of the closure of the file schemas, in closure order. A **type index** in the data (§7) is an index in this table. Any type of the table may be used by the data, including as root type.
 
 **Local type space.** Inside a schema definition, type references use the **local** type space of that schema: its own `types`, followed by the `types` of each direct import in import order.
 
@@ -171,7 +174,9 @@ Value names MUST be unique, values MUST be unique and MUST fit the underlying ty
 Schemas are themselves SBDL values of type `core.Schema`. The `core` schema, version 1, is built into every implementation and MUST NOT be redefined. It is defined as follows (in the schema language of the companion document):
 
 ```
-schema core 1
+@sgs 1
+@id core
+@version 1
 
 enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
@@ -217,7 +222,7 @@ struct Field {                      // 7
   name:    string
   type:    TypeRef
   aliases: list<string>
-  default: any?
+  default: any                     // Null when the field has no default
 }
 
 struct Schema {                     // 8
@@ -234,7 +239,7 @@ struct Schema {                     // 8
 - `Enum` and `Struct` use `index`; primitives, `String` and `Any` have neither `index` nor `args`.
 - `Null` MUST NOT appear in a `TypeRef`.
 - The **fixed** flag is only valid on `U16`, `U32`, `U64`, `S16`, `S32`, `S64`. It changes the encoding (§7.1), not the type.
-- `Field.default`, when present, MUST be an `any` value whose kind and type index match the field type.
+- `Field.default` is `Null` when the field has no default. Otherwise it MUST be a scalar `any` value of the field kind (e.g. `u16` for a `u16` field); for an enum field, it is the **name** of the enum value, as a `string` (enum values cannot be described with the `core` type table).
 
 ### 4.6 Canonical form and hash
 
@@ -248,9 +253,11 @@ The hash of the built-in `core` schema is defined as `0`.
 
 A compiled schema is an SBDL file whose:
 
-- header `id` is the schema name and header `version` is the schema version;
+- header `id` is the schema name, header `version` is the schema version, and header metadata is the schema metadata;
 - schema section uses mode *Reference* to `core`, version 1, hash `0`;
 - root value is the `core.Schema` value (type index 8).
+
+A compiled schema contains a single schema; its imports are referenced by `SchemaRef` and resolved externally (§10).
 
 ---
 
@@ -304,7 +311,8 @@ A string is a `vu x` followed, when inline, by bytes:
 
 Rules:
 
-- The string table is empty at the start of the file and is shared by the header, the schema section and the body. `dedupMax` is read from the header (§6.1).
+- The string table is empty at the start of the schema section and is shared by the schema section and the body. `dedupMax` is read from the header (§6.1).
+- Header strings (id, metadata, dependencies) are always inline and are **never** added to the string table, whatever their length. The dependency list is only known once the body is encoded (§8.2): keeping the header out of the table lets writers encode the body first and emit the header afterwards.
 - Writers MUST NOT emit an inline string that is already present in the table (the table never contains duplicates).
 - The bytes MUST be valid UTF-8 (no surrogate code points, no overlong forms).
 - Length is in bytes. Strings longer than 2³¹ − 1 bytes are malformed.
@@ -349,15 +357,15 @@ If the compression field is `1`, every byte after the header, up to the end of t
 
 | Mode | Layout |
 |---|---|
-| Inline (`0`) | `vu n` (`n ≥ 1`), then `n` values of type `core.Schema` (§7), in closure order (§4.4). The first one is the **file schema**. |
-| Reference (`1`) | `str name`, `vu version`, `u64le hash` — the file schema is resolved externally (§10). |
-| None (`2`) | nothing — the reader MUST be given the file schema by the caller. |
+| Inline (`0`) | `vu n` (`n ≥ 1`), then `n` values of type `core.Schema` (§7). The list is the closure of the file schemas, in closure order (§4.4): it is itself the list of file schemas. |
+| Reference (`1`) | `vu n` (`n ≥ 1`), then `n` × (`str name`, `vu version`, `u64le hash`): the file schemas, resolved externally (§10). Names MUST be unique. |
+| None (`2`) | nothing — the reader MUST be given the file schemas by the caller. |
 
-Values of the schema section are decoded with the type table of the built-in `core` schema (§4.5), not with the file type table. They share the file string table.
+Values of the schema section are decoded with the type table of the built-in `core` schema (§4.5), not with the file type table. They share the string table with the body.
 
 Inline mode:
 
-- The list MUST contain the whole closure of the file schema, so that the file is self-contained.
+- The list MUST be closed (every import of a schema of the list is in the list) and in closure order, so that the file is self-contained and the type table is the same whether it is computed from the list or from its closure.
 - Writers MAY prune types and imports that are unreachable from the values of the file. Pruned schemas keep their name and version; readers MUST NOT verify `SchemaRef.hash` between inline schemas.
 
 Reference mode: readers MUST verify that the resolved schema has the given hash, except for the built-in `core` schema.
@@ -552,7 +560,8 @@ The requested version MUST be found exactly. If the caller allows newer dependen
 
 ### 10.3 Search paths
 
-- Files with extension `.sbdl` (binary) and `.sbdt` (text) in each search path are indexed by `(id, version)` by reading **their header only**. The index MAY be cached.
+- Files with extension `.sbdl` (binary) and `.sbdt` (text) in each search path, including its sub-folders, are indexed by `(id, version)` by reading **their header only**. The index MAY be cached.
+- Schema sources (`.sgs`, see the companion document) are also indexed, by their `@id` and `@version` directives, so that referenced schemas and imports can be resolved without compiling them first.
 - The same `(id, version)` in several search paths: the first path in the list wins; shadowed files SHOULD be reported as diagnostics.
 - The same `(id, version)` twice within the same search path is an error.
 - Files with an empty id are not indexed.
@@ -580,7 +589,9 @@ Counts (lists, maps, metadata, …) whose minimal encoded size exceeds the remai
 Schema:
 
 ```
-schema demo 1
+@sgs 1
+@id demo
+@version 1
 
 struct Point {
   x:     s32
@@ -597,28 +608,28 @@ Value: `Point { x: 3, y: -2, label: "p" }`, id `"p"`, version 0, inline schema, 
 | `01` | format version 1 |
 | `00` | flags: Inline schema, no metadata, dependencies, compression or exports |
 | `20` | dedupMax = 32 |
-| `02 70` | id: inline, length 1, `"p"` → string #0 |
+| `02 70` | id: inline, length 1, `"p"` (header strings are not deduplicated) |
 | `00` | version 0 |
-| `01` | schema section: 1 schema |
-| `08 64 65 6D 6F` | `Schema.name`: `"demo"` → string #1 |
+| `01` | schema section: 1 schema (inline) |
+| `08 64 65 6D 6F` | `Schema.name`: `"demo"` → string #0 |
 | `01` | `Schema.version`: 1 |
 | `00` | `Schema.imports`: empty |
 | `01` | `Schema.types`: 1 element |
 | `00` | polymorphism tag: `C(TypeDef)` = [StructDef, EnumDef] → StructDef |
 | `00` | `StructDef` presence bitmap: `base` absent |
-| `0A 50 6F 69 6E 74` | `name`: `"Point"` → string #2 |
+| `0A 50 6F 69 6E 74` | `name`: `"Point"` → string #1 |
 | `00` | `isAbstract`: false |
 | `03` | `fields`: 3 elements |
-| `00` `02 78` `00 08 00 00` `00` | field: bitmap (no default), `"x"`, TypeRef (bitmap, kind S32, flags 0, no args), no aliases |
-| `00` `02 79` `00 08 00 00` `00` | field `"y"`, S32 |
-| `00` `0A 6C 61 62 65 6C` `00 0C 01 00` `00` | field `"label"`, String, flags = nullable |
+| `02 78` `00 08 00 00` `00` `00` | field: `"x"`, TypeRef (bitmap, kind S32, flags 0, no args), no aliases, default `Null` |
+| `02 79` `00 08 00 00` `00` `00` | field `"y"`, S32 |
+| `0A 6C 61 62 65 6C` `00 0C 01 00` `00` `00` | field `"label"`, String, flags = nullable |
 | `00` | root type index 0 (`demo.Point`) |
 | `01` | presence bitmap: `label` present |
 | `06` | x = 3 (ZigZag 6) |
 | `03` | y = −2 (ZigZag 3) |
-| `01` | label: string #0 (`"p"`, deduplicated) |
+| `02 70` | label: inline `"p"` |
 
-Total: 62 bytes, including the embedded schema.
+Total: 63 bytes, including the embedded schema.
 
 ---
 
