@@ -1,0 +1,13 @@
+{
+  "name": "sight-specs-build",
+  "private": true,
+  "type": "module",
+  "description": "Generates the HTML and PDF versions of the Sight specifications.",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:html": "node build.mjs --no-pdf"
+  },
+  "dependencies": {
+    "marked": "12.0.2"
+  }
+}

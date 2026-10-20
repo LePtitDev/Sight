@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBDL Binary Format Specification</title>
+<style>
+:root {
+  --ink: #1b1e27; --ink-2: #4a5163; --ink-3: #7c8396;
+  --paper: #ffffff; --paper-2: #f6f7fa; --paper-3: #eef0f5;
+  --line: #e2e5ec; --accent: #3d5afe; --accent-ink: #2a3fc4; --accent-soft: #eef1ff;
+  --kw: #b4235a;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e6e8ef; --ink-2: #b1b7c6; --ink-3: #848b9c;
+    --paper: #13151b; --paper-2: #1a1d25; --paper-3: #232733;
+    --line: #2c303c; --accent: #8c9eff; --accent-ink: #aab8ff; --accent-soft: #1f2540;
+    --kw: #ff8fb4;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 24px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15.5px/1.65 var(--sans); }
+
+/* Title block */
+.masthead { border-bottom: 1px solid var(--line); background:
+  linear-gradient(180deg, var(--accent-soft), var(--paper) 85%); }
+.masthead-inner { max-width: 1180px; margin: 0 auto; padding: 48px 16px 32px; }
+.eyebrow { font: 600 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 14px; }
+h1 { font: 700 clamp(28px, 4.5vw, 40px)/1.15 var(--display); letter-spacing: -.02em; margin: 0 0 24px; }
+.meta { display: flex; flex-wrap: wrap; gap: 10px 36px; margin: 0; }
+.meta div { min-width: 0; }
+.meta dt { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.meta dd { margin: 2px 0 0; font-weight: 500; }
+.meta code { background: none; padding: 0; }
+
+/* Layout */
+.layout { max-width: 1180px; margin: 0 auto; padding: 0 16px 80px; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 56px; }
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 32px 0 32px; font-size: 13.5px; }
+.toc-title { font: 600 11.5px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px; }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li a { display: block; padding: 3px 10px; color: var(--ink-2); border-left: 2px solid var(--line); text-decoration: none; }
+.toc li.l2 a { font-weight: 500; color: var(--ink); margin-top: 6px; }
+.toc li.l3 a { padding-left: 22px; }
+.toc li a:hover { color: var(--accent-ink); border-left-color: var(--accent); }
+.toc li a.active { color: var(--accent-ink); border-left-color: var(--accent); background: var(--accent-soft); }
+.toc .num { color: var(--ink-3); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.toc code { background: none; padding: 0; font-size: .95em; }
+article { min-width: 0; max-width: 820px; padding-top: 8px; }
+
+/* Headings */
+h2, h3, h4 { font-family: var(--display); letter-spacing: -.01em; position: relative; }
+h2 { font-size: 26px; line-height: 1.25; margin: 56px 0 16px; padding-top: 12px; }
+h3 { font-size: 19px; line-height: 1.3; margin: 36px 0 10px; }
+h2 .num, h3 .num { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.anchor { margin-left: 8px; color: var(--ink-3); opacity: 0; text-decoration: none; font-weight: 400; }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+hr { border: 0; height: 1px; background: var(--line); margin: 40px 0 0; }
+
+/* Text */
+p, ul, ol { margin: 0 0 14px; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+a { color: var(--accent-ink); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--accent); }
+strong { font-weight: 600; }
+.kw { font-size: .82em; font-weight: 700; letter-spacing: .04em; color: var(--kw); }
+blockquote { margin: 16px 0; padding: 10px 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--ink-2); }
+blockquote p:last-child { margin: 0; }
+
+/* Code */
+code { font-family: var(--mono); font-size: .86em; background: var(--paper-3); padding: .12em .38em; border-radius: 5px; }
+pre { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; overflow-x: auto; margin: 0 0 18px; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 13px; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { background: var(--paper-2); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--paper-2) 55%, transparent); }
+td code { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: static; max-height: none; padding: 24px 0 8px; border-bottom: 1px solid var(--line); }
+  td code { white-space: normal; }
+}
+
+/* Print / PDF */
+@page { size: A4; margin: 20mm 17mm 18mm;
+  @bottom-left { content: "SBDL Binary Format Specification"; font: 8.5pt "Segoe UI", sans-serif; color: #7c8396; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8.5pt "Segoe UI", sans-serif; color: #7c8396; }
+}
+@page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+@media print {
+  :root { --ink: #1b1e27; --ink-2: #4a5163; --ink-3: #7c8396; --paper: #fff; --paper-2: #f6f7fa; --paper-3: #eef0f5;
+    --line: #e2e5ec; --accent: #3d5afe; --accent-ink: #2a3fc4; --accent-soft: #eef1ff; --kw: #b4235a; }
+  body { font-size: 10pt; line-height: 1.55; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .masthead { background: none; border-bottom: 0; }
+  .masthead-inner { padding: 70mm 0 0; }
+  .masthead-inner::before { content: ""; display: block; width: 56px; height: 5px; border-radius: 3px; background: var(--accent); margin-bottom: 22px; }
+  h1 { font-size: 32pt; }
+  .meta { flex-direction: column; gap: 10px; margin-top: 18mm; }
+  .layout { display: block; padding: 0; max-width: none; }
+  .toc { position: static; max-height: none; overflow: visible; padding: 0; break-before: page; break-after: page; font-size: 10pt; }
+  .toc-title { font-size: 9pt; margin-bottom: 14px; }
+  .toc ul { columns: 2; column-gap: 12mm; }
+  .toc li { break-inside: avoid; }
+  .toc li.l2 a { margin-top: 5px; }
+  .toc li a { border-left: 0; padding: 1px 0; }
+  .toc li.l3 a { padding-left: 18px; }
+  article { max-width: none; padding: 0; }
+  h2 { font-size: 17pt; margin-top: 26px; break-after: avoid; }
+  h3 { font-size: 12.5pt; margin-top: 20px; break-after: avoid; }
+  h2 + *, h3 + * { break-before: avoid; }
+  .anchor { display: none; }
+  hr { display: none; }
+  a { text-decoration: none; color: inherit; }
+  pre { white-space: pre-wrap; word-break: break-word; }
+  pre code { font-size: 8.4pt; }
+  table { font-size: 9pt; }
+  tr { break-inside: avoid; }
+  .table-wrap { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<header class="masthead"><div class="masthead-inner">
+  <p class="eyebrow">Sight.Serialization · Specification</p>
+  <h1>SBDL Binary Format Specification</h1>
+  <dl class="meta"><div><dt>Format</dt><dd>Sight Bundle, binary encoding (<code>.sbdl</code>)</dd></div><div><dt>Format version</dt><dd>1</dd></div><div><dt>Document status</dt><dd>Final, to be implemented</dd></div><div><dt>Date</dt><dd>2026-10-20</dd></div><div><dt>Companion document</dt><dd><a href="sbdl-text.html">SBDL Text Format Specification</a></dd></div></dl>
+</div></header>
+<div class="layout">
+  <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="l2"><a href="#1-introduction"><span class="num">1.</span> Introduction</a></li><li class="l3"><a href="#1-1-conventions"><span class="num">1.1</span> Conventions</a></li><li class="l3"><a href="#1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts</a></li><li class="l2"><a href="#2-overview"><span class="num">2.</span> Overview</a></li><li class="l2"><a href="#3-data-model"><span class="num">3.</span> Data model</a></li><li class="l3"><a href="#3-1-types"><span class="num">3.1</span> Types</a></li><li class="l3"><a href="#3-2-values"><span class="num">3.2</span> Values</a></li><li class="l3"><a href="#3-3-identifiers"><span class="num">3.3</span> Identifiers</a></li><li class="l2"><a href="#4-schema-model"><span class="num">4.</span> Schema model</a></li><li class="l3"><a href="#4-1-schema"><span class="num">4.1</span> Schema</a></li><li class="l3"><a href="#4-2-struct-definition"><span class="num">4.2</span> Struct definition</a></li><li class="l3"><a href="#4-3-enum-definition"><span class="num">4.3</span> Enum definition</a></li><li class="l3"><a href="#4-4-type-tables"><span class="num">4.4</span> Type tables</a></li><li class="l3"><a href="#4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code></a></li><li class="l3"><a href="#4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash</a></li><li class="l3"><a href="#4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files</a></li><li class="l2"><a href="#5-primitive-encodings"><span class="num">5.</span> Primitive encodings</a></li><li class="l3"><a href="#5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)</a></li><li class="l3"><a href="#5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)</a></li><li class="l3"><a href="#5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values</a></li><li class="l3"><a href="#5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication</a></li><li class="l2"><a href="#6-file-structure"><span class="num">6.</span> File structure</a></li><li class="l3"><a href="#6-1-header"><span class="num">6.1</span> Header</a></li><li class="l3"><a href="#6-2-compression"><span class="num">6.2</span> Compression</a></li><li class="l3"><a href="#6-3-schema-section"><span class="num">6.3</span> Schema section</a></li><li class="l3"><a href="#6-4-body"><span class="num">6.4</span> Body</a></li><li class="l2"><a href="#7-value-encoding"><span class="num">7.</span> Value encoding</a></li><li class="l3"><a href="#7-1-scalars"><span class="num">7.1</span> Scalars</a></li><li class="l3"><a href="#7-2-nullable-values"><span class="num">7.2</span> Nullable values</a></li><li class="l3"><a href="#7-3-lists"><span class="num">7.3</span> Lists</a></li><li class="l3"><a href="#7-4-maps"><span class="num">7.4</span> Maps</a></li><li class="l3"><a href="#7-5-structs"><span class="num">7.5</span> Structs</a></li><li class="l3"><a href="#7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-8-polymorphism"><span class="num">7.8</span> Polymorphism</a></li><li class="l3"><a href="#7-9-any"><span class="num">7.9</span> Any</a></li><li class="l2"><a href="#8-writing"><span class="num">8.</span> Writing</a></li><li class="l3"><a href="#8-1-determinism"><span class="num">8.1</span> Determinism</a></li><li class="l3"><a href="#8-2-streaming"><span class="num">8.2</span> Streaming</a></li><li class="l2"><a href="#9-schema-evolution"><span class="num">9.</span> Schema evolution</a></li><li class="l3"><a href="#9-1-types"><span class="num">9.1</span> Types</a></li><li class="l3"><a href="#9-2-fields"><span class="num">9.2</span> Fields</a></li><li class="l3"><a href="#9-3-type-compatibility"><span class="num">9.3</span> Type compatibility</a></li><li class="l2"><a href="#10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources</a></li><li class="l3"><a href="#10-1-order"><span class="num">10.1</span> Order</a></li><li class="l3"><a href="#10-2-version-matching"><span class="num">10.2</span> Version matching</a></li><li class="l3"><a href="#10-3-search-paths"><span class="num">10.3</span> Search paths</a></li><li class="l2"><a href="#11-limits-and-errors"><span class="num">11.</span> Limits and errors</a></li><li class="l2"><a href="#12-example"><span class="num">12.</span> Example</a></li><li class="l2"><a href="#appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values</a></li><li class="l2"><a href="#appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers</a></li></ul></nav>
+  <article>
+
+<h2 id="1-introduction"><span class="num">1.</span> Introduction<a class="anchor" href="#1-introduction" aria-label="Link to this section">#</a></h2>
+<p>SBDL (Sight Bundle) is a schema-driven serialization format. A file carries a header, a schema (embedded, referenced, or omitted) and a single root value. Values are encoded <strong>untagged</strong>: the schema provides every type, so the data contains only payload bytes, except where the type cannot be known statically (polymorphism and <code>any</code>).</p>
+<p>Design goals, in priority order:</p>
+<ol>
+<li>Small files (variable-length integers, string deduplication, presence bitmaps, no field identifiers).</li>
+<li>Fast single-pass reading and writing, with streaming support.</li>
+<li>Schema evolution: data written with one version of a schema can be read with another.</li>
+<li>Self-containment: a file can embed everything required to decode it.</li>
+</ol>
+<p>This document defines the data model (§3), the schema model (§4), the binary encoding (§5–§8), schema evolution (§9), and resolution of external resources (§10). The text encoding is defined in the companion document; both encodings share §3, §4, §9 and §10.</p>
+<h3 id="1-1-conventions"><span class="num">1.1</span> Conventions<a class="anchor" href="#1-1-conventions" aria-label="Link to this section">#</a></h3>
+<p>The key words <span class="kw">MUST</span>, <span class="kw">MUST NOT</span>, <span class="kw">SHOULD</span>, <span class="kw">SHOULD NOT</span> and <span class="kw">MAY</span> are to be interpreted as described in RFC 2119.</p>
+<ul>
+<li>All multi-byte fixed-width quantities are <strong>little-endian</strong>.</li>
+<li>A <strong>reader</strong> decodes files; a <strong>writer</strong> produces them. A file that violates a <span class="kw">MUST</span> of this document is <strong>malformed</strong>; a reader <span class="kw">MUST</span> reject it with an error and <span class="kw">MUST NOT</span> return a partial result.</li>
+<li>Byte values are written in hexadecimal (<code>0x2A</code>), bit 0 is the least significant bit.</li>
+</ul>
+<h3 id="1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts<a class="anchor" href="#1-2-notation-used-in-layouts" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Notation</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>u8</code></td>
+<td>one raw byte</td>
+</tr>
+<tr>
+<td><code>u64le</code></td>
+<td>8 raw bytes, little-endian</td>
+</tr>
+<tr>
+<td><code>vu</code></td>
+<td>variable-length unsigned integer (§5.1)</td>
+</tr>
+<tr>
+<td><code>vs</code></td>
+<td>variable-length signed integer (§5.2)</td>
+</tr>
+<tr>
+<td><code>str</code></td>
+<td>string (§5.4)</td>
+</tr>
+<tr>
+<td><code>[x]</code></td>
+<td><code>x</code> is present only under a condition stated alongside</td>
+</tr>
+<tr>
+<td><code>x × n</code></td>
+<td><code>x</code> repeated <code>n</code> times</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2 id="2-overview"><span class="num">2.</span> Overview<a class="anchor" href="#2-overview" aria-label="Link to this section">#</a></h2>
+<pre><code>┌──────────────────────────────┐
+│ Header    (never compressed) │  magic, flags, id, version, metadata, dependencies
+├──────────────────────────────┤ ← start of the compressible region
+│ Schema section               │  inline schemas | schema reference | nothing
+├──────────────────────────────┤
+│ Body                         │  root type index, root value, [exports]
+└──────────────────────────────┘
+</code></pre>
+<p>A single <strong>string table</strong> (§5.4) spans the whole file, header included.</p>
+<hr>
+<h2 id="3-data-model"><span class="num">3.</span> Data model<a class="anchor" href="#3-data-model" aria-label="Link to this section">#</a></h2>
+<h3 id="3-1-types"><span class="num">3.1</span> Types<a class="anchor" href="#3-1-types" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Types</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Boolean</td>
+<td><code>bool</code></td>
+</tr>
+<tr>
+<td>Unsigned integers</td>
+<td><code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code></td>
+</tr>
+<tr>
+<td>Signed integers</td>
+<td><code>s8</code>, <code>s16</code>, <code>s32</code>, <code>s64</code></td>
+</tr>
+<tr>
+<td>Floating point</td>
+<td><code>f32</code>, <code>f64</code> (IEEE 754 binary32 / binary64)</td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>string</code> (Unicode, encoded as UTF-8)</td>
+</tr>
+<tr>
+<td>User types</td>
+<td><code>enum</code>, <code>struct</code> (declared in a schema)</td>
+</tr>
+<tr>
+<td>Containers</td>
+<td><code>list&lt;T&gt;</code>, <code>map&lt;K, V&gt;</code></td>
+</tr>
+<tr>
+<td>References</td>
+<td><code>ref&lt;T&gt;</code> (internal), <code>extref&lt;T&gt;</code> (external)</td>
+</tr>
+<tr>
+<td>Dynamic</td>
+<td><code>any</code></td>
+</tr>
+<tr>
+<td>Modifier</td>
+<td><code>T?</code> (nullable)</td>
+</tr>
+</tbody></table></div>
+<p>Constraints:</p>
+<ul>
+<li><code>null</code> is a value, not a declarable type. It is the value of a nullable position, or an <code>any</code> value of kind <code>Null</code>.</li>
+<li><code>T?</code> is allowed for every type except <code>any</code> (which can already hold <code>null</code>) and nullable types (<code>T??</code> is invalid).</li>
+<li><code>K</code> in <code>map&lt;K, V&gt;</code> <span class="kw">MUST</span> be <code>bool</code>, an integer type, <code>string</code> or an <code>enum</code> type, and <span class="kw">MUST NOT</span> be nullable.</li>
+<li><code>T</code> in <code>ref&lt;T&gt;</code> and <code>extref&lt;T&gt;</code> <span class="kw">MUST</span> be a struct type.</li>
+</ul>
+<h3 id="3-2-values"><span class="num">3.2</span> Values<a class="anchor" href="#3-2-values" aria-label="Link to this section">#</a></h3>
+<ul>
+<li><strong>Struct</strong>: ordered set of named fields, as declared by its type and its base types.</li>
+<li><strong>Enum</strong>: one of the named values of the enum type.</li>
+<li><strong>List</strong>: ordered sequence of values of type <code>T</code>.</li>
+<li><strong>Map</strong>: ordered sequence of <code>(key, value)</code> pairs with <strong>unique</strong> keys. Insertion order is preserved by the format.</li>
+<li><strong>Ref</strong>: points to a struct value of the same file. Several refs <span class="kw">MAY</span> point to the same value, and refs <span class="kw">MAY</span> form cycles. Identity is preserved by a round trip.</li>
+<li><strong>Extref</strong>: points to the root value or to a named export of another SBDL file (a <em>dependency</em>).</li>
+<li><strong>Any</strong>: a value together with its type.</li>
+</ul>
+<h3 id="3-3-identifiers"><span class="num">3.3</span> Identifiers<a class="anchor" href="#3-3-identifiers" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Identifier</td>
+<td><code>[A-Za-z_][A-Za-z0-9_]*</code></td>
+<td><code>Player</code>, <code>max_hp</code></td>
+</tr>
+<tr>
+<td>Qualified name</td>
+<td>identifiers joined by <code>.</code></td>
+<td><code>game</code>, <code>assets.textures</code></td>
+</tr>
+<tr>
+<td>Type identity</td>
+<td><code>&lt;schema name&gt;.&lt;type name&gt;</code></td>
+<td><code>game.Player</code></td>
+</tr>
+</tbody></table></div>
+<p>Field, enum value and type names are identifiers. Schema names are qualified names. File ids, dependency ids, metadata keys and export names are arbitrary non-empty strings, unless stated otherwise.</p>
+<p>All name comparisons are ordinal (case-sensitive, code point by code point).</p>
+<hr>
+<h2 id="4-schema-model"><span class="num">4.</span> Schema model<a class="anchor" href="#4-schema-model" aria-label="Link to this section">#</a></h2>
+<h3 id="4-1-schema"><span class="num">4.1</span> Schema<a class="anchor" href="#4-1-schema" aria-label="Link to this section">#</a></h3>
+<p>A schema is a named, versioned set of type definitions:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>qualified name, e.g. <code>game</code></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>u32</code></td>
+</tr>
+<tr>
+<td><code>imports</code></td>
+<td>ordered list of <code>(name, version, hash)</code> of other schemas whose types are usable by this one</td>
+</tr>
+<tr>
+<td><code>types</code></td>
+<td>ordered list of type definitions (structs and enums)</td>
+</tr>
+</tbody></table></div>
+<p>Rules:</p>
+<ul>
+<li>Type names <span class="kw">MUST</span> be unique within a schema.</li>
+<li>A schema <span class="kw">MUST NOT</span> import itself, directly or transitively.</li>
+<li>Only types of the schema itself and of its <strong>direct</strong> imports are usable in its definitions.</li>
+</ul>
+<h3 id="4-2-struct-definition"><span class="num">4.2</span> Struct definition<a class="anchor" href="#4-2-struct-definition" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>identifier</td>
+</tr>
+<tr>
+<td><code>base</code></td>
+<td>optional parent struct (single inheritance)</td>
+</tr>
+<tr>
+<td><code>isAbstract</code></td>
+<td>an abstract struct is never instantiated directly</td>
+</tr>
+<tr>
+<td><code>fields</code></td>
+<td>ordered list of fields</td>
+</tr>
+</tbody></table></div>
+<p>A <strong>field</strong> has a <code>name</code>, a <code>type</code>, an optional list of <code>aliases</code> (former names, §9) and an optional <code>default</code> value.</p>
+<p>Rules:</p>
+<ul>
+<li>Inheritance <span class="kw">MUST NOT</span> be cyclic. A base <span class="kw">MUST</span> be a struct.</li>
+<li>Field names, including inherited ones, <span class="kw">MUST</span> be unique within a struct. An alias <span class="kw">MUST NOT</span> equal another field&#39;s name.</li>
+<li>A field <span class="kw">MAY</span> have a default only if its type is <code>bool</code>, an integer, a float, <code>string</code> or an enum, and is not nullable. The default <span class="kw">MUST</span> be a valid value of the field type.</li>
+<li>The <strong>field sequence</strong> of a struct is the fields of its root-most base first, then each derived level in order, ending with its own fields.</li>
+</ul>
+<h3 id="4-3-enum-definition"><span class="num">4.3</span> Enum definition<a class="anchor" href="#4-3-enum-definition" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>identifier</td>
+</tr>
+<tr>
+<td><code>underlying</code></td>
+<td>one of <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>s8</code>, <code>s16</code>, <code>s32</code>, <code>s64</code></td>
+</tr>
+<tr>
+<td><code>values</code></td>
+<td>ordered list of <code>(name, value)</code></td>
+</tr>
+</tbody></table></div>
+<p>Value names <span class="kw">MUST</span> be unique, values <span class="kw">MUST</span> be unique and <span class="kw">MUST</span> fit the underlying type.</p>
+<h3 id="4-4-type-tables"><span class="num">4.4</span> Type tables<a class="anchor" href="#4-4-type-tables" aria-label="Link to this section">#</a></h3>
+<p><strong>Schema closure.</strong> The closure of a schema <code>S</code> is the ordered list obtained by a depth-first, pre-order traversal starting at <code>S</code>, following <code>imports</code> in declaration order, and skipping schemas already visited (compared by name). A closure <span class="kw">MUST NOT</span> contain two schemas with the same name and different versions.</p>
+<p><strong>File type table.</strong> The type table of a file is the concatenation of the <code>types</code> lists of every schema of the closure, in closure order. A <strong>type index</strong> in the data (§7) is an index in this table.</p>
+<p><strong>Local type space.</strong> Inside a schema definition, type references use the <strong>local</strong> type space of that schema: its own <code>types</code>, followed by the <code>types</code> of each direct import in import order.</p>
+<p><strong>Concrete set.</strong> For a struct type <code>T</code>, the concrete set <code>C(T)</code> is <code>T</code> (if not abstract) plus every non-abstract struct deriving from <code>T</code> directly or indirectly that is present in the file type table, ordered by file type table index.</p>
+<h3 id="4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code><a class="anchor" href="#4-5-meta-schema-core" aria-label="Link to this section">#</a></h3>
+<p>Schemas are themselves SBDL values of type <code>core.Schema</code>. The <code>core</code> schema, version 1, is built into every implementation and <span class="kw">MUST NOT</span> be redefined. It is defined as follows (in the schema language of the companion document):</p>
+<pre><code>schema core 1
+
+enum Kind : u8 {                    // type index 0
+  Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
+  S8 = 6, S16 = 7, S32 = 8, S64 = 9, F32 = 10, F64 = 11,
+  String = 12, Enum = 13, List = 14, Map = 15, Struct = 16,
+  Ref = 17, ExtRef = 18, Any = 19
+}
+
+struct SchemaRef {                  // 1
+  name:    string
+  version: u32
+  hash:    u64 @fixed
+}
+
+struct TypeRef {                    // 2
+  kind:  Kind
+  flags: u8                         // bit 0 nullable, bit 1 fixed, other bits 0
+  index: u32?                       // Enum, Struct, Ref, ExtRef: local type index
+  args:  list&lt;TypeRef&gt;              // List: [T], Map: [K, V], otherwise empty
+}
+
+abstract struct TypeDef {           // 3
+  name: string
+}
+
+struct StructDef : TypeDef {        // 4
+  base:       u32?                  // local type index of the parent
+  isAbstract: bool
+  fields:     list&lt;Field&gt;
+}
+
+struct EnumDef : TypeDef {          // 5
+  underlying: Kind
+  values:     list&lt;EnumValue&gt;
+}
+
+struct EnumValue {                  // 6
+  name:  string
+  value: s64
+}
+
+struct Field {                      // 7
+  name:    string
+  type:    TypeRef
+  aliases: list&lt;string&gt;
+  default: any?
+}
+
+struct Schema {                     // 8
+  name:    string
+  version: u32
+  imports: list&lt;SchemaRef&gt;
+  types:   list&lt;TypeDef&gt;
+}
+</code></pre>
+<p><code>TypeRef</code> rules:</p>
+<ul>
+<li><code>Ref</code> and <code>ExtRef</code> use <code>index</code> for their target struct and have no <code>args</code>.</li>
+<li><code>Enum</code> and <code>Struct</code> use <code>index</code>; primitives, <code>String</code> and <code>Any</code> have neither <code>index</code> nor <code>args</code>.</li>
+<li><code>Null</code> <span class="kw">MUST NOT</span> appear in a <code>TypeRef</code>.</li>
+<li>The <strong>fixed</strong> flag is only valid on <code>U16</code>, <code>U32</code>, <code>U64</code>, <code>S16</code>, <code>S32</code>, <code>S64</code>. It changes the encoding (§7.1), not the type.</li>
+<li><code>Field.default</code>, when present, <span class="kw">MUST</span> be an <code>any</code> value whose kind and type index match the field type.</li>
+</ul>
+<h3 id="4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash<a class="anchor" href="#4-6-canonical-form-and-hash" aria-label="Link to this section">#</a></h3>
+<p>The <strong>canonical encoding</strong> of a schema is the encoding of its <code>core.Schema</code> value (§7) with a fresh string table and string deduplication disabled (<code>dedupMax = 0</code>), without header.</p>
+<p>The <strong>hash</strong> of a schema is XXH64 (seed 0) of its canonical encoding, written as <code>u64le</code>. Since <code>imports</code> contains the hashes of imported schemas, the hash covers the whole closure.</p>
+<p>The hash of the built-in <code>core</code> schema is defined as <code>0</code>.</p>
+<h3 id="4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files<a class="anchor" href="#4-7-compiled-schema-files" aria-label="Link to this section">#</a></h3>
+<p>A compiled schema is an SBDL file whose:</p>
+<ul>
+<li>header <code>id</code> is the schema name and header <code>version</code> is the schema version;</li>
+<li>schema section uses mode <em>Reference</em> to <code>core</code>, version 1, hash <code>0</code>;</li>
+<li>root value is the <code>core.Schema</code> value (type index 8).</li>
+</ul>
+<hr>
+<h2 id="5-primitive-encodings"><span class="num">5.</span> Primitive encodings<a class="anchor" href="#5-primitive-encodings" aria-label="Link to this section">#</a></h2>
+<h3 id="5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)<a class="anchor" href="#5-1-variable-length-unsigned-integer-vu" aria-label="Link to this section">#</a></h3>
+<p>The number <code>n</code> of leading <code>1</code> bits of the first byte (0 to 8) is the number of bytes that follow it. The remaining <code>7 - n</code> bits of the first byte (none for <code>n ≥ 7</code>) are the <strong>high</strong> bits of the value; the <code>n</code> following bytes are the <strong>low</strong> bits, little-endian:</p>
+<pre><code>value = LE(next n bytes) | (firstByte &amp; (0x7F &gt;&gt; n)) &lt;&lt; (8 × n)        for n ≤ 7
+value = LE(next 8 bytes)                                                for n = 8
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>First byte</th>
+<th>Total size</th>
+<th>Value bits</th>
+<th>Maximum</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>0xxxxxxx</code></td>
+<td>1</td>
+<td>7</td>
+<td>2⁷ − 1</td>
+</tr>
+<tr>
+<td><code>10xxxxxx</code></td>
+<td>2</td>
+<td>14</td>
+<td>2¹⁴ − 1</td>
+</tr>
+<tr>
+<td><code>110xxxxx</code></td>
+<td>3</td>
+<td>21</td>
+<td>2²¹ − 1</td>
+</tr>
+<tr>
+<td><code>1110xxxx</code></td>
+<td>4</td>
+<td>28</td>
+<td>2²⁸ − 1</td>
+</tr>
+<tr>
+<td><code>11110xxx</code></td>
+<td>5</td>
+<td>35</td>
+<td>2³⁵ − 1</td>
+</tr>
+<tr>
+<td><code>111110xx</code></td>
+<td>6</td>
+<td>42</td>
+<td>2⁴² − 1</td>
+</tr>
+<tr>
+<td><code>1111110x</code></td>
+<td>7</td>
+<td>49</td>
+<td>2⁴⁹ − 1</td>
+</tr>
+<tr>
+<td><code>11111110</code></td>
+<td>8</td>
+<td>56</td>
+<td>2⁵⁶ − 1</td>
+</tr>
+<tr>
+<td><code>11111111</code></td>
+<td>9</td>
+<td>64</td>
+<td>2⁶⁴ − 1</td>
+</tr>
+</tbody></table></div>
+<p>Examples: <code>0</code> → <code>00</code>, <code>127</code> → <code>7F</code>, <code>128</code> → <code>80 80</code>, <code>300</code> → <code>81 2C</code>, <code>16384</code> → <code>C0 00 40</code>.</p>
+<ul>
+<li>Writers <span class="kw">MUST</span> use the shortest encoding. Readers <span class="kw">MUST</span> accept longer encodings.</li>
+<li>A decoded value outside the range of the target type is malformed.</li>
+</ul>
+<h3 id="5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)<a class="anchor" href="#5-2-variable-length-signed-integer-vs" aria-label="Link to this section">#</a></h3>
+<p>ZigZag transform, then <code>vu</code>: <code>encoded = (v &lt;&lt; 1) ^ (v &gt;&gt; 63)</code> on 64-bit two&#39;s complement. <code>0 → 0</code>, <code>−1 → 1</code>, <code>1 → 2</code>, <code>−2 → 3</code>…</p>
+<h3 id="5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values<a class="anchor" href="#5-3-fixed-width-values" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Encoding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bool</code></td>
+<td><code>u8</code>: <code>0x00</code> false, <code>0x01</code> true; any other value is malformed</td>
+</tr>
+<tr>
+<td><code>u8</code>, <code>s8</code></td>
+<td>1 raw byte (two&#39;s complement for <code>s8</code>)</td>
+</tr>
+<tr>
+<td><code>f32</code>, <code>f64</code></td>
+<td>IEEE 754, 4 / 8 bytes little-endian; NaN payloads are preserved</td>
+</tr>
+<tr>
+<td>fixed integers</td>
+<td>2, 4 or 8 bytes little-endian (two&#39;s complement if signed)</td>
+</tr>
+</tbody></table></div>
+<h3 id="5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication<a class="anchor" href="#5-4-strings-and-deduplication" aria-label="Link to this section">#</a></h3>
+<p>A string is a <code>vu x</code> followed, when inline, by bytes:</p>
+<ul>
+<li><code>x &amp; 1 = 0</code>: <strong>inline</strong> string of <code>len = x &gt;&gt; 1</code> bytes of UTF-8 that follow. If <code>0 &lt; len ≤ dedupMax</code>, the string is appended to the string table.</li>
+<li><code>x &amp; 1 = 1</code>: string at index <code>x &gt;&gt; 1</code> of the string table. An index not yet assigned is malformed.</li>
+</ul>
+<p>Rules:</p>
+<ul>
+<li>The string table is empty at the start of the file and is shared by the header, the schema section and the body. <code>dedupMax</code> is read from the header (§6.1).</li>
+<li>Writers <span class="kw">MUST NOT</span> emit an inline string that is already present in the table (the table never contains duplicates).</li>
+<li>The bytes <span class="kw">MUST</span> be valid UTF-8 (no surrogate code points, no overlong forms).</li>
+<li>Length is in bytes. Strings longer than 2³¹ − 1 bytes are malformed.</li>
+</ul>
+<hr>
+<h2 id="6-file-structure"><span class="num">6.</span> File structure<a class="anchor" href="#6-file-structure" aria-label="Link to this section">#</a></h2>
+<h3 id="6-1-header"><span class="num">6.1</span> Header<a class="anchor" href="#6-1-header" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Encoding</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>magic</td>
+<td>4 bytes</td>
+<td><code>53 42 44 4C</code> (<code>&quot;SBDL&quot;</code>)</td>
+</tr>
+<tr>
+<td>format</td>
+<td><code>u8</code></td>
+<td>format version, <code>0x01</code></td>
+</tr>
+<tr>
+<td>flags</td>
+<td><code>u8</code></td>
+<td>see below</td>
+</tr>
+<tr>
+<td>dedupMax</td>
+<td><code>u8</code></td>
+<td>maximum length (bytes) of deduplicated strings, <code>0</code> disables deduplication</td>
+</tr>
+<tr>
+<td>id</td>
+<td><code>str</code></td>
+<td>file id, <span class="kw">MAY</span> be empty</td>
+</tr>
+<tr>
+<td>version</td>
+<td><code>vu</code></td>
+<td>content version (<code>u32</code> range)</td>
+</tr>
+<tr>
+<td>metadata</td>
+<td><code>[vu n, (str key, str value) × n]</code></td>
+<td>present if flag <code>M</code>; <code>n ≥ 1</code>, keys unique</td>
+</tr>
+<tr>
+<td>dependencies</td>
+<td><code>[vu n, (str id, vu version) × n]</code></td>
+<td>present if flag <code>D</code>; <code>n ≥ 1</code>, ids non-empty and unique</td>
+</tr>
+</tbody></table></div>
+<p>Flags:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Name</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0–1</td>
+<td>schema mode</td>
+<td><code>0</code> Inline, <code>1</code> Reference, <code>2</code> None, <code>3</code> reserved</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>M</code></td>
+<td>metadata present</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>D</code></td>
+<td>dependencies present</td>
+</tr>
+<tr>
+<td>4–5</td>
+<td>compression</td>
+<td><code>0</code> none, <code>1</code> Deflate, <code>2</code>–<code>3</code> reserved</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>E</code></td>
+<td>exports present</td>
+</tr>
+<tr>
+<td>7</td>
+<td>—</td>
+<td>reserved, <span class="kw">MUST</span> be <code>0</code></td>
+</tr>
+</tbody></table></div>
+<p>A reader <span class="kw">MUST</span> reject an unknown format version, a reserved value, or a reserved bit set.</p>
+<p>The header is never compressed, so that it can be read without decompressing (used by search path indexing, §10.3).</p>
+<h3 id="6-2-compression"><span class="num">6.2</span> Compression<a class="anchor" href="#6-2-compression" aria-label="Link to this section">#</a></h3>
+<p>If the compression field is <code>1</code>, every byte after the header, up to the end of the file, is a single raw Deflate stream (RFC 1951, no zlib or gzip wrapper). The decompressed bytes are decoded exactly as if they were stored uncompressed. Bytes after the end of the Deflate stream are malformed.</p>
+<h3 id="6-3-schema-section"><span class="num">6.3</span> Schema section<a class="anchor" href="#6-3-schema-section" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Layout</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Inline (<code>0</code>)</td>
+<td><code>vu n</code> (<code>n ≥ 1</code>), then <code>n</code> values of type <code>core.Schema</code> (§7), in closure order (§4.4). The first one is the <strong>file schema</strong>.</td>
+</tr>
+<tr>
+<td>Reference (<code>1</code>)</td>
+<td><code>str name</code>, <code>vu version</code>, <code>u64le hash</code> — the file schema is resolved externally (§10).</td>
+</tr>
+<tr>
+<td>None (<code>2</code>)</td>
+<td>nothing — the reader <span class="kw">MUST</span> be given the file schema by the caller.</td>
+</tr>
+</tbody></table></div>
+<p>Values of the schema section are decoded with the type table of the built-in <code>core</code> schema (§4.5), not with the file type table. They share the file string table.</p>
+<p>Inline mode:</p>
+<ul>
+<li>The list <span class="kw">MUST</span> contain the whole closure of the file schema, so that the file is self-contained.</li>
+<li>Writers <span class="kw">MAY</span> prune types and imports that are unreachable from the values of the file. Pruned schemas keep their name and version; readers <span class="kw">MUST NOT</span> verify <code>SchemaRef.hash</code> between inline schemas.</li>
+</ul>
+<p>Reference mode: readers <span class="kw">MUST</span> verify that the resolved schema has the given hash, except for the built-in <code>core</code> schema.</p>
+<h3 id="6-4-body"><span class="num">6.4</span> Body<a class="anchor" href="#6-4-body" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Encoding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>root type</td>
+<td><code>vu</code> — file type table index of a non-abstract struct</td>
+</tr>
+<tr>
+<td>root value</td>
+<td>value of that exact type (§7), without polymorphism tag</td>
+</tr>
+<tr>
+<td>exports</td>
+<td><code>[vu n, (str name, vu typeIndex, ref value) × n]</code> — present if flag <code>E</code>; <code>n ≥ 1</code></td>
+</tr>
+</tbody></table></div>
+<p>Exports:</p>
+<ul>
+<li><code>name</code> <span class="kw">MUST</span> be non-empty and unique within the file. It is the key used by <code>extref</code> values of other files (§7.7).</li>
+<li><code>typeIndex</code> is a non-abstract struct type. <code>ref value</code> is encoded as <code>ref&lt;T&gt;</code> (§7.6) where <code>T</code> is exactly that type: either a reference to an object already written, whose concrete type <span class="kw">MUST</span> equal <code>typeIndex</code>, or an inline object of that type, without polymorphism tag.</li>
+</ul>
+<p>The file ends right after the body. Trailing bytes are malformed.</p>
+<hr>
+<h2 id="7-value-encoding"><span class="num">7.</span> Value encoding<a class="anchor" href="#7-value-encoding" aria-label="Link to this section">#</a></h2>
+<p>Values are encoded according to their <strong>declared type</strong> in the schema, with no type information unless stated otherwise.</p>
+<h3 id="7-1-scalars"><span class="num">7.1</span> Scalars<a class="anchor" href="#7-1-scalars" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Encoding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bool</code></td>
+<td>§5.3</td>
+</tr>
+<tr>
+<td><code>u8</code>, <code>s8</code></td>
+<td>§5.3</td>
+</tr>
+<tr>
+<td><code>u16</code>, <code>u32</code>, <code>u64</code></td>
+<td><code>vu</code>; fixed: §5.3</td>
+</tr>
+<tr>
+<td><code>s16</code>, <code>s32</code>, <code>s64</code></td>
+<td><code>vs</code>; fixed: §5.3</td>
+</tr>
+<tr>
+<td><code>f32</code>, <code>f64</code></td>
+<td>§5.3</td>
+</tr>
+<tr>
+<td><code>string</code></td>
+<td>§5.4</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>the numeric value, encoded as the underlying type (<code>u8</code>/<code>s8</code> raw, others <code>vu</code>/<code>vs</code>). Values not declared by the enum are malformed.</td>
+</tr>
+</tbody></table></div>
+<h3 id="7-2-nullable-values"><span class="num">7.2</span> Nullable values<a class="anchor" href="#7-2-nullable-values" aria-label="Link to this section">#</a></h3>
+<ul>
+<li>A nullable <strong>struct field</strong> is handled by the presence bitmap (§7.5).</li>
+<li>Any other nullable position (list element, map value, <code>TypeRef</code> argument) is prefixed by a <code>u8</code>: <code>0x00</code> null (nothing follows), <code>0x01</code> present (the value follows). Other values are malformed.</li>
+</ul>
+<h3 id="7-3-lists"><span class="num">7.3</span> Lists<a class="anchor" href="#7-3-lists" aria-label="Link to this section">#</a></h3>
+<p><code>vu count</code>, then the elements:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Element type</th>
+<th>Element encoding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bool</code></td>
+<td>packed bits: <code>⌈count / 8⌉</code> bytes, element <code>i</code> is bit <code>i mod 8</code> of byte <code>i / 8</code>; unused bits <span class="kw">MUST</span> be 0</td>
+</tr>
+<tr>
+<td><code>u8</code>, <code>s8</code>, <code>f32</code>, <code>f64</code>, fixed integers (non-nullable)</td>
+<td>contiguous raw block (<code>count × size</code> bytes)</td>
+</tr>
+<tr>
+<td>other</td>
+<td>each element encoded per its type</td>
+</tr>
+</tbody></table></div>
+<h3 id="7-4-maps"><span class="num">7.4</span> Maps<a class="anchor" href="#7-4-maps" aria-label="Link to this section">#</a></h3>
+<p><code>vu count</code>, then <code>count</code> pairs <code>(key, value)</code>, each encoded per its type. Duplicate keys are malformed. Order is preserved.</p>
+<h3 id="7-5-structs"><span class="num">7.5</span> Structs<a class="anchor" href="#7-5-structs" aria-label="Link to this section">#</a></h3>
+<pre><code>[polymorphism tag]   vu        only if |C(T)| &gt; 1, see §7.8
+[presence bitmap]    ⌈b / 8⌉ bytes   only if b &gt; 0
+fields               each present field, in field sequence order
+</code></pre>
+<p><strong>Presence bitmap.</strong> The <code>b</code> bitmap slots are the fields of the field sequence (§4.2) that are nullable or have a default, in that order. Slot <code>i</code> is bit <code>i mod 8</code> of byte <code>i / 8</code>; unused bits <span class="kw">MUST</span> be 0.</p>
+<ul>
+<li>Slot = 1: the field value follows, at its position in the sequence.</li>
+<li>Slot = 0: no bytes; the value is <code>null</code> (nullable field) or the field default <strong>as declared in the writer schema</strong>.</li>
+</ul>
+<p>Writers <span class="kw">MUST</span> clear the slot of a field equal to its default. Equality is ordinal for strings, by numeric value for enums, and <strong>bitwise</strong> for floats.</p>
+<p>Fields that are neither nullable nor defaulted are always written and have no slot.</p>
+<h3 id="7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)<a class="anchor" href="#7-6-internal-references-reflttgt" aria-label="Link to this section">#</a></h3>
+<p><code>vu x</code>:</p>
+<ul>
+<li><code>x = 0</code>: a new object follows inline, encoded as struct <code>T</code> (with polymorphism tag if needed). It receives the next object id. Ids start at 0 and are assigned in encoding order across the body (root, then exports), <strong>before</strong> the object&#39;s fields are encoded, so the object can reference itself or its ancestors.</li>
+<li><code>x &gt; 0</code>: reference to the object of id <code>x − 1</code>, which <span class="kw">MUST</span> already exist; its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>.</li>
+</ul>
+<p>The same object <span class="kw">MUST</span> be written inline once at most.</p>
+<h3 id="7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)<a class="anchor" href="#7-7-external-references-extreflttgt" aria-label="Link to this section">#</a></h3>
+<p><code>vu dependency</code>, then <code>str key</code>:</p>
+<ul>
+<li><code>dependency</code> is an index in the header dependency list; out of range is malformed.</li>
+<li><code>key = &quot;&quot;</code> designates the root value of the dependency, otherwise the export named <code>key</code>.</li>
+</ul>
+<p>The referenced value is resolved lazily (§10). Its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>, compared by type identity (<code>schema.Type</code>), regardless of schema versions. A missing export or a type mismatch is an error at resolution time.</p>
+<h3 id="7-8-polymorphism"><span class="num">7.8</span> Polymorphism<a class="anchor" href="#7-8-polymorphism" aria-label="Link to this section">#</a></h3>
+<p>For a position of declared struct type <code>T</code>:</p>
+<ul>
+<li>if <code>|C(T)| &gt; 1</code>, a <code>vu</code> tag precedes the struct: the index of the concrete type in <code>C(T)</code>;</li>
+<li>otherwise no tag is written and the concrete type is the single element of <code>C(T)</code>. <code>C(T)</code> <span class="kw">MUST NOT</span> be empty for a type actually used in the data.</li>
+</ul>
+<p>This applies to struct fields, list elements, map values, inline objects of <code>ref&lt;T&gt;</code>, and struct values in <code>any</code>. It does not apply to the root value and exports, whose exact type is already given.</p>
+<h3 id="7-9-any"><span class="num">7.9</span> Any<a class="anchor" href="#7-9-any" aria-label="Link to this section">#</a></h3>
+<pre><code>type descriptor
+value             encoded per the descriptor (nothing for Null)
+</code></pre>
+<p><strong>Type descriptor</strong>: one <code>u8</code> = kind (bits 0–4, <code>core.Kind</code> values), nullable (bit 5), fixed (bit 6), bit 7 = 0; followed by:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Followed by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Enum</code>, <code>Struct</code>, <code>Ref</code>, <code>ExtRef</code></td>
+<td><code>vu</code> file type table index</td>
+</tr>
+<tr>
+<td><code>List</code></td>
+<td>descriptor of <code>T</code></td>
+</tr>
+<tr>
+<td><code>Map</code></td>
+<td>descriptor of <code>K</code>, descriptor of <code>V</code></td>
+</tr>
+<tr>
+<td>others</td>
+<td>nothing</td>
+</tr>
+</tbody></table></div>
+<p>Rules:</p>
+<ul>
+<li>The top-level descriptor of an <code>any</code> value <span class="kw">MUST NOT</span> have the nullable bit; a null value is kind <code>Null</code>.</li>
+<li>A struct described by the descriptor is the <strong>exact</strong> concrete type: no polymorphism tag follows.</li>
+<li><code>Any</code> as element kind (e.g. <code>list&lt;any&gt;</code>) is allowed; each element then carries its own descriptor.</li>
+</ul>
+<hr>
+<h2 id="8-writing"><span class="num">8.</span> Writing<a class="anchor" href="#8-writing" aria-label="Link to this section">#</a></h2>
+<h3 id="8-1-determinism"><span class="num">8.1</span> Determinism<a class="anchor" href="#8-1-determinism" aria-label="Link to this section">#</a></h3>
+<p>For identical inputs (values, schema, options), writers <span class="kw">MUST</span> produce identical bytes. In particular: fields in field sequence order, map pairs and list elements in their order, strings registered in encoding order, and object ids assigned in traversal order.</p>
+<h3 id="8-2-streaming"><span class="num">8.2</span> Streaming<a class="anchor" href="#8-2-streaming" aria-label="Link to this section">#</a></h3>
+<p>The dependency list is in the header but is only fully known once the body has been traversed (<code>extref</code> values). Writers <span class="kw">MUST</span> therefore either:</p>
+<ul>
+<li>buffer the body (and schema section), then emit header + buffer; or</li>
+<li>write directly when every dependency is declared before writing starts; an <code>extref</code> to an undeclared dependency is then an error.</li>
+</ul>
+<p>Readers never need to seek: a file is decodable in a single forward pass.</p>
+<hr>
+<h2 id="9-schema-evolution"><span class="num">9.</span> Schema evolution<a class="anchor" href="#9-schema-evolution" aria-label="Link to this section">#</a></h2>
+<p>A reader decodes data with the <strong>writer schema</strong> (from the file) and binds it to a <strong>reader schema</strong> (expected by the caller). This binding is computed once per pair of schemas.</p>
+<h3 id="9-1-types"><span class="num">9.1</span> Types<a class="anchor" href="#9-1-types" aria-label="Link to this section">#</a></h3>
+<p>Types are matched by type identity (<code>schema.Type</code>), schema versions excluded.</p>
+<h3 id="9-2-fields"><span class="num">9.2</span> Fields<a class="anchor" href="#9-2-fields" aria-label="Link to this section">#</a></h3>
+<p>For each struct, a reader field <code>R</code> matches a writer field <code>W</code> when <code>W.name</code> equals <code>R.name</code> or one of <code>R.aliases</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>W</code> matches <code>R</code></td>
+<td>value decoded with <code>W</code>&#39;s type, converted to <code>R</code>&#39;s type (§9.3)</td>
+</tr>
+<tr>
+<td><code>W</code> has no match</td>
+<td>value decoded and discarded</td>
+</tr>
+<tr>
+<td><code>R</code> has no match</td>
+<td><code>null</code> if nullable, default if defined, otherwise <strong>error</strong></td>
+</tr>
+</tbody></table></div>
+<h3 id="9-3-type-compatibility"><span class="num">9.3</span> Type compatibility<a class="anchor" href="#9-3-type-compatibility" aria-label="Link to this section">#</a></h3>
+<p>A writer type converts to a reader type if:</p>
+<ul>
+<li>they are equal; or</li>
+<li>integer widening: <code>u8 → u16 → u32 → u64</code>, <code>s8 → s16 → s32 → s64</code>, <code>uN → sM</code> with <code>M &gt; N</code>;</li>
+<li><code>f32 → f64</code>;</li>
+<li><code>T → T?</code>;</li>
+<li>enum → enum of the same identity: values matched <strong>by name</strong>; a writer value whose name is missing from the reader enum is an error at decoding time;</li>
+<li>struct → struct of the same identity, recursively per §9.2; a concrete writer type unknown to the reader is an error at decoding time;</li>
+<li><code>list&lt;A&gt; → list&lt;B&gt;</code>, <code>map&lt;K1, V1&gt; → map&lt;K2, V2&gt;</code>, <code>ref&lt;A&gt; → ref&lt;B&gt;</code>, <code>extref&lt;A&gt; → extref&lt;B&gt;</code> when the arguments convert;</li>
+<li>anything → <code>any</code>.</li>
+</ul>
+<p>Any other change is an error when computing the binding. The fixed flag never affects compatibility.</p>
+<hr>
+<h2 id="10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources<a class="anchor" href="#10-resolution-of-external-resources" aria-label="Link to this section">#</a></h2>
+<p>Applies to schemas in Reference mode, imports in compiled schemas, and dependencies of <code>extref</code> values. A resource is identified by <code>(id, version)</code>; for schemas, <code>id</code> is the schema name.</p>
+<h3 id="10-1-order"><span class="num">10.1</span> Order<a class="anchor" href="#10-1-order" aria-label="Link to this section">#</a></h3>
+<ol>
+<li>Resources provided in memory by the caller.</li>
+<li>Custom resolvers, in registration order, returning a byte stream from <code>(id, version)</code>.</li>
+<li>Search paths (§10.3).</li>
+</ol>
+<p>The first source returning a result wins. Resources provided in memory are validated exactly like files (hash for schemas).</p>
+<h3 id="10-2-version-matching"><span class="num">10.2</span> Version matching<a class="anchor" href="#10-2-version-matching" aria-label="Link to this section">#</a></h3>
+<p>The requested version <span class="kw">MUST</span> be found exactly. If the caller allows newer dependencies, and the exact version is not found, the highest available version greater than the requested one is used. Schemas always require an exact match and a matching hash.</p>
+<h3 id="10-3-search-paths"><span class="num">10.3</span> Search paths<a class="anchor" href="#10-3-search-paths" aria-label="Link to this section">#</a></h3>
+<ul>
+<li>Files with extension <code>.sbdl</code> (binary) and <code>.sbdt</code> (text) in each search path are indexed by <code>(id, version)</code> by reading <strong>their header only</strong>. The index <span class="kw">MAY</span> be cached.</li>
+<li>The same <code>(id, version)</code> in several search paths: the first path in the list wins; shadowed files <span class="kw">SHOULD</span> be reported as diagnostics.</li>
+<li>The same <code>(id, version)</code> twice within the same search path is an error.</li>
+<li>Files with an empty id are not indexed.</li>
+</ul>
+<hr>
+<h2 id="11-limits-and-errors"><span class="num">11.</span> Limits and errors<a class="anchor" href="#11-limits-and-errors" aria-label="Link to this section">#</a></h2>
+<p>Readers <span class="kw">MUST</span> enforce configurable limits and fail with an error when exceeded. Recommended defaults:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Nesting depth (structs, lists, maps, any)</td>
+<td>128</td>
+</tr>
+<tr>
+<td>Elements in a single list or map</td>
+<td>2²⁴</td>
+</tr>
+<tr>
+<td>String length</td>
+<td>2²⁴ bytes</td>
+</tr>
+<tr>
+<td>Objects (<code>ref</code>) per file</td>
+<td>2²⁴</td>
+</tr>
+<tr>
+<td>Decompressed size</td>
+<td>2³¹ − 1 bytes</td>
+</tr>
+</tbody></table></div>
+<p>Counts (lists, maps, metadata, …) whose minimal encoded size exceeds the remaining input <span class="kw">MUST</span> be rejected before allocation.</p>
+<hr>
+<h2 id="12-example"><span class="num">12.</span> Example<a class="anchor" href="#12-example" aria-label="Link to this section">#</a></h2>
+<p>Schema:</p>
+<pre><code>schema demo 1
+
+struct Point {
+  x:     s32
+  y:     s32
+  label: string?
+}
+</code></pre>
+<p>Value: <code>Point { x: 3, y: -2, label: &quot;p&quot; }</code>, id <code>&quot;p&quot;</code>, version 0, inline schema, <code>dedupMax = 32</code>, no compression.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Bytes</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>53 42 44 4C</code></td>
+<td>magic <code>&quot;SBDL&quot;</code></td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>format version 1</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td>flags: Inline schema, no metadata, dependencies, compression or exports</td>
+</tr>
+<tr>
+<td><code>20</code></td>
+<td>dedupMax = 32</td>
+</tr>
+<tr>
+<td><code>02 70</code></td>
+<td>id: inline, length 1, <code>&quot;p&quot;</code> → string #0</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td>version 0</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>schema section: 1 schema</td>
+</tr>
+<tr>
+<td><code>08 64 65 6D 6F</code></td>
+<td><code>Schema.name</code>: <code>&quot;demo&quot;</code> → string #1</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td><code>Schema.version</code>: 1</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td><code>Schema.imports</code>: empty</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td><code>Schema.types</code>: 1 element</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td>polymorphism tag: <code>C(TypeDef)</code> = [StructDef, EnumDef] → StructDef</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td><code>StructDef</code> presence bitmap: <code>base</code> absent</td>
+</tr>
+<tr>
+<td><code>0A 50 6F 69 6E 74</code></td>
+<td><code>name</code>: <code>&quot;Point&quot;</code> → string #2</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td><code>isAbstract</code>: false</td>
+</tr>
+<tr>
+<td><code>03</code></td>
+<td><code>fields</code>: 3 elements</td>
+</tr>
+<tr>
+<td><code>00</code> <code>02 78</code> <code>00 08 00 00</code> <code>00</code></td>
+<td>field: bitmap (no default), <code>&quot;x&quot;</code>, TypeRef (bitmap, kind S32, flags 0, no args), no aliases</td>
+</tr>
+<tr>
+<td><code>00</code> <code>02 79</code> <code>00 08 00 00</code> <code>00</code></td>
+<td>field <code>&quot;y&quot;</code>, S32</td>
+</tr>
+<tr>
+<td><code>00</code> <code>0A 6C 61 62 65 6C</code> <code>00 0C 01 00</code> <code>00</code></td>
+<td>field <code>&quot;label&quot;</code>, String, flags = nullable</td>
+</tr>
+<tr>
+<td><code>00</code></td>
+<td>root type index 0 (<code>demo.Point</code>)</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>presence bitmap: <code>label</code> present</td>
+</tr>
+<tr>
+<td><code>06</code></td>
+<td>x = 3 (ZigZag 6)</td>
+</tr>
+<tr>
+<td><code>03</code></td>
+<td>y = −2 (ZigZag 3)</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>label: string #0 (<code>&quot;p&quot;</code>, deduplicated)</td>
+</tr>
+</tbody></table></div>
+<p>Total: 62 bytes, including the embedded schema.</p>
+<hr>
+<h2 id="appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values<a class="anchor" href="#appendix-a-kind-values" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Kind</th>
+<th>Value</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>Null</td>
+<td>10</td>
+<td>F32</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Bool</td>
+<td>11</td>
+<td>F64</td>
+</tr>
+<tr>
+<td>2</td>
+<td>U8</td>
+<td>12</td>
+<td>String</td>
+</tr>
+<tr>
+<td>3</td>
+<td>U16</td>
+<td>13</td>
+<td>Enum</td>
+</tr>
+<tr>
+<td>4</td>
+<td>U32</td>
+<td>14</td>
+<td>List</td>
+</tr>
+<tr>
+<td>5</td>
+<td>U64</td>
+<td>15</td>
+<td>Map</td>
+</tr>
+<tr>
+<td>6</td>
+<td>S8</td>
+<td>16</td>
+<td>Struct</td>
+</tr>
+<tr>
+<td>7</td>
+<td>S16</td>
+<td>17</td>
+<td>Ref</td>
+</tr>
+<tr>
+<td>8</td>
+<td>S32</td>
+<td>18</td>
+<td>ExtRef</td>
+</tr>
+<tr>
+<td>9</td>
+<td>S64</td>
+<td>19</td>
+<td>Any</td>
+</tr>
+</tbody></table></div>
+<h2 id="appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers<a class="anchor" href="#appendix-b-conformance-checklist-for-readers" aria-label="Link to this section">#</a></h2>
+<p>A reader <span class="kw">MUST</span> reject: wrong magic; unknown format version; reserved flag bits or values; invalid <code>bool</code> or presence byte; invalid UTF-8; string table index out of range; enum value not declared; polymorphism tag out of range; reference to an unassigned object id; dependency index out of range; duplicate map keys, metadata keys, dependency ids or export names; non-zero unused bits in bitmaps; schema hash mismatch (Reference mode); trailing bytes; exceeded limits.</p>
+
+  </article>
+</div>
+<script>
+(() => {
+  const links = new Map([...document.querySelectorAll(".toc a")].map((a) => [a.getAttribute("href").slice(1), a]));
+  if (!("IntersectionObserver" in window)) return;
+  let current;
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) {
+      current?.classList.remove("active");
+      current = links.get(e.target.id);
+      current?.classList.add("active");
+    }
+  }, { rootMargin: "0px 0px -75% 0px" });
+  document.querySelectorAll("article h2[id], article h3[id]").forEach((h) => io.observe(h));
+})();
+</script>
+</body>
+</html>
