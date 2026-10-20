@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Sight.Logging.Loggers;
 
@@ -13,8 +14,12 @@ public sealed class MemoryLogger : ILogger
     /// Initialize a new instance of the class <see cref="MemoryLogger"/>
     /// </summary>
     /// <param name="maxCount">If specified remove oldest messages</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCount"/> is not strictly positive</exception>
     public MemoryLogger(int? maxCount = null)
     {
+        if (maxCount is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxCount), maxCount, "Max count must be strictly positive");
+
         MaxCount = maxCount;
     }
 
@@ -33,8 +38,11 @@ public sealed class MemoryLogger : ILogger
     {
         lock (SyncRoot)
         {
-            if (MaxCount != null && _messages.Count > MaxCount)
-                _messages.Dequeue();
+            if (MaxCount != null)
+            {
+                while (_messages.Count >= MaxCount)
+                    _messages.Dequeue();
+            }
 
             _messages.Enqueue(message);
         }
@@ -54,6 +62,7 @@ public sealed class MemoryLogger : ILogger
     /// <summary>
     /// Messages list, make sure to lock collection with <see cref="SyncRoot"/> before
     /// </summary>
+    [Obsolete("Exposes the mutable internal collection, use GetMessages() instead")]
     public IReadOnlyCollection<object> GetUnsafeMessages()
     {
         return _messages;

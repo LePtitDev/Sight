@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Threading.Tasks;
+using Sight.Logging.Internal;
 using Sight.Logging.Logs;
 
 namespace Sight.Logging.Loggers;
@@ -8,152 +9,123 @@ namespace Sight.Logging.Loggers;
 /// <summary>
 /// Implement logger for console outputs
 /// </summary>
+#if NETSTANDARD2_0
 public sealed class ConsoleLogger : ILogger, IDisposable
+#else
+public sealed class ConsoleLogger : ILogger, IDisposable, IAsyncDisposable
+#endif
 {
-    private readonly QueueLogger? _queue;
-
-    static ConsoleLogger()
-    {
-        Console.OutputEncoding = Encoding.UTF8;
-    }
+    private readonly BackgroundSink? _sink;
+    private readonly LogRenderer _outputRenderer;
+    private readonly LogRenderer _errorRenderer;
 
     /// <summary>
     /// Initialize a new instance of the class <see cref="ConsoleLogger"/>
     /// </summary>
     /// <param name="createThread">Indicates if console will be written in a separated thread</param>
-    public ConsoleLogger(bool createThread = false)
+    /// <param name="queueOptions">Options of the message queue used when <paramref name="createThread"/> is true</param>
+    public ConsoleLogger(bool createThread = false, QueueOptions? queueOptions = null)
+        : this(new ConsoleLoggerOptions { CreateThread = createThread, Queue = queueOptions })
     {
-        if (createThread)
-        {
-            _queue = new QueueLogger();
-            Task.Run(ProcessMessages);
-        }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Initialize a new instance of the class <see cref="ConsoleLogger"/>
+    /// </summary>
+    public ConsoleLogger(ConsoleLoggerOptions options)
+    {
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
+
+        if (options.Utf8Output)
+            TrySetUtf8Output();
+
+        var outputAnsi = IsAnsiEnabled(options.ColorMode, Console.IsOutputRedirected);
+        var errorAnsi = IsAnsiEnabled(options.ColorMode, Console.IsErrorRedirected);
+        _outputRenderer = new ConsoleRenderer(options, outputAnsi, options.Hyperlinks);
+        _errorRenderer = errorAnsi == outputAnsi ? _outputRenderer : new ConsoleRenderer(options, errorAnsi, options.Hyperlinks);
+
+        if (options.CreateThread)
+            _sink = new BackgroundSink(message => LogImpl(message, flush: false), FlushOutputs, options.Queue);
+    }
+
+    /// <summary>
+    /// Wait for the queued messages to be written (in background mode)
+    /// </summary>
     public void Dispose()
     {
-        if (_queue != null)
-        {
-            _queue.Dispose();
-
-            foreach (var message in _queue.UnsafeMessages)
-            {
-                LogImpl(message);
-            }
-        }
+        _sink?.Dispose();
     }
+
+#if !NETSTANDARD2_0
+    /// <inheritdoc cref="Dispose"/>
+    public ValueTask DisposeAsync()
+    {
+        return _sink?.DisposeAsync() ?? default;
+    }
+#endif
 
     /// <inheritdoc />
     public void Log(object message)
     {
-        if (_queue == null)
-        {
-            LogImpl(message);
-        }
-        else
-        {
-            _queue.Log(message);
-        }
-    }
-
-    private static void LogImpl(object message)
-    {
-        var bld = new StringBuilder();
-        LogImpl(bld, message, "\u001b[0m");
-
-        var writer = ResolveLogLevel(message) >= LogLevels.Error ? Console.Error : Console.Out;
-        writer.WriteLine(bld.ToString());
-        writer.Flush();
-    }
-
-    private static void LogImpl(StringBuilder writer, object message, string baseColor)
-    {
-        switch (message)
-        {
-            case LogIcon icon:
-                writer.Append(icon.DefinedIcon switch
-                {
-                    LogIcons.Debug => '…',
-                    LogIcons.Information => ' ',
-                    LogIcons.Warning => '#',
-                    LogIcons.Error => 'X',
-                    LogIcons.Start => '>',
-                    LogIcons.Stop => '%',
-                    LogIcons.Hidden => ' ',
-                    _ => '?'
-                });
-
-                break;
-            case IColoredLog { Color: var color } coloredLog:
-                string? foregroundColor = null;
-                if (color.IsDefined)
-                {
-                    foregroundColor = color.DefinedColor switch
-                    {
-                        LogColors.LowOpacity => "\u001b[90m", // dark gray
-                        LogColors.Highlight => "\u001b[36m", // dark cyan
-                        LogColors.Success => "\u001b[32m", // dark green
-                        LogColors.Warning => "\u001b[33m", // dark yellow
-                        LogColors.Error => "\u001b[31m", // dark red
-                        _ => "\u001b[0m" // default
-                    };
-
-                    writer.Append(foregroundColor);
-                }
-
-                LogImpl(writer, coloredLog.Content, foregroundColor ?? baseColor);
-                if (color.IsDefined)
-                {
-                    writer.Append(baseColor);
-                }
-
-                break;
-            case IHyperlinkLog hyperlinkLog:
-                writer.Append("\u001b[4m");
-                writer.Append(hyperlinkLog.Content);
-                writer.Append("\u001b[24m");
-                break;
-            case IRichLog richLog:
-                foreach (var part in richLog)
-                {
-                    LogImpl(writer, part, baseColor);
-                }
-
-                break;
-            case IContentLog contentLog:
-                LogImpl(writer, contentLog.Content, baseColor);
-                break;
-            default:
-                writer.Append(message);
-                break;
-        }
-    }
-
-    private async Task ProcessMessages()
-    {
-        while (true)
+        if (_sink == null)
         {
             try
             {
-                var message = await _queue!.WaitForMessageAsync();
-                LogImpl(message);
+                LogImpl(message, flush: true);
             }
-            catch (ObjectDisposedException)
+            catch (Exception ex) when (ex is System.IO.IOException or ObjectDisposedException)
             {
-                return;
+                // Logging must never throw into the application (e.g. closed standard output)
             }
+        }
+        else
+        {
+            _sink.Post(message);
         }
     }
 
-    private static LogLevels ResolveLogLevel(object message)
+    private static bool IsAnsiEnabled(ConsoleColorMode mode, bool redirected)
     {
-        if (message is ILeveledLog { Level: var level })
-            return level.IsDefined ? (LogLevels)level.DefinedLevel! : LogLevels.Information;
+        switch (mode)
+        {
+            case ConsoleColorMode.Always:
+                return true;
+            case ConsoleColorMode.Never:
+                return false;
+            default:
+                // https://no-color.org: any non-empty value disables colors
+                return string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) && !redirected;
+        }
+    }
 
-        if (message is IContentLog log)
-            return ResolveLogLevel(log.Content);
+    private static void TrySetUtf8Output()
+    {
+        try
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+        }
+        catch (Exception)
+        {
+            // No console (service, GUI application) or not supported
+        }
+    }
 
-        return LogLevels.Information;
+    private static void FlushOutputs()
+    {
+        Console.Out.Flush();
+        Console.Error.Flush();
+    }
+
+    private void LogImpl(object message, bool flush)
+    {
+        // Errors go to the error stream, which may be redirected (and so colorless) independently
+        var isError = LogMessage.ResolveLevel(message) >= LogLevels.Error;
+        var text = (isError ? _errorRenderer : _outputRenderer).Render(message);
+
+        var writer = isError ? Console.Error : Console.Out;
+        writer.WriteLine(text);
+        if (flush)
+            writer.Flush();
     }
 }

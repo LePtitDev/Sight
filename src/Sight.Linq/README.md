@@ -4,6 +4,10 @@
 
 This library implement extension methods for common classes.
 
+Arguments are validated eagerly: a `null` source or delegate throws an `ArgumentNullException` at the call, even for lazy methods.
+
+> **Upgrading from 0.1.x:** `ForEach` is now eager and returns `void` (use `Tap` for the previous lazy behavior), `Except` keeps duplicates, `WhereNotNull` only applies to nullable types, and `IndexOfLast`, `Insert`, `IsEmpty(predicate)` and `TryGet` are obsolete in favor of `LastIndexOf`, `InsertAt`, `None` and `TryGetFirst`.
+
 ## 📌 `IEnumerable<>` methods
 
 ### Append
@@ -16,36 +20,52 @@ var arr = new[] { 1, 2, 3 };
 var result = arr.Append(4, 5); // = { 1, 2, 3, 4, 5 }
 ```
 
+**Note:** on an `IEnumerable<object>`, appending an `object[]` appends each of its elements, not the array itself.
+
 ### Distinct
 
-> Enumerate elements with unique provided key
+> Enumerate elements with unique provided key (on .NET 6+, it is `Enumerable.DistinctBy`)
 
 **Example:**
 ```csharp
 var arr = new[] { "one", "two", "three", "four" };
-var result = arr.Distinct(x => x.Length); // = { "one", "three" }
+var result = arr.Distinct(x => x.Length); // = { "one", "three", "four" }
 ```
 
 ### Except
 
-> Remove elements from the collection
+> Remove elements from the collection. Unlike `Enumerable.Except`, the remaining elements are not de-duplicated
 
-**Example:**
+**Examples:**
 ```csharp
-var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.Except(2, 4); // = { 1, 3, 5 }
+var arr = new[] { 1, 1, 2, 3, 4, 5 };
+var result = arr.Except(2, 4); // = { 1, 1, 3, 5 }
+```
+
+*or, with a comparer*
+```csharp
+var arr = new[] { "a", "B", "c" };
+var result = arr.Except(StringComparer.OrdinalIgnoreCase, "b"); // = { "a", "c" }
 ```
 
 ### ForEach
 
-> Invoke delegate with collection index for each element in source
+> Invoke delegate for each element in source. The delegate is invoked immediately
 
-**Example:**
+**Examples:**
 ```csharp
 var arr = new[] { 1, 2, 3, 4, 5 };
 var counter = 0;
 arr.ForEach(x => counter += x); // counter = 15
 ```
+
+*or, with the index*
+```csharp
+var arr = new[] { "a", "b" };
+arr.ForEach((x, i) => Console.WriteLine($"{i}: {x}"));
+```
+
+**Note:** `List<T>` has its own instance `ForEach(Action<T>)`, which has the same behavior.
 
 ### IndexOf
 
@@ -63,46 +83,94 @@ var arr = new[] { 1, 2, 3, 4, 5 };
 var result = arr.IndexOf(x => x > 2); // = 2
 ```
 
-### IndexOfLast
+### InsertAt
+
+> Insert elements in the collection. The result is lazy: a negative index throws immediately and an index greater than the number of elements throws when the enumeration ends
+
+**Example:**
+```csharp
+var arr = new[] { 1, 2, 5 };
+var result = arr.InsertAt(2 /* :index */, 3, 4); // = { 1, 2, 3, 4, 5 }
+```
+
+*(`Insert` is obsolete: on a `List<T>`, it is shadowed by the instance `Insert` method that mutates the list.)*
+
+### IsEmpty
+
+> Indicates if the collection is empty
+
+**Example:**
+```csharp
+var arr = new[] { 1, 2, 3, 4, 5 };
+var result = arr.IsEmpty(); // = false
+```
+
+### IsNullOrEmpty
+
+> Indicates if the collection is `null` or empty
+
+**Example:**
+```csharp
+IEnumerable<int>? arr = null;
+var result = arr.IsNullOrEmpty(); // = true
+```
+
+### LastIndexOf
 
 > Find index of the last item
 
 **Examples:**
 ```csharp
 var arr = new[] { 1, 4, 3, 4, 5 };
-var result = arr.IndexOfLast(4); // = 3
+var result = arr.LastIndexOf(4); // = 3
 ```
 
 *or*
 ```csharp
 var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.IndexOfLast(x => x < 4); // = 2
+var result = arr.LastIndexOf(x => x < 4); // = 2
 ```
 
-### Insert
+*(`IndexOfLast` is obsolete.)* On lists, the search runs backward from the end.
 
-> Insert elements in the collection
+### None
+
+> Indicates if no element of the collection pass the predicate
 
 **Example:**
 ```csharp
-var arr = new[] { 1, 2, 5 };
-var result = arr.Insert(2 /* :index */, 3, 4); // = { 1, 2, 3, 4, 5 }
+var arr = new[] { 1, 2, 3, 4, 5 };
+var result = arr.None(x => x > 5); // = true
 ```
 
-### IsEmpty
+*(`IsEmpty(predicate)` is obsolete.)*
 
-> Indicates if the collection is empty
+### Pairwise
+
+> Enumerate each pair of consecutive elements (or the result of a selector applied to them)
 
 **Examples:**
 ```csharp
-var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.IsEmpty(); // = false
+var arr = new[] { 1, 2, 3, 4 };
+var result = arr.Pairwise(); // = { (1, 2), (2, 3), (3, 4) }
 ```
 
 *or*
 ```csharp
-var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.IsEmpty(x => x > 5); // = true
+var arr = new[] { 1, 4, 9, 16 };
+var result = arr.Pairwise((a, b) => b - a); // = { 3, 5, 7 }
+```
+
+### Tap
+
+> Lazily invoke delegate for each element while the result is enumerated
+
+**Example:**
+```csharp
+var arr = new[] { 1, 2, 3 };
+var counter = 0;
+var result = arr.Tap(x => counter += x); // counter = 0
+result.ToArray(); // counter = 6
 ```
 
 ### ToEnumerable
@@ -115,19 +183,21 @@ var val = 3;
 var result = val.ToEnumerable(); // = { 3 }
 ```
 
-### TryGet
+### TryGetFirst
 
-> Try to found an element that match the predicate (like with `IDictionary<,>`)
+> Try to found the first element that match the predicate (like with `IDictionary<,>`)
 
 **Example:**
 ```csharp
 var arr = new[] { 1, 2, 3, 4, 5 };
-var result = arr.TryGet(x => x > 2, out var val); // = true (val: 3)
+var result = arr.TryGetFirst(x => x > 2, out var val); // = true (val: 3)
 ```
+
+*(`TryGet` is obsolete.)*
 
 ### TryGetLast
 
-> Try to found the last element that match the predicate
+> Try to found the last element that match the predicate. On lists, the search runs backward from the end
 
 **Example:**
 ```csharp
@@ -147,15 +217,18 @@ var result = arr.WhereNot(x => x > 2); // = { 1, 2 }
 
 ### WhereNotNull
 
-> Filter null elements
+> Filter null elements. The result type is not nullable (`string?` becomes `string`, `int?` becomes `int`)
 
 **Example:**
 ```csharp
 var arr = new[] { "one", null, "three" };
-var result = arr.WhereNotNull(); // = { "one", "three" }
+IEnumerable<string> result = arr.WhereNotNull(); // = { "one", "three" }
 ```
 
 ## 📌 `ICollection<>` methods
+
+All methods throw a `NotSupportedException` with a clear message on a read-only collection (an array for example).
+When the items are the collection itself (`collection.AddRange(collection)`), they are copied first.
 
 ### AddRange
 
@@ -173,7 +246,7 @@ collection.AddRange(4, 5); // = { 1, 2, 3, 4, 5 }
 
 **Example:**
 ```csharp
-var collection = new MyCollection { 1, 4, 5 };
+var collection = new MyList { 1, 4, 5 };
 collection.InsertRange(1 /* :index */, 2, 3); // = { 1, 2, 3, 4, 5 }
 ```
 
@@ -195,17 +268,17 @@ collection.RemoveAll(x => x > 3); // = { 1, 2, 3 }
 
 ### RemoveAt
 
-> Remove item at index
+> Remove item at index. The collection must be an `IList<>`, otherwise a `NotSupportedException` is thrown
 
 **Example:**
 ```csharp
-var collection = new MyCollection { 1, 2, 3, 4, 5 };
+ICollection<int> collection = new MyList { 1, 2, 3, 4, 5 };
 collection.RemoveAt(3); // = { 1, 2, 3, 5 }
 ```
 
 ### RemoveRange
 
-> Remove items from collection
+> Remove items from collection (one occurrence of each)
 
 **Example:**
 ```csharp
@@ -213,11 +286,40 @@ var collection = new MyCollection { 1, 2, 3, 4, 5 };
 collection.RemoveRange(3, 5); // = { 1, 2, 4 }
 ```
 
+## 📌 `IDictionary<,>` methods
+
+### GetOrAdd
+
+> Get the value of a key, or add it if the key is not found (the factory is invoked only when needed)
+
+**Examples:**
+```csharp
+var dictionary = new Dictionary<string, int> { ["a"] = 1 };
+var result = dictionary.GetOrAdd("b", 2); // = 2 (added)
+```
+
+*or*
+```csharp
+var result = dictionary.GetOrAdd("ccc", key => key.Length); // = 3 (added)
+```
+
+### GetValueOrDefault
+
+> Get the value of a key, or a default value if the key is not found
+
+**Example:**
+```csharp
+IDictionary<string, int> dictionary = new SortedDictionary<string, int> { ["a"] = 1 };
+var result = dictionary.GetValueOrDefault("b", -1); // = -1
+```
+
+**Note:** on types that are both `IDictionary<,>` and `IReadOnlyDictionary<,>` other than `Dictionary<,>` (like `ConcurrentDictionary<,>`), the call is ambiguous with the BCL method on .NET Core: cast the dictionary or use the BCL one.
+
 ## 📌 Reflection methods
 
 ### GetAttribute
 
-> Get attribute of member
+> Get attribute of member. If several attributes match, the first one is returned (unlike `GetCustomAttribute<T>` that throws an `AmbiguousMatchException`)
 
 **Example:**
 ```csharp
@@ -243,7 +345,7 @@ var result = typeof(MyClass).GetAttributes<ItemAttribute>(); // = { Item("One"),
 
 ### HasAttribute
 
-> Indicates if member has an attribute
+> Indicates if member has an attribute (without instantiating it). `inherit` is honored for properties and events too
 
 **Example:**
 ```csharp
@@ -255,7 +357,8 @@ var result = typeof(MyClass).HasAttribute<DisplayNameAttribute>(); // = true
 
 ### GetTypesOf
 
-> Get types of assembly that implement base type
+> Get types of assembly that implement base type. Types that cannot be loaded are ignored, and open generic base types (`typeof(IRepository<>)`) are supported.
+> Not compatible with trimming.
 
 **Example:**
 ```csharp

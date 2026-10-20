@@ -44,7 +44,7 @@ public readonly struct LogIcon
     /// <inheritdoc />
     public override string ToString()
     {
-        return "?";
+        return Value.ToString() ?? string.Empty;
     }
 
     /// <summary>

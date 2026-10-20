@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Sight.Logging.Internal;
 using Sight.Logging.Logs;
@@ -67,6 +68,16 @@ public static class Log
     public static ITimedLog TimedLog(TimeSpan time, object message) => new TimedLog(time, message);
 
     /// <summary>
+    /// Get a message with the time it was logged
+    /// </summary>
+    public static ITimestampedLog TimestampedLog(DateTimeOffset timestamp, object message) => new TimestampedLog(timestamp, message);
+
+    /// <summary>
+    /// Get a message with a category
+    /// </summary>
+    public static ICategorizedLog CategorizedLog(string category, object message) => new CategorizedLog(category, message);
+
+    /// <summary>
     /// Get a message with multiple parts
     /// </summary>
     public static IRichLog RichLog(IEnumerable<object> parts) => new RichLog(parts);
@@ -74,11 +85,15 @@ public static class Log
     /// <inheritdoc cref="RichLog(IEnumerable{object})"/>
     public static IRichLog RichLog(params object[] parts) => RichLog(parts.Length == 1 && parts[0] is IEnumerable<object> enumerable ? enumerable : parts);
 
+
     /// <summary>
-    /// Format time to string
+    /// Format time to string (negative durations are prefixed by <c>-</c>, durations under a millisecond are expressed in microseconds)
     /// </summary>
     public static string Format(TimeSpan time)
     {
+        if (time < TimeSpan.Zero)
+            return "-" + Format(time.Ticks == long.MinValue ? TimeSpan.MaxValue : TimeSpan.FromTicks(-time.Ticks));
+
         var bld = new StringBuilder();
         if (time.Days > 0)
             bld.Append(time.Days).Append('d');
@@ -99,21 +114,26 @@ public static class Log
             bld.Append(time.Minutes).Append('m');
         }
 
-        if (time.Seconds > 0)
+        if (time.Seconds > 0 || (time.Milliseconds > 0 && bld.Length > 0))
         {
             if (bld.Length > 0)
                 bld.Append(' ');
 
             bld.Append(time.Seconds);
             if (time.Milliseconds > 0)
-                bld.Append('.').Append($"{time.Milliseconds}:D3");
+                bld.Append('.').Append(time.Milliseconds.ToString("D3", CultureInfo.InvariantCulture));
 
             bld.Append('s');
         }
-
-        if (time.Milliseconds > 0 && bld.Length == 0)
+        else if (time.Milliseconds > 0 && bld.Length == 0)
         {
             bld.Append(time.Milliseconds).Append("ms");
+        }
+
+        if (bld.Length == 0)
+        {
+            var microseconds = time.Ticks / 10;
+            bld.Append(microseconds > 0 ? microseconds + "µs" : "0ms");
         }
 
         return bld.ToString();

@@ -1,27 +1,37 @@
 ﻿namespace Sight.Logging.Logs;
 
 /// <summary>
-/// Define levels of a message
+/// Define levels of a message, ordered from the most detailed to the most severe
 /// </summary>
 public enum LogLevels
 {
     /// <summary>
-    /// Most detailed
+    /// Very detailed diagnostic
     /// </summary>
-    Debug,
+    Trace = 0,
+
+    /// <summary>
+    /// Detailed
+    /// </summary>
+    Debug = 1,
 
     /// <summary>
     /// Standard
     /// </summary>
-    Information,
+    Information = 2,
 
     /// <summary>
     /// Warning
     /// </summary>
-    Warning,
+    Warning = 3,
 
     /// <summary>
     /// Error
     /// </summary>
-    Error
+    Error = 4,
+
+    /// <summary>
+    /// Critical error, the application cannot continue
+    /// </summary>
+    Critical = 5
 }
