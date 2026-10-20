@@ -32,6 +32,27 @@ internal sealed class FileHeader
 }
 
 /// <summary>
+/// Leading <c>vu</c> of a <c>ref&lt;T&gt;</c> value (binary specification §7.6)
+/// </summary>
+internal static class RefEncoding
+{
+    /// <summary>
+    /// The object follows, written in place
+    /// </summary>
+    public const ulong Inline = 0;
+
+    /// <summary>
+    /// A dependency index and a key follow
+    /// </summary>
+    public const ulong External = 1;
+
+    /// <summary>
+    /// Offset of object ids: <c>x - IdOffset</c> is the id of an object already written
+    /// </summary>
+    public const ulong IdOffset = 2;
+}
+
+/// <summary>
 /// Dependencies of a file being written: declared ones first, then discovered ones
 /// </summary>
 internal sealed class DependencyTracker

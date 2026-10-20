@@ -293,7 +293,6 @@ internal static class SchemaCodec
             case TypeKind.Enum:
             case TypeKind.Struct:
             case TypeKind.Ref:
-            case TypeKind.ExtRef:
                 if (index.IsNull || args.Count != 0)
                     throw new SerializationException($"Invalid {kind} type reference");
 
@@ -301,7 +300,6 @@ internal static class SchemaCodec
                 type = kind switch
                 {
                     TypeKind.Ref => TypeReference.Ref(definition as StructDefinition ?? throw new SerializationException("ref target must be a struct")),
-                    TypeKind.ExtRef => TypeReference.ExtRef(definition as StructDefinition ?? throw new SerializationException("extref target must be a struct")),
                     _ => TypeReference.Of(definition),
                 };
 

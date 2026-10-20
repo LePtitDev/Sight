@@ -44,9 +44,12 @@ internal sealed class DataBinaryReader
     public DataStruct ReadExport(StructDefinition type)
     {
         var x = _decoder.ReadVarUInt();
+        if (x == RefEncoding.External)
+            throw Error("an export cannot be an external reference");
+
         if (x > 0)
         {
-            var existing = GetObject(x - 1);
+            var existing = GetObject(x - RefEncoding.IdOffset);
             if (!ReferenceEquals(existing.Definition, type))
                 throw Error($"exported object type '{existing.Definition.QualifiedName}' does not match '{type.QualifiedName}'");
 
@@ -112,12 +115,6 @@ internal sealed class DataBinaryReader
                 return ReadStruct(type.StructDefinition!);
             case TypeKind.Ref:
                 return ReadRef(type.StructDefinition!);
-            case TypeKind.ExtRef:
-                var index = _decoder.ReadVarUInt();
-                if (_dependencies == null || index >= (ulong)_dependencies.Count)
-                    throw Error($"invalid dependency index {index}");
-
-                return new DataExtRef(_dependencies[(int)index].Id, _decoder.ReadString(), type.StructDefinition);
             case TypeKind.Any:
                 return ReadAny();
             default:
@@ -233,12 +230,21 @@ internal sealed class DataBinaryReader
         return value;
     }
 
-    private DataStruct ReadRef(StructDefinition declared)
+    private DataValue ReadRef(StructDefinition declared)
     {
         var x = _decoder.ReadVarUInt();
+        if (x == RefEncoding.External)
+        {
+            var index = _decoder.ReadVarUInt();
+            if (_dependencies == null || index >= (ulong)_dependencies.Count)
+                throw Error($"invalid dependency index {index}");
+
+            return new DataExtRef(_dependencies[(int)index].Id, _decoder.ReadString(), declared);
+        }
+
         if (x > 0)
         {
-            var existing = GetObject(x - 1);
+            var existing = GetObject(x - RefEncoding.IdOffset);
             if (!existing.Definition.IsAssignableTo(declared))
                 throw Error($"referenced object of type '{existing.Definition.QualifiedName}' is not a '{declared.QualifiedName}'");
 
@@ -310,7 +316,7 @@ internal sealed class DataBinaryReader
             return ReadExactStruct(type.StructDefinition!);
 
         var value = ReadValue(type);
-        return type.Kind == TypeKind.Ref ? new DataReference((DataStruct)value) : value;
+        return type.Kind == TypeKind.Ref && value is DataStruct target ? new DataReference(target) : value;
     }
 
     private TypeReference ReadDescriptor(bool isTopLevel)
@@ -338,9 +344,6 @@ internal sealed class DataBinaryReader
                 break;
             case TypeKind.Ref:
                 type = TypeReference.Ref(_table.GetStruct(_decoder.ReadVarUInt()));
-                break;
-            case TypeKind.ExtRef:
-                type = TypeReference.ExtRef(_table.GetStruct(_decoder.ReadVarUInt()));
                 break;
             case TypeKind.List:
                 type = TypeReference.List(ReadDescriptor(isTopLevel: false));

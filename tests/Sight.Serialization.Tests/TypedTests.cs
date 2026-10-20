@@ -19,7 +19,7 @@ public class TypedTests
             Inventory = new[] { new Item { Name = "Potion", Count = 3 }, new Item { Name = "Torch" } },
             Stats = { ["str"] = 12.5f, ["dex"] = 8 },
             Leader = merlin,
-            Icon = new ExternalRef<Texture>("assets.textures", "hero", 2),
+            Icon = new Link<Texture>("assets.textures", "hero", 2),
             Hash = 0x9F3A22C100000001,
             Experience = -12,
             Bonus = 4,
@@ -115,7 +115,7 @@ public class TypedTests
         StringAssert.Contains("bonus: s32?", text);
         StringAssert.Contains("data: bytes", text);
         StringAssert.Contains("extra: any", text);
-        StringAssert.Contains("icon: extref<Texture>?", text);
+        StringAssert.Contains("icon: ref<Texture>?", text);
         StringAssert.DoesNotContain("cache", text);
         Assert.AreEqual(text, Schema.Parse(text).ToText());
     }
@@ -188,8 +188,8 @@ public class TypedTests
 
         var sprite = new Sprite
         {
-            Texture = new ExternalRef<Texture>("assets.library", "second"),
-            Library = new ExternalRef<Library>("assets.library"),
+            Texture = new Link<Texture>("assets.library", "second"),
+            Library = new Link<Library>("assets.library"),
         };
 
         var bytes = BinarySerializer.Write(sprite, options);
@@ -198,7 +198,7 @@ public class TypedTests
         Assert.AreEqual(2, read.Library!.Resolve().Textures.Count);
         Assert.IsTrue(read.Texture.IsResolved);
 
-        var direct = new ExternalRef<Texture>("assets.hero", version: 1);
+        var direct = new Link<Texture>("assets.hero", version: 1);
         Assert.AreEqual("hero.png", direct.Resolve(options).Path);
     }
 
@@ -221,14 +221,14 @@ public class TypedTests
             options.SearchPaths.Add(mods);
             options.SearchPaths.Add(assets);
 
-            Assert.AreEqual("mod.png", new ExternalRef<Texture>("tex.hero", version: 1).Resolve(options).Path);
-            Assert.AreEqual("v2.png", new ExternalRef<Texture>("tex.hero", version: 2).Resolve(options).Path);
+            Assert.AreEqual("mod.png", new Link<Texture>("tex.hero", version: 1).Resolve(options).Path);
+            Assert.AreEqual("v2.png", new Link<Texture>("tex.hero", version: 2).Resolve(options).Path);
             Assert.IsTrue(diagnostics.Any(x => x.Contains("shadowed")));
-            Assert.Throws<SerializationException>(() => new ExternalRef<Texture>("tex.hero", version: 3).Resolve(options));
+            Assert.Throws<SerializationException>(() => new Link<Texture>("tex.hero", version: 3).Resolve(options));
 
             var newer = new SerializationOptions { AllowNewerDependencies = true };
             newer.SearchPaths.Add(assets);
-            Assert.AreEqual("v2.png", new ExternalRef<Texture>("tex.hero", version: 0).Resolve(newer).Path);
+            Assert.AreEqual("v2.png", new Link<Texture>("tex.hero", version: 0).Resolve(newer).Path);
         }
         finally
         {

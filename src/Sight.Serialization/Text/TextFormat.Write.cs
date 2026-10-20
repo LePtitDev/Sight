@@ -236,11 +236,11 @@ internal static partial class TextFormat
                     var data = (DataStruct)value;
                     WriteStruct(data, !ReferenceEquals(data.Definition, type.StructDefinition), level);
                     break;
+                case TypeKind.Ref when value is DataExtRef extRef:
+                    WriteExtRef(extRef);
+                    break;
                 case TypeKind.Ref:
                     WriteRef(value as DataStruct ?? ((DataReference)value).Target, type.StructDefinition!, level);
-                    break;
-                case TypeKind.ExtRef:
-                    WriteExtRef((DataExtRef)value);
                     break;
                 case TypeKind.Any:
                     WriteAny(value, level);
@@ -366,7 +366,7 @@ internal static partial class TextFormat
                     WriteMap(map, keyType, valueType, level);
                     break;
                 case DataExtRef extRef:
-                    _builder.Append(TypeText(TypeReference.ExtRef(extRef.TargetType ?? throw new SerializationException("An external reference stored in 'any' requires a target type")))).Append(' ');
+                    _builder.Append(TypeText(TypeReference.Ref(extRef.TargetType ?? throw new SerializationException("An external reference stored in 'any' requires a target type")))).Append(' ');
                     WriteExtRef(extRef);
                     break;
                 default:
@@ -710,7 +710,6 @@ internal static partial class TextFormat
                 case TypeKind.Struct:
                     return TypeName(type.Definition!) + (type.IsNullable ? "?" : string.Empty);
                 case TypeKind.Ref:
-                case TypeKind.ExtRef:
                     return type.Kind.ToKeyword() + "<" + TypeName(type.Definition!) + ">" + (type.IsNullable ? "?" : string.Empty);
                 default:
                     return type.Kind.ToKeyword() + (type.IsNullable ? "?" : string.Empty);

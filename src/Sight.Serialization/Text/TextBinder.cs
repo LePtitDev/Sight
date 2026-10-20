@@ -130,8 +130,6 @@ internal sealed class TextBinder
                 return BindStruct(node as PrefixedNode ?? throw Error(node, $"Expected a struct value of type '{type.StructDefinition!.QualifiedName}'"), type.StructDefinition!);
             case TypeKind.Ref:
                 return BindRef(node, type.StructDefinition!);
-            case TypeKind.ExtRef:
-                return BindExtRef(node, type.StructDefinition!);
             case TypeKind.Any:
                 return BindAny(node);
             default:
@@ -327,8 +325,10 @@ internal sealed class TextBinder
                 return anchored;
             case PrefixedNode prefixed:
                 return BindStruct(prefixed, declared);
+            case ExtRefNode:
+                return BindExtRef(node, declared);
             default:
-                throw Error(node, $"Expected a reference or a struct value of type '{declared.QualifiedName}'");
+                throw Error(node, $"Expected a struct value, a reference or an external reference of type '{declared.QualifiedName}'");
         }
     }
 

@@ -17,7 +17,7 @@ internal enum ClrShape
     List,
     Map,
     Struct,
-    ExtRef,
+    Link,
     Any,
 
     /// <summary>
@@ -88,9 +88,9 @@ internal sealed class ClrValueType
     public ISurrogateConverter? SurrogateConverter { get; set; }
 
     /// <summary>
-    /// Target type of an <see cref="ExternalRef{T}"/>
+    /// Target type of a <see cref="Link{T}"/>
     /// </summary>
-    public Type? ExtRefTarget { get; set; }
+    public Type? LinkTarget { get; set; }
 }
 
 /// <summary>

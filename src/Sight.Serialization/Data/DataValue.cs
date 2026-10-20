@@ -390,7 +390,7 @@ public sealed class DataEnum : DataValue, IEquatable<DataEnum>
 }
 
 /// <summary>
-/// External reference: root value (empty key) or export of a dependency
+/// External reference, at a <c>ref&lt;T&gt;</c> or <c>any</c> position: root value (empty key) or export of a dependency
 /// </summary>
 public sealed class DataExtRef : DataValue
 {
@@ -420,7 +420,7 @@ public sealed class DataExtRef : DataValue
     public StructDefinition? TargetType { get; }
 
     /// <inheritdoc />
-    public override TypeKind Kind => TypeKind.ExtRef;
+    public override TypeKind Kind => TypeKind.Ref;
 
     /// <inheritdoc />
     public override string ToString() => Key.Length == 0 ? $"<{DependencyId}>" : $"<{DependencyId}#{Key}>";

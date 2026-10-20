@@ -137,7 +137,7 @@ td code { white-space: nowrap; }
   <dl class="meta"><div><dt>Format</dt><dd>Sight Bundle, binary encoding (<code>.sbdl</code>)</dd></div><div><dt>Format version</dt><dd>1</dd></div><div><dt>Date</dt><dd>2026-10-20</dd></div><div><dt>Companion document</dt><dd><a href="sbdl-text.html">SBDL Text Format Specification</a></dd></div></dl>
 </div></header>
 <div class="layout">
-  <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="l2"><a href="#1-introduction"><span class="num">1.</span> Introduction</a></li><li class="l3"><a href="#1-1-conventions"><span class="num">1.1</span> Conventions</a></li><li class="l3"><a href="#1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts</a></li><li class="l2"><a href="#2-overview"><span class="num">2.</span> Overview</a></li><li class="l2"><a href="#3-data-model"><span class="num">3.</span> Data model</a></li><li class="l3"><a href="#3-1-types"><span class="num">3.1</span> Types</a></li><li class="l3"><a href="#3-2-values"><span class="num">3.2</span> Values</a></li><li class="l3"><a href="#3-3-identifiers"><span class="num">3.3</span> Identifiers</a></li><li class="l2"><a href="#4-schema-model"><span class="num">4.</span> Schema model</a></li><li class="l3"><a href="#4-1-schema"><span class="num">4.1</span> Schema</a></li><li class="l3"><a href="#4-2-struct-definition"><span class="num">4.2</span> Struct definition</a></li><li class="l3"><a href="#4-3-enum-and-type-alias-definitions"><span class="num">4.3</span> Enum and type alias definitions</a></li><li class="l3"><a href="#4-4-type-tables"><span class="num">4.4</span> Type tables</a></li><li class="l3"><a href="#4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code></a></li><li class="l3"><a href="#4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash</a></li><li class="l3"><a href="#4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files</a></li><li class="l2"><a href="#5-primitive-encodings"><span class="num">5.</span> Primitive encodings</a></li><li class="l3"><a href="#5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)</a></li><li class="l3"><a href="#5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)</a></li><li class="l3"><a href="#5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values</a></li><li class="l3"><a href="#5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication</a></li><li class="l2"><a href="#6-file-structure"><span class="num">6.</span> File structure</a></li><li class="l3"><a href="#6-1-header"><span class="num">6.1</span> Header</a></li><li class="l3"><a href="#6-2-compression"><span class="num">6.2</span> Compression</a></li><li class="l3"><a href="#6-3-schema-section"><span class="num">6.3</span> Schema section</a></li><li class="l3"><a href="#6-4-body"><span class="num">6.4</span> Body</a></li><li class="l2"><a href="#7-value-encoding"><span class="num">7.</span> Value encoding</a></li><li class="l3"><a href="#7-1-scalars"><span class="num">7.1</span> Scalars</a></li><li class="l3"><a href="#7-2-nullable-values"><span class="num">7.2</span> Nullable values</a></li><li class="l3"><a href="#7-3-lists"><span class="num">7.3</span> Lists</a></li><li class="l3"><a href="#7-4-maps"><span class="num">7.4</span> Maps</a></li><li class="l3"><a href="#7-5-structs"><span class="num">7.5</span> Structs</a></li><li class="l3"><a href="#7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-8-polymorphism"><span class="num">7.8</span> Polymorphism</a></li><li class="l3"><a href="#7-9-any"><span class="num">7.9</span> Any</a></li><li class="l2"><a href="#8-writing"><span class="num">8.</span> Writing</a></li><li class="l3"><a href="#8-1-determinism"><span class="num">8.1</span> Determinism</a></li><li class="l3"><a href="#8-2-streaming"><span class="num">8.2</span> Streaming</a></li><li class="l2"><a href="#9-schema-evolution"><span class="num">9.</span> Schema evolution</a></li><li class="l3"><a href="#9-1-types"><span class="num">9.1</span> Types</a></li><li class="l3"><a href="#9-2-fields"><span class="num">9.2</span> Fields</a></li><li class="l3"><a href="#9-3-type-compatibility"><span class="num">9.3</span> Type compatibility</a></li><li class="l2"><a href="#10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources</a></li><li class="l3"><a href="#10-1-order"><span class="num">10.1</span> Order</a></li><li class="l3"><a href="#10-2-version-matching"><span class="num">10.2</span> Version matching</a></li><li class="l3"><a href="#10-3-search-paths"><span class="num">10.3</span> Search paths</a></li><li class="l2"><a href="#11-limits-and-errors"><span class="num">11.</span> Limits and errors</a></li><li class="l2"><a href="#12-example"><span class="num">12.</span> Example</a></li><li class="l2"><a href="#appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values</a></li><li class="l2"><a href="#appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers</a></li></ul></nav>
+  <nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="l2"><a href="#1-introduction"><span class="num">1.</span> Introduction</a></li><li class="l3"><a href="#1-1-conventions"><span class="num">1.1</span> Conventions</a></li><li class="l3"><a href="#1-2-notation-used-in-layouts"><span class="num">1.2</span> Notation used in layouts</a></li><li class="l2"><a href="#2-overview"><span class="num">2.</span> Overview</a></li><li class="l2"><a href="#3-data-model"><span class="num">3.</span> Data model</a></li><li class="l3"><a href="#3-1-types"><span class="num">3.1</span> Types</a></li><li class="l3"><a href="#3-2-values"><span class="num">3.2</span> Values</a></li><li class="l3"><a href="#3-3-identifiers"><span class="num">3.3</span> Identifiers</a></li><li class="l2"><a href="#4-schema-model"><span class="num">4.</span> Schema model</a></li><li class="l3"><a href="#4-1-schema"><span class="num">4.1</span> Schema</a></li><li class="l3"><a href="#4-2-struct-definition"><span class="num">4.2</span> Struct definition</a></li><li class="l3"><a href="#4-3-enum-and-type-alias-definitions"><span class="num">4.3</span> Enum and type alias definitions</a></li><li class="l3"><a href="#4-4-type-tables"><span class="num">4.4</span> Type tables</a></li><li class="l3"><a href="#4-5-meta-schema-core"><span class="num">4.5</span> Meta-schema <code>core</code></a></li><li class="l3"><a href="#4-6-canonical-form-and-hash"><span class="num">4.6</span> Canonical form and hash</a></li><li class="l3"><a href="#4-7-compiled-schema-files"><span class="num">4.7</span> Compiled schema files</a></li><li class="l2"><a href="#5-primitive-encodings"><span class="num">5.</span> Primitive encodings</a></li><li class="l3"><a href="#5-1-variable-length-unsigned-integer-vu"><span class="num">5.1</span> Variable-length unsigned integer (<code>vu</code>)</a></li><li class="l3"><a href="#5-2-variable-length-signed-integer-vs"><span class="num">5.2</span> Variable-length signed integer (<code>vs</code>)</a></li><li class="l3"><a href="#5-3-fixed-width-values"><span class="num">5.3</span> Fixed-width values</a></li><li class="l3"><a href="#5-4-strings-and-deduplication"><span class="num">5.4</span> Strings and deduplication</a></li><li class="l2"><a href="#6-file-structure"><span class="num">6.</span> File structure</a></li><li class="l3"><a href="#6-1-header"><span class="num">6.1</span> Header</a></li><li class="l3"><a href="#6-2-compression"><span class="num">6.2</span> Compression</a></li><li class="l3"><a href="#6-3-schema-section"><span class="num">6.3</span> Schema section</a></li><li class="l3"><a href="#6-4-body"><span class="num">6.4</span> Body</a></li><li class="l2"><a href="#7-value-encoding"><span class="num">7.</span> Value encoding</a></li><li class="l3"><a href="#7-1-scalars"><span class="num">7.1</span> Scalars</a></li><li class="l3"><a href="#7-2-nullable-values"><span class="num">7.2</span> Nullable values</a></li><li class="l3"><a href="#7-3-lists"><span class="num">7.3</span> Lists</a></li><li class="l3"><a href="#7-4-maps"><span class="num">7.4</span> Maps</a></li><li class="l3"><a href="#7-5-structs"><span class="num">7.5</span> Structs</a></li><li class="l3"><a href="#7-6-references-reflttgt"><span class="num">7.6</span> References (<code>ref&lt;T&gt;</code>)</a></li><li class="l3"><a href="#7-7-external-references"><span class="num">7.7</span> External references</a></li><li class="l3"><a href="#7-8-polymorphism"><span class="num">7.8</span> Polymorphism</a></li><li class="l3"><a href="#7-9-any"><span class="num">7.9</span> Any</a></li><li class="l2"><a href="#8-writing"><span class="num">8.</span> Writing</a></li><li class="l3"><a href="#8-1-determinism"><span class="num">8.1</span> Determinism</a></li><li class="l3"><a href="#8-2-streaming"><span class="num">8.2</span> Streaming</a></li><li class="l2"><a href="#9-schema-evolution"><span class="num">9.</span> Schema evolution</a></li><li class="l3"><a href="#9-1-types"><span class="num">9.1</span> Types</a></li><li class="l3"><a href="#9-2-fields"><span class="num">9.2</span> Fields</a></li><li class="l3"><a href="#9-3-type-compatibility"><span class="num">9.3</span> Type compatibility</a></li><li class="l2"><a href="#10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources</a></li><li class="l3"><a href="#10-1-order"><span class="num">10.1</span> Order</a></li><li class="l3"><a href="#10-2-version-matching"><span class="num">10.2</span> Version matching</a></li><li class="l3"><a href="#10-3-search-paths"><span class="num">10.3</span> Search paths</a></li><li class="l2"><a href="#11-limits-and-errors"><span class="num">11.</span> Limits and errors</a></li><li class="l2"><a href="#12-example"><span class="num">12.</span> Example</a></li><li class="l2"><a href="#appendix-a-kind-values"><span class="num">Appendix A.</span> Kind values</a></li><li class="l2"><a href="#appendix-b-conformance-checklist-for-readers"><span class="num">Appendix B.</span> Conformance checklist for readers</a></li></ul></nav>
   <article>
 
 <h2 id="1-introduction"><span class="num">1.</span> Introduction<a class="anchor" href="#1-introduction" aria-label="Link to this section">#</a></h2>
@@ -245,7 +245,7 @@ td code { white-space: nowrap; }
 </tr>
 <tr>
 <td>References</td>
-<td><code>ref&lt;T&gt;</code> (internal), <code>extref&lt;T&gt;</code> (external)</td>
+<td><code>ref&lt;T&gt;</code> (in place, internal or external)</td>
 </tr>
 <tr>
 <td>Dynamic</td>
@@ -261,7 +261,7 @@ td code { white-space: nowrap; }
 <li><code>null</code> is a value, not a declarable type. It is the value of a nullable position, or an <code>any</code> value of kind <code>Null</code>.</li>
 <li><code>T?</code> is allowed for every type except <code>any</code> (which can already hold <code>null</code>) and nullable types (<code>T??</code> is invalid).</li>
 <li><code>K</code> in <code>map&lt;K, V&gt;</code> <span class="kw">MUST</span> be <code>bool</code>, an integer type, <code>string</code> or an <code>enum</code> type, and <span class="kw">MUST NOT</span> be nullable.</li>
-<li><code>T</code> in <code>ref&lt;T&gt;</code> and <code>extref&lt;T&gt;</code> <span class="kw">MUST</span> be a struct type.</li>
+<li><code>T</code> in <code>ref&lt;T&gt;</code> <span class="kw">MUST</span> be a struct type.</li>
 <li>A <strong>type alias</strong> (§4.3) gives a name to another type. It is not a distinct type: a position whose type is an alias has the type of its target, for every purpose (encoding, <code>any</code> values, schema evolution). <code>bytes</code>, in the text languages, is a built-in shorthand of <code>list&lt;u8&gt;</code>.</li>
 </ul>
 <h3 id="3-2-values"><span class="num">3.2</span> Values<a class="anchor" href="#3-2-values" aria-label="Link to this section">#</a></h3>
@@ -270,8 +270,12 @@ td code { white-space: nowrap; }
 <li><strong>Enum</strong>: one of the named values of the enum type.</li>
 <li><strong>List</strong>: ordered sequence of values of type <code>T</code>.</li>
 <li><strong>Map</strong>: ordered sequence of <code>(key, value)</code> pairs with <strong>unique</strong> keys. Insertion order is preserved by the format.</li>
-<li><strong>Ref</strong>: points to a struct value of the same file. Several refs <span class="kw">MAY</span> point to the same value, and refs <span class="kw">MAY</span> form cycles. Identity is preserved by a round trip.</li>
-<li><strong>Extref</strong>: points to the root value or to a named export of another SBDL file (a <em>dependency</em>).</li>
+<li><strong>Ref</strong>: a struct value whose location is chosen value by value, in the data:<ul>
+<li><strong>in place</strong>: the object is written at this position;</li>
+<li><strong>internal</strong>: the position points to an object of the same file. Several refs <span class="kw">MAY</span> point to the same object, and refs <span class="kw">MAY</span> form cycles. Identity is preserved by a round trip;</li>
+<li><strong>external</strong>: the position points to the root value or to a named export of another SBDL file (a <em>dependency</em>).</li>
+</ul>
+</li>
 <li><strong>Any</strong>: a value together with its type.</li>
 </ul>
 <h3 id="3-3-identifiers"><span class="num">3.3</span> Identifiers<a class="anchor" href="#3-3-identifiers" aria-label="Link to this section">#</a></h3>
@@ -419,7 +423,7 @@ td code { white-space: nowrap; }
 <li>The target <span class="kw">MUST NOT</span> be nullable nor fixed. A reference to an alias <span class="kw">MAY</span> add the nullable and fixed flags, under the rules of the resolved type (<code>Color?</code>, <code>Hash @fixed</code>).</li>
 <li>Aliases <span class="kw">MUST NOT</span> be cyclic, directly or through other aliases.</li>
 <li>An alias is resolved to its target wherever its type is used: values are encoded as the target (§7), <code>any</code> descriptors describe the target (§7.9), and schema evolution compares targets (§9.3). Renaming or removing an alias, or replacing a type by an alias of it, therefore never changes the data. It does change the schema hash.</li>
-<li>The target of <code>ref&lt;T&gt;</code> and <code>extref&lt;T&gt;</code>, and the base of a struct, <span class="kw">MUST</span> be struct definitions, not aliases.</li>
+<li>The target of <code>ref&lt;T&gt;</code> and the base of a struct <span class="kw">MUST</span> be struct definitions, not aliases.</li>
 <li>Data never designates an alias: no type index of the data (§7) refers to one.</li>
 </ul>
 <h3 id="4-4-type-tables"><span class="num">4.4</span> Type tables<a class="anchor" href="#4-4-type-tables" aria-label="Link to this section">#</a></h3>
@@ -438,7 +442,7 @@ enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
   S8 = 6, S16 = 7, S32 = 8, S64 = 9, F32 = 10, F64 = 11,
   String = 12, Enum = 13, List = 14, Map = 15, Struct = 16,
-  Ref = 17, ExtRef = 18, Any = 19, Alias = 20
+  Ref = 17, Any = 18, Alias = 19
 }
 
 struct SchemaRef {                  // 1
@@ -450,7 +454,7 @@ struct SchemaRef {                  // 1
 struct TypeRef {                    // 2
   kind:  Kind
   flags: u8                         // bit 0 nullable, bit 1 fixed, other bits 0
-  index: u32?                       // Enum, Struct, Ref, ExtRef, Alias: local type index
+  index: u32?                       // Enum, Struct, Ref, Alias: local type index
   args:  list&lt;TypeRef&gt;              // List: [T], Map: [K, V], otherwise empty
 }
 
@@ -496,10 +500,10 @@ struct AliasDef : TypeDef {         // 9
 <p><code>C(TypeDef)</code> is <code>[StructDef, EnumDef, AliasDef]</code>: the polymorphism tags of type definitions are <code>0</code>, <code>1</code> and <code>2</code>.</p>
 <p><code>TypeRef</code> rules:</p>
 <ul>
-<li><code>Ref</code> and <code>ExtRef</code> use <code>index</code> for their target struct and have no <code>args</code>.</li>
+<li><code>Ref</code> uses <code>index</code> for its target struct and has no <code>args</code>.</li>
 <li><code>Enum</code> and <code>Struct</code> use <code>index</code>; primitives, <code>String</code> and <code>Any</code> have neither <code>index</code> nor <code>args</code>.</li>
 <li><code>Alias</code> uses <code>index</code> for an <code>AliasDef</code> and has no <code>args</code>. Its <code>flags</code> are those of the reference, not of the target. <code>Alias</code> is only valid in a <code>TypeRef</code>, never in a type descriptor (§7.9).</li>
-<li>An <code>index</code> <span class="kw">MUST</span> designate a definition matching the kind: an <code>EnumDef</code> for <code>Enum</code>, a <code>StructDef</code> for <code>Struct</code>, <code>Ref</code> and <code>ExtRef</code>, an <code>AliasDef</code> for <code>Alias</code>.</li>
+<li>An <code>index</code> <span class="kw">MUST</span> designate a definition matching the kind: an <code>EnumDef</code> for <code>Enum</code>, a <code>StructDef</code> for <code>Struct</code> and <code>Ref</code>, an <code>AliasDef</code> for <code>Alias</code>.</li>
 <li><code>Null</code> <span class="kw">MUST NOT</span> appear in a <code>TypeRef</code>.</li>
 <li>The <strong>fixed</strong> flag is only valid on <code>U16</code>, <code>U32</code>, <code>U64</code>, <code>S16</code>, <code>S32</code>, <code>S64</code> (for <code>Alias</code>, on the resolved kind). It changes the encoding (§7.1), not the type.</li>
 <li><code>Field.default</code> is <code>Null</code> when the field has no default. Otherwise it <span class="kw">MUST</span> be a scalar <code>any</code> value of the field kind (e.g. <code>u16</code> for a <code>u16</code> field); for an enum field, it is the <strong>name</strong> of the enum value, as a <code>string</code> (enum values cannot be described with the <code>core</code> type table).</li>
@@ -780,8 +784,8 @@ value = LE(next 8 bytes)                                                for n = 
 </tbody></table></div>
 <p>Exports:</p>
 <ul>
-<li><code>name</code> <span class="kw">MUST</span> be non-empty and unique within the file. It is the key used by <code>extref</code> values of other files (§7.7).</li>
-<li><code>typeIndex</code> is a non-abstract struct type. <code>ref value</code> is encoded as <code>ref&lt;T&gt;</code> (§7.6) where <code>T</code> is exactly that type: either a reference to an object already written, whose concrete type <span class="kw">MUST</span> equal <code>typeIndex</code>, or an inline object of that type, without polymorphism tag.</li>
+<li><code>name</code> <span class="kw">MUST</span> be non-empty and unique within the file. It is the key used by external references of other files (§7.7).</li>
+<li><code>typeIndex</code> is a non-abstract struct type. <code>ref value</code> is encoded as <code>ref&lt;T&gt;</code> (§7.6) where <code>T</code> is exactly that type: either a reference to an object already written, whose concrete type <span class="kw">MUST</span> equal <code>typeIndex</code>, or an inline object of that type, without polymorphism tag. An external reference (<code>x = 1</code>) is malformed here.</li>
 </ul>
 <p>The file ends right after the body. Trailing bytes are malformed.</p>
 <hr>
@@ -865,20 +869,21 @@ fields               each present field, in field sequence order
 </ul>
 <p>Writers <span class="kw">MUST</span> clear the slot of a field equal to its default. Equality is ordinal for strings, by numeric value for enums, and <strong>bitwise</strong> for floats.</p>
 <p>Fields that are neither nullable nor defaulted are always written and have no slot.</p>
-<h3 id="7-6-internal-references-reflttgt"><span class="num">7.6</span> Internal references (<code>ref&lt;T&gt;</code>)<a class="anchor" href="#7-6-internal-references-reflttgt" aria-label="Link to this section">#</a></h3>
-<p><code>vu x</code>:</p>
+<h3 id="7-6-references-reflttgt"><span class="num">7.6</span> References (<code>ref&lt;T&gt;</code>)<a class="anchor" href="#7-6-references-reflttgt" aria-label="Link to this section">#</a></h3>
+<p><code>vu x</code>, chosen by the writer for each value:</p>
 <ul>
 <li><code>x = 0</code>: a new object follows inline, encoded as struct <code>T</code> (with polymorphism tag if needed). It receives the next object id. Ids start at 0 and are assigned in encoding order across the body (root, then exports), <strong>before</strong> the object&#39;s fields are encoded, so the object can reference itself or its ancestors.</li>
-<li><code>x &gt; 0</code>: reference to the object of id <code>x − 1</code>, which <span class="kw">MUST</span> already exist; its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>.</li>
+<li><code>x = 1</code>: external reference, followed by its target (§7.7).</li>
+<li><code>x ≥ 2</code>: reference to the object of id <code>x − 2</code>, which <span class="kw">MUST</span> already exist; its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>.</li>
 </ul>
-<p>The same object <span class="kw">MUST</span> be written inline once at most.</p>
-<h3 id="7-7-external-references-extreflttgt"><span class="num">7.7</span> External references (<code>extref&lt;T&gt;</code>)<a class="anchor" href="#7-7-external-references-extreflttgt" aria-label="Link to this section">#</a></h3>
-<p><code>vu dependency</code>, then <code>str key</code>:</p>
+<p>The same object <span class="kw">MUST</span> be written inline once at most. A value written in place costs one byte more than the struct alone, and a reference to an object already written costs one <code>vu</code>.</p>
+<h3 id="7-7-external-references"><span class="num">7.7</span> External references<a class="anchor" href="#7-7-external-references" aria-label="Link to this section">#</a></h3>
+<p>After <code>x = 1</code> (§7.6): <code>vu dependency</code>, then <code>str key</code>:</p>
 <ul>
 <li><code>dependency</code> is an index in the header dependency list; out of range is malformed.</li>
 <li><code>key = &quot;&quot;</code> designates the root value of the dependency, otherwise the export named <code>key</code>.</li>
 </ul>
-<p>The referenced value is resolved lazily (§10). Its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>, compared by type identity (<code>schema.Type</code>), regardless of schema versions. A missing export or a type mismatch is an error at resolution time.</p>
+<p>Readers <span class="kw">MAY</span> resolve the referenced value while decoding or later, on demand (§10). Its concrete type <span class="kw">MUST</span> be <code>T</code> or derive from <code>T</code>, compared by type identity (<code>schema.Type</code>), regardless of schema versions. A missing export or a type mismatch is an error at resolution time.</p>
 <h3 id="7-8-polymorphism"><span class="num">7.8</span> Polymorphism<a class="anchor" href="#7-8-polymorphism" aria-label="Link to this section">#</a></h3>
 <p>For a position of declared struct type <code>T</code>:</p>
 <ul>
@@ -899,7 +904,7 @@ value             encoded per the descriptor (nothing for Null)
 </tr>
 </thead>
 <tbody><tr>
-<td><code>Enum</code>, <code>Struct</code>, <code>Ref</code>, <code>ExtRef</code></td>
+<td><code>Enum</code>, <code>Struct</code>, <code>Ref</code></td>
 <td><code>vu</code> file type table index</td>
 </tr>
 <tr>
@@ -918,7 +923,7 @@ value             encoded per the descriptor (nothing for Null)
 <p>Rules:</p>
 <ul>
 <li>The top-level descriptor of an <code>any</code> value <span class="kw">MUST NOT</span> have the nullable bit; a null value is kind <code>Null</code>.</li>
-<li>Kind <code>Alias</code> (20) is invalid in a descriptor: a value always carries its resolved type (§4.3).</li>
+<li>Kind <code>Alias</code> (19) is invalid in a descriptor: a value always carries its resolved type (§4.3).</li>
 <li>A struct described by the descriptor is the <strong>exact</strong> concrete type: no polymorphism tag follows.</li>
 <li><code>Any</code> as element kind (e.g. <code>list&lt;any&gt;</code>) is allowed; each element then carries its own descriptor.</li>
 </ul>
@@ -927,10 +932,10 @@ value             encoded per the descriptor (nothing for Null)
 <h3 id="8-1-determinism"><span class="num">8.1</span> Determinism<a class="anchor" href="#8-1-determinism" aria-label="Link to this section">#</a></h3>
 <p>For identical inputs (values, schema, options), writers <span class="kw">MUST</span> produce identical bytes. In particular: fields in field sequence order, map pairs and list elements in their order, strings registered in encoding order, and object ids assigned in traversal order.</p>
 <h3 id="8-2-streaming"><span class="num">8.2</span> Streaming<a class="anchor" href="#8-2-streaming" aria-label="Link to this section">#</a></h3>
-<p>The dependency list is in the header but is only fully known once the body has been traversed (<code>extref</code> values). Writers <span class="kw">MUST</span> therefore either:</p>
+<p>The dependency list is in the header but is only fully known once the body has been traversed (external references). Writers <span class="kw">MUST</span> therefore either:</p>
 <ul>
 <li>buffer the body (and schema section), then emit header + buffer; or</li>
-<li>write directly when every dependency is declared before writing starts; an <code>extref</code> to an undeclared dependency is then an error.</li>
+<li>write directly when every dependency is declared before writing starts; an external reference to an undeclared dependency is then an error.</li>
 </ul>
 <p>Readers never need to seek: a file is decodable in a single forward pass.</p>
 <hr>
@@ -969,13 +974,13 @@ value             encoded per the descriptor (nothing for Null)
 <li><code>T → T?</code>;</li>
 <li>enum → enum of the same identity: values matched <strong>by name</strong>; a writer value whose name is missing from the reader enum is an error at decoding time;</li>
 <li>struct → struct of the same identity, recursively per §9.2; a concrete writer type unknown to the reader is an error at decoding time;</li>
-<li><code>list&lt;A&gt; → list&lt;B&gt;</code>, <code>map&lt;K1, V1&gt; → map&lt;K2, V2&gt;</code>, <code>ref&lt;A&gt; → ref&lt;B&gt;</code>, <code>extref&lt;A&gt; → extref&lt;B&gt;</code> when the arguments convert;</li>
+<li><code>list&lt;A&gt; → list&lt;B&gt;</code>, <code>map&lt;K1, V1&gt; → map&lt;K2, V2&gt;</code>, <code>ref&lt;A&gt; → ref&lt;B&gt;</code> when the arguments convert;</li>
 <li>anything → <code>any</code>.</li>
 </ul>
 <p>Any other change is an error when computing the binding. The fixed flag never affects compatibility.</p>
 <hr>
 <h2 id="10-resolution-of-external-resources"><span class="num">10.</span> Resolution of external resources<a class="anchor" href="#10-resolution-of-external-resources" aria-label="Link to this section">#</a></h2>
-<p>Applies to schemas in Reference mode, imports in compiled schemas, and dependencies of <code>extref</code> values. A resource is identified by <code>(id, version)</code>; for schemas, <code>id</code> is the schema name.</p>
+<p>Applies to schemas in Reference mode, imports in compiled schemas, and dependencies of external references. A resource is identified by <code>(id, version)</code>; for schemas, <code>id</code> is the schema name.</p>
 <h3 id="10-1-order"><span class="num">10.1</span> Order<a class="anchor" href="#10-1-order" aria-label="Link to this section">#</a></h3>
 <ol>
 <li>Resources provided in memory by the caller.</li>
@@ -1207,18 +1212,12 @@ struct Point {
 <td>8</td>
 <td>S32</td>
 <td>18</td>
-<td>ExtRef</td>
+<td>Any</td>
 </tr>
 <tr>
 <td>9</td>
 <td>S64</td>
 <td>19</td>
-<td>Any</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td>20</td>
 <td>Alias (<code>TypeRef</code> only)</td>
 </tr>
 </tbody></table></div>

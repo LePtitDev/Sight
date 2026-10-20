@@ -220,6 +220,83 @@ public class ExtensionTests
         Assert.IsNull(BinarySerializer.Read<Scene>(BinarySerializer.Write(scene)).Highlight);
     }
 
+    private static SerializationOptions LibraryOptions()
+    {
+        var library = new Library { Textures = { new Texture { Path = "a.png" }, new Texture { Path = "b.png" } } };
+        var libraryOptions = new SerializationOptions { Id = "assets.library", Version = 4 };
+        libraryOptions.Exports["second"] = library.Textures[1];
+        var libraryBytes = BinarySerializer.Write(library, libraryOptions);
+
+        var options = new SerializationOptions();
+        options.Dependencies.Add("assets.library", 4, () => new MemoryStream(libraryBytes));
+        return options;
+    }
+
+    [Test]
+    public void ReferencesMixLocalAndExternalValues()
+    {
+        var options = LibraryOptions();
+        var local = new Texture { Path = "local.png" };
+        var atlas = new Atlas
+        {
+            Links = { local, local, new Link<Texture>("assets.library", "second") },
+            Main = local,
+        };
+
+        var bytes = BinarySerializer.Write(atlas, options);
+        var read = BinarySerializer.Read<Atlas>(bytes, options);
+        Assert.IsFalse(read.Links[0].IsExternal);
+        Assert.AreEqual("local.png", read.Links[0].Resolve().Path);
+        Assert.AreSame(read.Links[0].Resolve(), read.Links[1].Resolve());
+        Assert.AreSame(read.Links[0].Resolve(), read.Main);
+        Assert.IsTrue(read.Links[2].IsExternal);
+        Assert.IsFalse(read.Links[2].IsResolved);
+        Assert.AreEqual("b.png", read.Links[2].Resolve().Path);
+
+        // Untyped: the same position holds structs (in place or shared) and external references
+        var document = BinarySerializer.Read(bytes, options);
+        var links = document.Root["links"];
+        Assert.AreSame(links[0], links[1]);
+        Assert.AreEqual("second", ((DataExtRef)links[2]).Key);
+
+        var text = TextSerializer.Write(document, options);
+        StringAssert.Contains("links: [&1 { path: \"local.png\" }, *1, <library#second>]", text);
+        Assert.AreEqual(bytes, BinarySerializer.Write(TextSerializer.Read(text, options), options));
+    }
+
+    [Test]
+    public void ExternalReferencesOfPlainMembersAreResolvedWhileReading()
+    {
+        var options = LibraryOptions();
+        options.Schemas.Add(Schema.FromType<Atlas>());
+        const string text = "@sbdl 1\n@schema lib 0\n@dep library = assets.library 4\n\nAtlas { links: [<library>], main: <library#second> }";
+
+        var atlas = TextSerializer.Read<Atlas>(text, options);
+        Assert.AreEqual("b.png", atlas.Main!.Path);
+        Assert.IsTrue(atlas.Links[0].IsExternal);
+
+        // Root of a dependency of another type: error at resolution
+        Assert.Throws<SerializationException>(() => TextSerializer.Read<Atlas>(text.Replace("<library#second>", "<library>"), options));
+    }
+
+    [Test]
+    public void ExternalReferencesInAny()
+    {
+        var schema = Schema.Parse("@sgs 1\n@id s\n@version 1\nstruct T { path: string }\nstruct A { x: any }");
+        var options = new SerializationOptions();
+        options.Schemas.Add(schema);
+        const string text = "@sbdl 1\n@schema s 1\n@dep lib = assets.library 4\n\nA { x: ref<T> <lib#second> }";
+
+        var document = TextSerializer.Read(text, options);
+        var value = (DataExtRef)document.Root["x"];
+        Assert.AreEqual("s.T", value.TargetType!.QualifiedName);
+        var reread = BinarySerializer.Read(BinarySerializer.Write(document, options), options);
+        StringAssert.Contains("x: ref<T> <library#second>", TextSerializer.Write(reread, options));
+
+        Assert.Throws<SerializationException>(() => TextSerializer.Read(text.Replace("ref<T> ", string.Empty), options));
+        Assert.Throws<SerializationException>(() => Schema.Parse("@sgs 1\n@id s\nstruct T { x: extref<T> }"));
+    }
+
     [Test]
     public void InvalidConverters()
     {

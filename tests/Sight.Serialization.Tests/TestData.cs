@@ -50,7 +50,7 @@ internal static class TestData
           main: Shape?
           cycle: ref<Node>
           also: ref<Node>
-          icon: extref<Shape>
+          icon: ref<Shape>
           dyn: list<any>
           long: string
         }

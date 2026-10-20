@@ -104,9 +104,9 @@ public class SchemaTests
         var assets = Schema.Parse("@sgs 1\n@id assets\n@version 2\nstruct Texture { path: string }");
         var options = new SerializationOptions();
         options.Schemas.Add(assets);
-        var game = Schema.Parse("@sgs 1\n@id game\n@version 1\n@import assets 2\nstruct Hero { icon: extref<Texture>, other: assets.Texture }", options);
+        var game = Schema.Parse("@sgs 1\n@id game\n@version 1\n@import assets 2\nstruct Hero { icon: ref<Texture>, other: assets.Texture }", options);
         Assert.AreSame(assets, game.Imports[0]);
-        Assert.AreEqual("extref<assets.Texture>", ((StructDefinition)game.FindType("Hero")!).Fields[0].Type.ToString(game));
+        Assert.AreEqual("ref<assets.Texture>", ((StructDefinition)game.FindType("Hero")!).Fields[0].Type.ToString(game));
     }
 
     [Test]

@@ -9,7 +9,7 @@ internal static class Names
     public static readonly HashSet<string> TypeKeywords = new()
     {
         "bool", "u8", "u16", "u32", "u64", "s8", "s16", "s32", "s64", "f32", "f64",
-        "string", "bytes", "list", "map", "ref", "extref", "any",
+        "string", "bytes", "list", "map", "ref", "any",
     };
 
     public static bool IsIdentifier(string? value)

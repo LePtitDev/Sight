@@ -168,21 +168,28 @@ internal sealed class LoadedFile
 }
 
 /// <summary>
-/// Creation of <see cref="ExternalRef{T}"/> instances for a runtime type
+/// Creation of <see cref="Link{T}"/> instances for a runtime type
 /// </summary>
-internal static class ExternalRefFactory
+internal static class LinkFactory
 {
-    private static readonly ConcurrentDictionary<Type, ConstructorInfo> s_constructors = new();
+    private static readonly ConcurrentDictionary<Type, ConstructorInfo> s_external = new();
+    private static readonly ConcurrentDictionary<Type, ConstructorInfo> s_local = new();
 
-    public static object Create(Type target, string id, string key, uint version, DependencyContext context)
+    public static object CreateExternal(Type target, string id, string key, uint version, DependencyContext context)
     {
-        var constructor = s_constructors.GetOrAdd(target, t => typeof(ExternalRef<>).MakeGenericType(t).GetConstructor(
+        var constructor = s_external.GetOrAdd(target, t => typeof(Link<>).MakeGenericType(t).GetConstructor(
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
             new[] { typeof(string), typeof(string), typeof(uint), typeof(DependencyContext) },
             null)!);
 
         return constructor.Invoke(new object[] { id, key, version, context });
+    }
+
+    public static object CreateLocal(Type target, object value)
+    {
+        var constructor = s_local.GetOrAdd(target, t => typeof(Link<>).MakeGenericType(t).GetConstructor(new[] { t })!);
+        return constructor.Invoke(new[] { value });
     }
 }
 
@@ -193,6 +200,7 @@ internal sealed class DependencyContext
 {
     private readonly SerializationOptions _options;
     private readonly Dictionary<(string Id, uint Version, Type Type, bool Root), LoadedFile> _files = new();
+    private readonly HashSet<(string Id, uint Version)> _loading = new();
     private readonly object _lock = new();
 
     private DependencyContext(SerializationOptions options)
@@ -202,7 +210,7 @@ internal sealed class DependencyContext
 
     public static DependencyContext For(SerializationOptions options) => options.GetDependencyCache(() => new DependencyContext(options));
 
-    public T Resolve<T>(string id, uint version, string key)
+    public object? Resolve(Type type, string id, uint version, string key)
     {
         var source = ResourceResolver.For(_options).ResolveDependency(id, version);
         if (source.Value != null && source.Value is not DataDocument)
@@ -210,16 +218,29 @@ internal sealed class DependencyContext
             if (key.Length > 0)
                 throw new SerializationException($"Export '{key}' of dependency '{id}' cannot be resolved: the dependency is provided as an object");
 
-            return source.Value is T value ? value : throw new SerializationException($"Dependency '{id}' is a '{source.Value.GetType()}', not a '{typeof(T)}'");
+            return type.IsInstanceOfType(source.Value) ? source.Value : throw new SerializationException($"Dependency '{id}' is a '{source.Value.GetType()}', not a '{type}'");
         }
 
         LoadedFile file;
-        var cacheKey = (source.Reference.Id, source.Reference.Version, typeof(T), key.Length == 0);
+        var cacheKey = (source.Reference.Id, source.Reference.Version, type, key.Length == 0);
         lock (_lock)
         {
             if (!_files.TryGetValue(cacheKey, out file!))
             {
-                file = Load(source, typeof(T), key.Length == 0);
+                // Files being loaded resolve their external references while being read: a cycle cannot end
+                var loading = (source.Reference.Id, source.Reference.Version);
+                if (!_loading.Add(loading))
+                    throw new SerializationException($"Dependency '{id}' references itself through members resolved while reading (declare one of them as Link<T>)");
+
+                try
+                {
+                    file = Load(source, type, key.Length == 0);
+                }
+                finally
+                {
+                    _loading.Remove(loading);
+                }
+
                 _files.Add(cacheKey, file);
             }
         }
@@ -230,7 +251,7 @@ internal sealed class DependencyContext
         else if (!file.Exports.TryGetValue(key, out result))
             throw new SerializationException($"Dependency '{id}' has no export '{key}'");
 
-        return result is T typed ? typed : throw new SerializationException($"Value '{key}' of dependency '{id}' is not a '{typeof(T)}'");
+        return type.IsInstanceOfType(result) ? result : throw new SerializationException($"Value '{key}' of dependency '{id}' is not a '{type}'");
     }
 
     private LoadedFile Load(DependencySource source, Type type, bool readRoot)

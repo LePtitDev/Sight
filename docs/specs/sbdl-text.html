@@ -170,7 +170,7 @@ td code { white-space: nowrap; }
 QName = Ident { &quot;.&quot; Ident }
 </code></pre>
 <p><strong>Reserved words</strong>, which can never be used as an identifier value (enum value, alias, anchor): <code>null</code>, <code>true</code>, <code>false</code>, <code>inf</code>, <code>nan</code>.</p>
-<p><strong>Type keywords</strong>, which cannot be used as user type names: <code>bool</code>, <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>s8</code>, <code>s16</code>, <code>s32</code>, <code>s64</code>, <code>f32</code>, <code>f64</code>, <code>string</code>, <code>bytes</code>, <code>list</code>, <code>map</code>, <code>ref</code>, <code>extref</code>, <code>any</code>.</p>
+<p><strong>Type keywords</strong>, which cannot be used as user type names: <code>bool</code>, <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, <code>s8</code>, <code>s16</code>, <code>s32</code>, <code>s64</code>, <code>f32</code>, <code>f64</code>, <code>string</code>, <code>bytes</code>, <code>list</code>, <code>map</code>, <code>ref</code>, <code>any</code>.</p>
 <p>Other words (<code>enum</code>, <code>struct</code>, <code>abstract</code>, <code>type</code>) are keywords only where the grammar expects them; they remain valid field names.</p>
 <h3 id="2-4-literals"><span class="num">2.4</span> Literals<a class="anchor" href="#2-4-literals" aria-label="Link to this section">#</a></h3>
 <p><strong>Integers</strong></p>
@@ -235,14 +235,13 @@ BaseType  = &quot;bool&quot; | &quot;u8&quot; | &quot;u16&quot; | &quot;u32&quot
           | &quot;list&quot; &quot;&lt;&quot; Type &quot;&gt;&quot;
           | &quot;map&quot; &quot;&lt;&quot; Type &quot;,&quot; Type &quot;&gt;&quot;
           | &quot;ref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot;
-          | &quot;extref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot;
           | QName                               // enum, struct or type alias
 </code></pre>
 <ul>
 <li><code>bytes</code> is a shorthand of <code>list&lt;u8&gt;</code>: both denote the same type, and <code>bytes?</code> is <code>list&lt;u8&gt;?</code>.</li>
 <li>A type alias denotes its target (binary spec §4.3): <code>Color?</code> with <code>type Color = u32</code> is <code>u32?</code>.</li>
 </ul>
-<p>Constraints of the data model apply (binary spec §3.1): no <code>any?</code>, map keys restricted, <code>ref</code>/<code>extref</code> targets are structs (not aliases).</p>
+<p>Constraints of the data model apply (binary spec §3.1): no <code>any?</code>, map keys restricted, <code>ref</code> targets are structs (not aliases).</p>
 <p><strong>Type name resolution in a schema.</strong> An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one import, it is ambiguous and <span class="kw">MUST</span> be qualified. A qualified name is <code>&lt;prefix&gt;.&lt;type name&gt;</code>, where the prefix is an import alias (§4.2) or a schema name (<code>assets.Texture</code>).</p>
 <p><strong>Type name resolution in a data document.</strong> An unqualified name is looked up among the types of every schema of the file type table (binary spec §4.4). If it is found in more than one schema, it is ambiguous and <span class="kw">MUST</span> be qualified with the schema name.</p>
 <hr>
@@ -410,7 +409,7 @@ struct Player {
   inventory:  list&lt;Item&gt;
   stats:      map&lt;string, f32&gt;
   leader:     ref&lt;Character&gt;?
-  icon:       extref&lt;Texture&gt;          // resolved in assets
+  icon:       ref&lt;Texture&gt;             // in place, internal or external
   hash:       u64 @fixed
   experience: s32 @alias(xp)
   position:   Vec3
@@ -479,7 +478,7 @@ struct Player {
 <li>The file schemas (binary spec §4.4) are the schemas of the <code>@schema</code> directives, in order. Several schemas are allowed, e.g. a base schema and an extension declaring derived types.</li>
 <li>With inline schemas, imports not provided as an inline block are resolved externally (binary spec §10).</li>
 <li>With a reference <code>@schema</code>, the hash is verified when present. Writers <span class="kw">SHOULD</span> omit it.</li>
-<li>A <code>@dep</code> <strong>alias</strong> is local to the file and is only used by <code>extref</code> values (§7.2). The dependency <strong>id</strong> is what is stored in the binary header.</li>
+<li>A <code>@dep</code> <strong>alias</strong> is local to the file and is only used by external references (§7.2). The dependency <strong>id</strong> is what is stored in the binary header.</li>
 </ul>
 <p>Search path indexing (binary spec §10.3) reads <code>.sbdt</code> files up to the first token that is not a header directive.</p>
 <h3 id="5-2-root-value"><span class="num">5.2</span> Root value<a class="anchor" href="#5-2-root-value" aria-label="Link to this section">#</a></h3>
@@ -566,11 +565,7 @@ ExtRef     = &quot;&lt;&quot; Ident [ &quot;#&quot; ( Ident | String ) ] &quot;&
 </tr>
 <tr>
 <td><code>ref&lt;T&gt;</code></td>
-<td>§7.1</td>
-</tr>
-<tr>
-<td><code>extref&lt;T&gt;</code></td>
-<td>§7.2</td>
+<td>struct value (in place), <code>*name</code> (§7.1) or <code>&lt;alias…&gt;</code> (§7.2), chosen value by value</td>
 </tr>
 <tr>
 <td><code>any</code></td>
@@ -649,9 +644,9 @@ ExtRef     = &quot;&lt;&quot; Ident [ &quot;#&quot; ( Ident | String ) ] &quot;&
 <td>the explicit <code>Type</code></td>
 </tr>
 </tbody></table></div>
-<pre><code>TypedValue = Type Value      // e.g. list&lt;u8&gt; [1, 2], map&lt;s32, f32&gt; { 1: 0.5 }, extref&lt;assets.Texture&gt; &lt;tex&gt;, Color 255
+<pre><code>TypedValue = Type Value      // e.g. list&lt;u8&gt; [1, 2], map&lt;s32, f32&gt; { 1: 0.5 }, ref&lt;assets.Texture&gt; &lt;tex&gt;, Color 255
 </code></pre>
-<p>An explicit type is required for any other type, e.g. <code>list&lt;s32&gt; [1, 2]</code>, <code>map&lt;Class, u8&gt; { Mage: 1 }</code> or <code>extref&lt;Texture&gt; &lt;tex&gt;</code>. An unqualified enum value or an unprefixed struct is an error in <code>any</code>.</p>
+<p>An explicit type is required for any other type, e.g. <code>list&lt;s32&gt; [1, 2]</code>, <code>map&lt;Class, u8&gt; { Mage: 1 }</code> or <code>ref&lt;Texture&gt; &lt;tex&gt;</code>. An unqualified enum value or an unprefixed struct is an error in <code>any</code>.</p>
 <p>The explicit type <span class="kw">MAY</span> be or contain type aliases (<code>Color 255</code>, <code>list&lt;Color&gt; [1, 2]</code>), and enum values <span class="kw">MAY</span> be qualified with an alias of their enum. The value is typed with the resolved type, which is the type of the <code>any</code> value: aliases are not kept (binary spec §7.9). <code>Color 255</code> and <code>255u32</code> are the same value.</p>
 <h3 id="6-6-positional-values"><span class="num">6.6</span> Positional values<a class="anchor" href="#6-6-positional-values" aria-label="Link to this section">#</a></h3>
 <p>A struct value <span class="kw">MAY</span> be written in positional form: its field values, in field sequence order (binary spec §4.2), between parentheses.</p>
@@ -678,11 +673,19 @@ extra:    Vec3 (1, 2, 3)            // type prefix, as for braced values
 </ul>
 <p>The position of the anchor in the text has no meaning: it does not need to match the position where a binary writer emits the object inline.</p>
 <h3 id="7-2-external-references"><span class="num">7.2</span> External references<a class="anchor" href="#7-2-external-references" aria-label="Link to this section">#</a></h3>
+<p>At a <code>ref&lt;T&gt;</code> position, or in <code>any</code> with an explicit <code>ref&lt;T&gt;</code> type:</p>
 <ul>
 <li><code>&lt;alias&gt;</code>: root value of the dependency declared with <code>@dep alias = …</code>.</li>
 <li><code>&lt;alias#name&gt;</code> or <code>&lt;alias#&quot;any name&quot;&gt;</code>: export <code>name</code> of that dependency.</li>
 <li>An undeclared alias is an error.</li>
 </ul>
+<p>The three forms can be mixed at the same position, for instance in a <code>list&lt;ref&lt;Texture&gt;&gt;</code>:</p>
+<pre><code>textures: [
+  &amp;1 { path: &quot;local.png&quot; }          // in place, anchored
+  *1                                // internal: same object
+  &lt;tex#hero&gt;                        // external: export &quot;hero&quot; of the dependency
+]
+</code></pre>
 <hr>
 <h2 id="8-canonical-output"><span class="num">8.</span> Canonical output<a class="anchor" href="#8-canonical-output" aria-label="Link to this section">#</a></h2>
 <p>Writers <span class="kw">MUST</span> produce the canonical form defined here, so that equal data gives identical text (stable diffs).</p>
@@ -824,7 +827,7 @@ IntType      = &quot;u8&quot; | &quot;u16&quot; | &quot;u32&quot; | &quot;u64&qu
 Type         = BaseType [ &quot;?&quot; ]
 BaseType     = &quot;bool&quot; | IntType | &quot;f32&quot; | &quot;f64&quot; | &quot;string&quot; | &quot;bytes&quot; | &quot;any&quot;
              | &quot;list&quot; &quot;&lt;&quot; Type &quot;&gt;&quot; | &quot;map&quot; &quot;&lt;&quot; Type &quot;,&quot; Type &quot;&gt;&quot;
-             | &quot;ref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot; | &quot;extref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot; | QName
+             | &quot;ref&quot; &quot;&lt;&quot; QName &quot;&gt;&quot; | QName
 
 (* Schema language *)
 SchemaFile   = &quot;@sgs&quot; Decimal LineBreak SchemaBody

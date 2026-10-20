@@ -91,19 +91,14 @@ public enum TypeKind : byte
     Struct = 16,
 
     /// <summary>
-    /// Internal reference to a struct
+    /// Reference to a struct: written in place, shared within the file, or in another file (a dependency)
     /// </summary>
     Ref = 17,
 
     /// <summary>
-    /// External reference to a struct of another file
-    /// </summary>
-    ExtRef = 18,
-
-    /// <summary>
     /// Dynamic value carrying its type
     /// </summary>
-    Any = 19,
+    Any = 18,
 }
 
 /// <summary>
@@ -174,7 +169,6 @@ public static class TypeKindExtensions
         TypeKind.List => "list",
         TypeKind.Map => "map",
         TypeKind.Ref => "ref",
-        TypeKind.ExtRef => "extref",
         TypeKind.Any => "any",
         _ => kind.ToString(),
     };

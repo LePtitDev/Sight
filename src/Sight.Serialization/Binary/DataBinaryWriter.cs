@@ -44,11 +44,11 @@ internal sealed class DataBinaryWriter
     {
         if (_objectIds.TryGetValue(value, out var id))
         {
-            _encoder.WriteVarUInt((ulong)id + 1);
+            _encoder.WriteVarUInt((ulong)id + RefEncoding.IdOffset);
             return;
         }
 
-        _encoder.WriteVarUInt(0);
+        _encoder.WriteVarUInt(RefEncoding.Inline);
         _objectIds.Add(value, _objectIds.Count);
         WriteStructBody(value, path);
     }
@@ -124,16 +124,16 @@ internal sealed class DataBinaryWriter
             case TypeKind.Struct:
                 WriteStruct(type.StructDefinition!, AsStruct(value, path), path);
                 break;
-            case TypeKind.Ref:
-                WriteRef(type.StructDefinition!, AsStruct(value, path), path);
-                break;
-            case TypeKind.ExtRef:
-                var extRef = value as DataExtRef ?? throw Error(path, $"expected an external reference, got {value.Kind}");
+            case TypeKind.Ref when value is DataExtRef extRef:
                 if (_dependencyIndex == null)
                     throw Error(path, "external references are not allowed here");
 
+                _encoder.WriteVarUInt(RefEncoding.External);
                 _encoder.WriteVarUInt((ulong)_dependencyIndex(extRef));
                 _encoder.WriteString(extRef.Key);
+                break;
+            case TypeKind.Ref:
+                WriteRef(type.StructDefinition!, AsStruct(value, path), path);
                 break;
             case TypeKind.Any:
                 WriteAny(value, path);
@@ -256,11 +256,11 @@ internal sealed class DataBinaryWriter
             if (!value.Definition.IsAssignableTo(declared))
                 throw Error(path, $"referenced object of type '{value.Definition.QualifiedName}' is not a '{declared.QualifiedName}'");
 
-            _encoder.WriteVarUInt((ulong)id + 1);
+            _encoder.WriteVarUInt((ulong)id + RefEncoding.IdOffset);
             return;
         }
 
-        _encoder.WriteVarUInt(0);
+        _encoder.WriteVarUInt(RefEncoding.Inline);
         _objectIds.Add(value, _objectIds.Count);
         WriteStruct(declared, value, path);
     }
@@ -367,7 +367,7 @@ internal sealed class DataBinaryWriter
             DataReference data => TypeReference.Ref(data.Target.Definition),
             DataList data => TypeReference.List(data.ElementType ?? TypeReference.Any),
             DataMap data => TypeReference.Map(data.KeyType ?? TypeReference.String, data.ValueType ?? TypeReference.Any),
-            DataExtRef data => TypeReference.ExtRef(data.TargetType ?? throw Error(path, "an external reference stored in 'any' requires a target type")),
+            DataExtRef data => TypeReference.Ref(data.TargetType ?? throw Error(path, "an external reference stored in 'any' requires a target type")),
             _ => throw Error(path, $"a value of kind {value.Kind} cannot be stored in 'any'"),
         };
     }
@@ -387,7 +387,6 @@ internal sealed class DataBinaryWriter
             case TypeKind.Enum:
             case TypeKind.Struct:
             case TypeKind.Ref:
-            case TypeKind.ExtRef:
                 _encoder.WriteVarUInt((ulong)_table.IndexOf(type.Definition!));
                 break;
             case TypeKind.List:

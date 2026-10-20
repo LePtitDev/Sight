@@ -449,7 +449,6 @@ internal sealed class SchemaParser
                 reader.Expect('>');
                 break;
             case "ref":
-            case "extref":
                 reader.Expect('<');
                 var targetToken = reader.Current;
                 syntax.Arguments.Add(new TypeSyntax(targetToken, reader.ExpectQualifiedName()));
@@ -481,10 +480,9 @@ internal sealed class SchemaParser
                 type = TypeReference.Map(ResolveTypeSyntax(resolve, syntax.Arguments[0]), ResolveTypeSyntax(resolve, syntax.Arguments[1]));
                 break;
             case "ref":
-            case "extref":
                 var target = resolve(syntax.Arguments[0].Name, syntax.Arguments[0].Token) as StructDefinition
-                    ?? throw TokenReader.Error(syntax.Arguments[0].Token, $"{syntax.Name} target must be a struct");
-                type = syntax.Name == "ref" ? TypeReference.Ref(target) : TypeReference.ExtRef(target);
+                    ?? throw TokenReader.Error(syntax.Arguments[0].Token, "ref target must be a struct");
+                type = TypeReference.Ref(target);
                 break;
             case "bytes":
                 type = TypeReference.Bytes;

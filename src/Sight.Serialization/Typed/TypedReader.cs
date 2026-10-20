@@ -60,8 +60,11 @@ internal sealed class TypedReader
     public object? ReadExport(StructDefinition writerType)
     {
         var x = _decoder.ReadVarUInt();
+        if (x == RefEncoding.External)
+            throw Error("an export cannot be an external reference");
+
         if (x > 0)
-            return GetObject(x - 1);
+            return GetObject(x - RefEncoding.IdOffset);
 
         if (!_model.StructsByIdentity.TryGetValue(writerType.QualifiedName, out var info) || info.Create == null)
         {
@@ -161,8 +164,6 @@ internal sealed class TypedReader
                 return ReadStruct(type.StructDefinition!, target);
             case TypeKind.Ref:
                 return ReadRef(type.StructDefinition!, target);
-            case TypeKind.ExtRef:
-                return ReadExtRef(type.StructDefinition!, target);
             case TypeKind.Any:
                 if (target.Shape != ClrShape.Any)
                     throw Error($"a value of type 'any' cannot be read into '{target.Type}'");
@@ -380,25 +381,31 @@ internal sealed class TypedReader
     private object? ReadRef(StructDefinition declared, ClrValueType target)
     {
         var x = _decoder.ReadVarUInt();
+        if (x == RefEncoding.External)
+            return ReadExternal(declared, target);
+
+        var expected = RefTargetType(target);
         if (x > 0)
         {
-            var existing = GetObject(x - 1) ?? throw Error("reference to an object that was not read (removed field)");
-            var expected = target.Shape == ClrShape.Any ? typeof(object) : StructType(target);
+            var existing = GetObject(x - RefEncoding.IdOffset) ?? throw Error("reference to an object that was not read (removed field)");
             if (!expected.IsInstanceOfType(existing))
                 throw Error($"referenced object of type '{existing.GetType()}' cannot be assigned to '{expected}'");
 
-            return existing;
+            return target.Shape == ClrShape.Link ? LinkFactory.CreateLocal(expected, existing) : existing;
         }
 
         var writerType = ReadConcreteType(declared);
-        var info = MapStruct(writerType, target.Shape == ClrShape.Any ? typeof(object) : StructType(target));
+        var info = MapStruct(writerType, expected);
         var value = info.Create!();
         AddObject(value);
         ReadStructBody(writerType, info, value);
-        return value;
+        return target.Shape == ClrShape.Link ? LinkFactory.CreateLocal(expected, value) : value;
     }
 
-    private object ReadExtRef(StructDefinition declared, ClrValueType target)
+    /// <summary>
+    /// Read an external reference: kept unresolved by links and <c>any</c> values, resolved now by other members
+    /// </summary>
+    private object? ReadExternal(StructDefinition declared, ClrValueType target)
     {
         var index = _decoder.ReadVarUInt();
         if (index >= (ulong)_dependencies.Count)
@@ -406,16 +413,36 @@ internal sealed class TypedReader
 
         var key = _decoder.ReadString();
         var dependency = _dependencies[(int)index];
-        if (target.Shape != ClrShape.ExtRef)
+        switch (target.Shape)
         {
-            if (target.Shape == ClrShape.Any)
+            case ClrShape.Link:
+                return LinkFactory.CreateExternal(target.LinkTarget!, dependency.Id, key, dependency.Version, _context);
+            case ClrShape.Any:
                 return new DataExtRef(dependency.Id, key, declared);
+            case ClrShape.Struct:
+                try
+                {
+                    return _context.Resolve(StructType(target), dependency.Id, dependency.Version, key);
+                }
+                catch (SerializationException e) when (e.Line == 0)
+                {
+                    throw Error($"external reference <{dependency.Id}{(key.Length > 0 ? "#" + key : string.Empty)}>: {e.Message}");
+                }
 
-            throw Error($"an external reference cannot be read into '{target.Type}'");
+            default:
+                throw Error($"an external reference cannot be read into '{target.Type}'");
         }
-
-        return ExternalRefFactory.Create(target.ExtRefTarget!, dependency.Id, key, dependency.Version, _context);
     }
+
+    /// <summary>
+    /// CLR type of the objects read at a reference position
+    /// </summary>
+    private static Type RefTargetType(ClrValueType target) => target.Shape switch
+    {
+        ClrShape.Any => typeof(object),
+        ClrShape.Link => target.LinkTarget!,
+        _ => StructType(target),
+    };
 
     private object? ReadAny()
     {
@@ -444,7 +471,6 @@ internal sealed class TypedReader
             TypeKind.Enum => TypeReference.Of(_table.Get(_decoder.ReadVarUInt()) as EnumDefinition ?? throw Error("type descriptor index is not an enum")),
             TypeKind.Struct => TypeReference.Of(_table.GetStruct(_decoder.ReadVarUInt())),
             TypeKind.Ref => TypeReference.Ref(_table.GetStruct(_decoder.ReadVarUInt())),
-            TypeKind.ExtRef => TypeReference.ExtRef(_table.GetStruct(_decoder.ReadVarUInt())),
             TypeKind.List => TypeReference.List(ReadDescriptor(isTopLevel: false)),
             TypeKind.Map => TypeReference.Map(ReadDescriptor(isTopLevel: false), ReadDescriptor(isTopLevel: false)),
             _ => TypeReference.Primitive(kind),
@@ -702,17 +728,19 @@ internal sealed class TypedReader
                 SkipStructBody(ReadConcreteType(type.StructDefinition!));
                 break;
             case TypeKind.Ref:
-                if (_decoder.ReadVarUInt() == 0)
+                var x = _decoder.ReadVarUInt();
+                if (x == RefEncoding.Inline)
                 {
                     var concrete = ReadConcreteType(type.StructDefinition!);
                     AddObject(null);
                     SkipStructBody(concrete);
                 }
+                else if (x == RefEncoding.External)
+                {
+                    _decoder.ReadVarUInt();
+                    _decoder.ReadString();
+                }
 
-                break;
-            case TypeKind.ExtRef:
-                _decoder.ReadVarUInt();
-                _decoder.ReadString();
                 break;
             case TypeKind.Any:
                 var descriptor = ReadDescriptor(isTopLevel: true);

@@ -52,7 +52,7 @@ QName = Ident { "." Ident }
 
 **Reserved words**, which can never be used as an identifier value (enum value, alias, anchor): `null`, `true`, `false`, `inf`, `nan`.
 
-**Type keywords**, which cannot be used as user type names: `bool`, `u8`, `u16`, `u32`, `u64`, `s8`, `s16`, `s32`, `s64`, `f32`, `f64`, `string`, `bytes`, `list`, `map`, `ref`, `extref`, `any`.
+**Type keywords**, which cannot be used as user type names: `bool`, `u8`, `u16`, `u32`, `u64`, `s8`, `s16`, `s32`, `s64`, `f32`, `f64`, `string`, `bytes`, `list`, `map`, `ref`, `any`.
 
 Other words (`enum`, `struct`, `abstract`, `type`) are keywords only where the grammar expects them; they remain valid field names.
 
@@ -139,14 +139,13 @@ BaseType  = "bool" | "u8" | "u16" | "u32" | "u64" | "s8" | "s16" | "s32" | "s64"
           | "list" "<" Type ">"
           | "map" "<" Type "," Type ">"
           | "ref" "<" QName ">"
-          | "extref" "<" QName ">"
           | QName                               // enum, struct or type alias
 ```
 
 - `bytes` is a shorthand of `list<u8>`: both denote the same type, and `bytes?` is `list<u8>?`.
 - A type alias denotes its target (binary spec §4.3): `Color?` with `type Color = u32` is `u32?`.
 
-Constraints of the data model apply (binary spec §3.1): no `any?`, map keys restricted, `ref`/`extref` targets are structs (not aliases).
+Constraints of the data model apply (binary spec §3.1): no `any?`, map keys restricted, `ref` targets are structs (not aliases).
 
 **Type name resolution in a schema.** An unqualified name is looked up in the current schema, then in its direct imports. If it is found in more than one import, it is ambiguous and MUST be qualified. A qualified name is `<prefix>.<type name>`, where the prefix is an import alias (§4.2) or a schema name (`assets.Texture`).
 
@@ -259,7 +258,7 @@ struct Player {
   inventory:  list<Item>
   stats:      map<string, f32>
   leader:     ref<Character>?
-  icon:       extref<Texture>          // resolved in assets
+  icon:       ref<Texture>             // in place, internal or external
   hash:       u64 @fixed
   experience: s32 @alias(xp)
   position:   Vec3
@@ -295,7 +294,7 @@ Document  = FormatDirective { Directive } RootValue { ExportDirective }
 - The file schemas (binary spec §4.4) are the schemas of the `@schema` directives, in order. Several schemas are allowed, e.g. a base schema and an extension declaring derived types.
 - With inline schemas, imports not provided as an inline block are resolved externally (binary spec §10).
 - With a reference `@schema`, the hash is verified when present. Writers SHOULD omit it.
-- A `@dep` **alias** is local to the file and is only used by `extref` values (§7.2). The dependency **id** is what is stored in the binary header.
+- A `@dep` **alias** is local to the file and is only used by external references (§7.2). The dependency **id** is what is stored in the binary header.
 
 Search path indexing (binary spec §10.3) reads `.sbdt` files up to the first token that is not a header directive.
 
@@ -355,8 +354,7 @@ The grammar is unambiguous without a schema: a document can always be parsed int
 | struct `T` | Braced with Ident keys (field names), or Positional (§6.6); type prefix rules in §6.4 |
 | type alias | any syntax accepted for its target |
 | `T?` | `null` or any syntax accepted for `T` |
-| `ref<T>` | §7.1 |
-| `extref<T>` | §7.2 |
+| `ref<T>` | struct value (in place), `*name` (§7.1) or `<alias…>` (§7.2), chosen value by value |
 | `any` | §6.5 |
 
 A literal out of range for its type, or a syntax not accepted for the expected type, is an error. Integer literals are exact: `1.0` is not accepted for an integer type.
@@ -396,10 +394,10 @@ The value carries its own type:
 | TypedValue: `Type Value` | the explicit `Type` |
 
 ```
-TypedValue = Type Value      // e.g. list<u8> [1, 2], map<s32, f32> { 1: 0.5 }, extref<assets.Texture> <tex>, Color 255
+TypedValue = Type Value      // e.g. list<u8> [1, 2], map<s32, f32> { 1: 0.5 }, ref<assets.Texture> <tex>, Color 255
 ```
 
-An explicit type is required for any other type, e.g. `list<s32> [1, 2]`, `map<Class, u8> { Mage: 1 }` or `extref<Texture> <tex>`. An unqualified enum value or an unprefixed struct is an error in `any`.
+An explicit type is required for any other type, e.g. `list<s32> [1, 2]`, `map<Class, u8> { Mage: 1 }` or `ref<Texture> <tex>`. An unqualified enum value or an unprefixed struct is an error in `any`.
 
 The explicit type MAY be or contain type aliases (`Color 255`, `list<Color> [1, 2]`), and enum values MAY be qualified with an alias of their enum. The value is typed with the resolved type, which is the type of the `any` value: aliases are not kept (binary spec §7.9). `Color 255` and `255u32` are the same value.
 
@@ -435,9 +433,21 @@ The position of the anchor in the text has no meaning: it does not need to match
 
 ### 7.2 External references
 
+At a `ref<T>` position, or in `any` with an explicit `ref<T>` type:
+
 - `<alias>`: root value of the dependency declared with `@dep alias = …`.
 - `<alias#name>` or `<alias#"any name">`: export `name` of that dependency.
 - An undeclared alias is an error.
+
+The three forms can be mixed at the same position, for instance in a `list<ref<Texture>>`:
+
+```
+textures: [
+  &1 { path: "local.png" }          // in place, anchored
+  *1                                // internal: same object
+  <tex#hero>                        // external: export "hero" of the dependency
+]
+```
 
 ---
 
@@ -555,7 +565,7 @@ IntType      = "u8" | "u16" | "u32" | "u64" | "s8" | "s16" | "s32" | "s64"
 Type         = BaseType [ "?" ]
 BaseType     = "bool" | IntType | "f32" | "f64" | "string" | "bytes" | "any"
              | "list" "<" Type ">" | "map" "<" Type "," Type ">"
-             | "ref" "<" QName ">" | "extref" "<" QName ">" | QName
+             | "ref" "<" QName ">" | QName
 
 (* Schema language *)
 SchemaFile   = "@sgs" Decimal LineBreak SchemaBody

@@ -110,8 +110,7 @@ public sealed class TypeReference : IEquatable<TypeReference>
     public bool IsFixed { get; }
 
     /// <summary>
-    /// Enum or struct definition (for <see cref="TypeKind.Enum"/>, <see cref="TypeKind.Struct"/>,
-    /// <see cref="TypeKind.Ref"/> and <see cref="TypeKind.ExtRef"/>)
+    /// Enum or struct definition (for <see cref="TypeKind.Enum"/>, <see cref="TypeKind.Struct"/> and <see cref="TypeKind.Ref"/>)
     /// </summary>
     public TypeDefinition? Definition { get; }
 
@@ -202,14 +201,6 @@ public sealed class TypeReference : IEquatable<TypeReference>
     public static TypeReference Ref(StructDefinition target)
     {
         return new TypeReference(TypeKind.Ref, false, false, target, null, null);
-    }
-
-    /// <summary>
-    /// Create an <c>extref&lt;T&gt;</c> type
-    /// </summary>
-    public static TypeReference ExtRef(StructDefinition target)
-    {
-        return new TypeReference(TypeKind.ExtRef, false, false, target, null, null);
     }
 
     /// <summary>
@@ -340,7 +331,6 @@ public sealed class TypeReference : IEquatable<TypeReference>
                 builder.Append('>');
                 break;
             case TypeKind.Ref:
-            case TypeKind.ExtRef:
                 builder.Append(Kind.ToKeyword()).Append('<').Append(Definition!.GetName(context)).Append('>');
                 break;
             default:

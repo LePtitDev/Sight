@@ -199,7 +199,7 @@ internal sealed class ClrModelBuilder
         if (type.IsGenericType)
         {
             var definition = type.GetGenericTypeDefinition();
-            if (definition == typeof(ExternalRef<>) || IsListDefinition(definition) || IsMapDefinition(definition))
+            if (definition == typeof(Link<>) || IsListDefinition(definition) || IsMapDefinition(definition))
             {
                 foreach (var argument in type.GetGenericArguments())
                     DiscoverMemberType(argument);
@@ -397,12 +397,12 @@ internal sealed class ClrModelBuilder
                 },
             };
         }
-        else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ExternalRef<>))
+        else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Link<>))
         {
             var target = type.GetGenericArguments()[0];
-            var info = _model.FindStruct(target) ?? throw new SerializationException($"External reference target '{target}' is not a struct ({context})");
+            var info = _model.FindStruct(target) ?? throw new SerializationException($"Link target '{target}' is not a struct ({context})");
             AddImport(schema, info.Definition.Schema);
-            value = new ClrValueType(type, ClrShape.ExtRef, TypeReference.ExtRef(info.Definition)) { Struct = info, ExtRefTarget = target };
+            value = new ClrValueType(type, ClrShape.Link, TypeReference.Ref(info.Definition)) { Struct = info, LinkTarget = target };
         }
         else if (type.IsGenericType && IsMapDefinition(type.GetGenericTypeDefinition()))
         {

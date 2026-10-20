@@ -8,7 +8,7 @@ internal static class CoreSchema
     /// <summary>
     /// Value of <c>core.Kind</c> for a reference to a type alias (only in <c>TypeRef</c>, never a <see cref="TypeKind"/>)
     /// </summary>
-    public const long AliasKind = 20;
+    public const long AliasKind = 19;
 
     static CoreSchema()
     {

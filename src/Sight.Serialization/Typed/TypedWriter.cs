@@ -10,18 +10,6 @@ using Sight.Serialization.Schemas;
 namespace Sight.Serialization.Typed;
 
 /// <summary>
-/// Internal access to the content of an <see cref="ExternalRef{T}"/>
-/// </summary>
-internal interface IExternalRef
-{
-    public string DependencyId { get; }
-
-    public string Key { get; }
-
-    public uint? Version { get; }
-}
-
-/// <summary>
 /// Encodes CLR objects according to their model
 /// </summary>
 internal sealed class TypedWriter
@@ -60,11 +48,11 @@ internal sealed class TypedWriter
     {
         if (_objectIds.TryGetValue(value, out var id))
         {
-            _encoder.WriteVarUInt((ulong)id + 1);
+            _encoder.WriteVarUInt((ulong)id + RefEncoding.IdOffset);
             return;
         }
 
-        _encoder.WriteVarUInt(0);
+        _encoder.WriteVarUInt(RefEncoding.Inline);
         _objectIds.Add(value, _objectIds.Count);
         WriteStructBody(info, value);
     }
@@ -112,10 +100,8 @@ internal sealed class TypedWriter
                     WriteStruct(schemaType.StructDefinition!, value);
 
                 break;
-            case ClrShape.ExtRef:
-                var reference = (IExternalRef)value;
-                _encoder.WriteVarUInt((ulong)_dependencies.GetIndex(reference.DependencyId, reference.Version));
-                _encoder.WriteString(reference.Key);
+            case ClrShape.Link:
+                WriteLink(schemaType.StructDefinition!, (ILink)value);
                 break;
             case ClrShape.Any:
                 WriteAny(value);
@@ -332,13 +318,26 @@ internal sealed class TypedWriter
     {
         if (_objectIds.TryGetValue(value, out var id))
         {
-            _encoder.WriteVarUInt((ulong)id + 1);
+            _encoder.WriteVarUInt((ulong)id + RefEncoding.IdOffset);
             return;
         }
 
-        _encoder.WriteVarUInt(0);
+        _encoder.WriteVarUInt(RefEncoding.Inline);
         _objectIds.Add(value, _objectIds.Count);
         WriteStruct(declared, value);
+    }
+
+    private void WriteLink(StructDefinition declared, ILink link)
+    {
+        if (!link.IsExternal)
+        {
+            WriteRef(declared, link.LocalValue!);
+            return;
+        }
+
+        _encoder.WriteVarUInt(RefEncoding.External);
+        _encoder.WriteVarUInt((ulong)_dependencies.GetIndex(link.DependencyId!, link.Version));
+        _encoder.WriteString(link.Key);
     }
 
     private void WriteTag(StructDefinition declared, StructDefinition actual)
@@ -406,6 +405,15 @@ internal sealed class TypedWriter
         {
             case DataValue:
                 throw Error("data values cannot be stored in typed objects");
+            case ILink { IsExternal: false } local:
+                WriteAny(local.LocalValue!);
+                return;
+            case ILink link:
+                var target = _model.FindStruct(type.GetGenericArguments()[0]) ?? throw Error($"link target '{type.GetGenericArguments()[0]}' is not part of the serialization model");
+                _encoder.WriteByte((byte)TypeKind.Ref);
+                _encoder.WriteVarUInt((ulong)_table.IndexOf(target.Definition));
+                WriteLink(target.Definition, link);
+                return;
             case byte[] or ReadOnlyMemory<byte> or Memory<byte> or ArraySegment<byte>:
                 var bytes = GetBytes(value);
                 _encoder.WriteByte((byte)TypeKind.List);

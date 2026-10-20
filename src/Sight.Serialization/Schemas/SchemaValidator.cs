@@ -157,11 +157,10 @@ internal static class SchemaValidator
             case TypeKind.Enum:
             case TypeKind.Struct:
             case TypeKind.Ref:
-            case TypeKind.ExtRef:
                 if (type.Definition == null || !local.Contains(type.Definition))
                     throw Error(schema, $"type '{type.Definition?.QualifiedName}' is not declared by the schema or a direct import ({context})");
 
-                if (type.Kind is TypeKind.Ref or TypeKind.ExtRef && type.Definition is not StructDefinition)
+                if (type.Kind == TypeKind.Ref && type.Definition is not StructDefinition)
                     throw Error(schema, $"{type.Kind.ToKeyword()} target must be a struct ({context})");
 
                 break;

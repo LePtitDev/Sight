@@ -73,7 +73,7 @@ A single **string table** (§5.4) spans the schema section and the body. Header 
 | Text | `string` (Unicode, encoded as UTF-8) |
 | User types | `enum`, `struct` (declared in a schema) |
 | Containers | `list<T>`, `map<K, V>` |
-| References | `ref<T>` (internal), `extref<T>` (external) |
+| References | `ref<T>` (in place, internal or external) |
 | Dynamic | `any` |
 | Modifier | `T?` (nullable) |
 
@@ -82,7 +82,7 @@ Constraints:
 - `null` is a value, not a declarable type. It is the value of a nullable position, or an `any` value of kind `Null`.
 - `T?` is allowed for every type except `any` (which can already hold `null`) and nullable types (`T??` is invalid).
 - `K` in `map<K, V>` MUST be `bool`, an integer type, `string` or an `enum` type, and MUST NOT be nullable.
-- `T` in `ref<T>` and `extref<T>` MUST be a struct type.
+- `T` in `ref<T>` MUST be a struct type.
 - A **type alias** (§4.3) gives a name to another type. It is not a distinct type: a position whose type is an alias has the type of its target, for every purpose (encoding, `any` values, schema evolution). `bytes`, in the text languages, is a built-in shorthand of `list<u8>`.
 
 ### 3.2 Values
@@ -91,8 +91,10 @@ Constraints:
 - **Enum**: one of the named values of the enum type.
 - **List**: ordered sequence of values of type `T`.
 - **Map**: ordered sequence of `(key, value)` pairs with **unique** keys. Insertion order is preserved by the format.
-- **Ref**: points to a struct value of the same file. Several refs MAY point to the same value, and refs MAY form cycles. Identity is preserved by a round trip.
-- **Extref**: points to the root value or to a named export of another SBDL file (a *dependency*).
+- **Ref**: a struct value whose location is chosen value by value, in the data:
+  - **in place**: the object is written at this position;
+  - **internal**: the position points to an object of the same file. Several refs MAY point to the same object, and refs MAY form cycles. Identity is preserved by a round trip;
+  - **external**: the position points to the root value or to a named export of another SBDL file (a *dependency*).
 - **Any**: a value together with its type.
 
 ### 3.3 Identifiers
@@ -173,7 +175,7 @@ Rules:
 - The target MUST NOT be nullable nor fixed. A reference to an alias MAY add the nullable and fixed flags, under the rules of the resolved type (`Color?`, `Hash @fixed`).
 - Aliases MUST NOT be cyclic, directly or through other aliases.
 - An alias is resolved to its target wherever its type is used: values are encoded as the target (§7), `any` descriptors describe the target (§7.9), and schema evolution compares targets (§9.3). Renaming or removing an alias, or replacing a type by an alias of it, therefore never changes the data. It does change the schema hash.
-- The target of `ref<T>` and `extref<T>`, and the base of a struct, MUST be struct definitions, not aliases.
+- The target of `ref<T>` and the base of a struct MUST be struct definitions, not aliases.
 - Data never designates an alias: no type index of the data (§7) refers to one.
 
 ### 4.4 Type tables
@@ -201,7 +203,7 @@ enum Kind : u8 {                    // type index 0
   Null = 0, Bool = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5,
   S8 = 6, S16 = 7, S32 = 8, S64 = 9, F32 = 10, F64 = 11,
   String = 12, Enum = 13, List = 14, Map = 15, Struct = 16,
-  Ref = 17, ExtRef = 18, Any = 19, Alias = 20
+  Ref = 17, Any = 18, Alias = 19
 }
 
 struct SchemaRef {                  // 1
@@ -213,7 +215,7 @@ struct SchemaRef {                  // 1
 struct TypeRef {                    // 2
   kind:  Kind
   flags: u8                         // bit 0 nullable, bit 1 fixed, other bits 0
-  index: u32?                       // Enum, Struct, Ref, ExtRef, Alias: local type index
+  index: u32?                       // Enum, Struct, Ref, Alias: local type index
   args:  list<TypeRef>              // List: [T], Map: [K, V], otherwise empty
 }
 
@@ -261,10 +263,10 @@ struct AliasDef : TypeDef {         // 9
 
 `TypeRef` rules:
 
-- `Ref` and `ExtRef` use `index` for their target struct and have no `args`.
+- `Ref` uses `index` for its target struct and has no `args`.
 - `Enum` and `Struct` use `index`; primitives, `String` and `Any` have neither `index` nor `args`.
 - `Alias` uses `index` for an `AliasDef` and has no `args`. Its `flags` are those of the reference, not of the target. `Alias` is only valid in a `TypeRef`, never in a type descriptor (§7.9).
-- An `index` MUST designate a definition matching the kind: an `EnumDef` for `Enum`, a `StructDef` for `Struct`, `Ref` and `ExtRef`, an `AliasDef` for `Alias`.
+- An `index` MUST designate a definition matching the kind: an `EnumDef` for `Enum`, a `StructDef` for `Struct` and `Ref`, an `AliasDef` for `Alias`.
 - `Null` MUST NOT appear in a `TypeRef`.
 - The **fixed** flag is only valid on `U16`, `U32`, `U64`, `S16`, `S32`, `S64` (for `Alias`, on the resolved kind). It changes the encoding (§7.1), not the type.
 - `Field.default` is `Null` when the field has no default. Otherwise it MUST be a scalar `any` value of the field kind (e.g. `u16` for a `u16` field); for an enum field, it is the **name** of the enum value, as a `string` (enum values cannot be described with the `core` type table).
@@ -408,8 +410,8 @@ Reference mode: readers MUST verify that the resolved schema has the given hash,
 
 Exports:
 
-- `name` MUST be non-empty and unique within the file. It is the key used by `extref` values of other files (§7.7).
-- `typeIndex` is a non-abstract struct type. `ref value` is encoded as `ref<T>` (§7.6) where `T` is exactly that type: either a reference to an object already written, whose concrete type MUST equal `typeIndex`, or an inline object of that type, without polymorphism tag.
+- `name` MUST be non-empty and unique within the file. It is the key used by external references of other files (§7.7).
+- `typeIndex` is a non-abstract struct type. `ref value` is encoded as `ref<T>` (§7.6) where `T` is exactly that type: either a reference to an object already written, whose concrete type MUST equal `typeIndex`, or an inline object of that type, without polymorphism tag. An external reference (`x = 1`) is malformed here.
 
 The file ends right after the body. Trailing bytes are malformed.
 
@@ -467,23 +469,24 @@ Writers MUST clear the slot of a field equal to its default. Equality is ordinal
 
 Fields that are neither nullable nor defaulted are always written and have no slot.
 
-### 7.6 Internal references (`ref<T>`)
+### 7.6 References (`ref<T>`)
 
-`vu x`:
+`vu x`, chosen by the writer for each value:
 
 - `x = 0`: a new object follows inline, encoded as struct `T` (with polymorphism tag if needed). It receives the next object id. Ids start at 0 and are assigned in encoding order across the body (root, then exports), **before** the object's fields are encoded, so the object can reference itself or its ancestors.
-- `x > 0`: reference to the object of id `x − 1`, which MUST already exist; its concrete type MUST be `T` or derive from `T`.
+- `x = 1`: external reference, followed by its target (§7.7).
+- `x ≥ 2`: reference to the object of id `x − 2`, which MUST already exist; its concrete type MUST be `T` or derive from `T`.
 
-The same object MUST be written inline once at most.
+The same object MUST be written inline once at most. A value written in place costs one byte more than the struct alone, and a reference to an object already written costs one `vu`.
 
-### 7.7 External references (`extref<T>`)
+### 7.7 External references
 
-`vu dependency`, then `str key`:
+After `x = 1` (§7.6): `vu dependency`, then `str key`:
 
 - `dependency` is an index in the header dependency list; out of range is malformed.
 - `key = ""` designates the root value of the dependency, otherwise the export named `key`.
 
-The referenced value is resolved lazily (§10). Its concrete type MUST be `T` or derive from `T`, compared by type identity (`schema.Type`), regardless of schema versions. A missing export or a type mismatch is an error at resolution time.
+Readers MAY resolve the referenced value while decoding or later, on demand (§10). Its concrete type MUST be `T` or derive from `T`, compared by type identity (`schema.Type`), regardless of schema versions. A missing export or a type mismatch is an error at resolution time.
 
 ### 7.8 Polymorphism
 
@@ -505,7 +508,7 @@ value             encoded per the descriptor (nothing for Null)
 
 | Kind | Followed by |
 |---|---|
-| `Enum`, `Struct`, `Ref`, `ExtRef` | `vu` file type table index |
+| `Enum`, `Struct`, `Ref` | `vu` file type table index |
 | `List` | descriptor of `T` |
 | `Map` | descriptor of `K`, descriptor of `V` |
 | others | nothing |
@@ -513,7 +516,7 @@ value             encoded per the descriptor (nothing for Null)
 Rules:
 
 - The top-level descriptor of an `any` value MUST NOT have the nullable bit; a null value is kind `Null`.
-- Kind `Alias` (20) is invalid in a descriptor: a value always carries its resolved type (§4.3).
+- Kind `Alias` (19) is invalid in a descriptor: a value always carries its resolved type (§4.3).
 - A struct described by the descriptor is the **exact** concrete type: no polymorphism tag follows.
 - `Any` as element kind (e.g. `list<any>`) is allowed; each element then carries its own descriptor.
 
@@ -527,10 +530,10 @@ For identical inputs (values, schema, options), writers MUST produce identical b
 
 ### 8.2 Streaming
 
-The dependency list is in the header but is only fully known once the body has been traversed (`extref` values). Writers MUST therefore either:
+The dependency list is in the header but is only fully known once the body has been traversed (external references). Writers MUST therefore either:
 
 - buffer the body (and schema section), then emit header + buffer; or
-- write directly when every dependency is declared before writing starts; an `extref` to an undeclared dependency is then an error.
+- write directly when every dependency is declared before writing starts; an external reference to an undeclared dependency is then an error.
 
 Readers never need to seek: a file is decodable in a single forward pass.
 
@@ -564,7 +567,7 @@ Type aliases are resolved first, on both sides (§4.3). A writer type converts t
 - `T → T?`;
 - enum → enum of the same identity: values matched **by name**; a writer value whose name is missing from the reader enum is an error at decoding time;
 - struct → struct of the same identity, recursively per §9.2; a concrete writer type unknown to the reader is an error at decoding time;
-- `list<A> → list<B>`, `map<K1, V1> → map<K2, V2>`, `ref<A> → ref<B>`, `extref<A> → extref<B>` when the arguments convert;
+- `list<A> → list<B>`, `map<K1, V1> → map<K2, V2>`, `ref<A> → ref<B>` when the arguments convert;
 - anything → `any`.
 
 Any other change is an error when computing the binding. The fixed flag never affects compatibility.
@@ -573,7 +576,7 @@ Any other change is an error when computing the binding. The fixed flag never af
 
 ## 10. Resolution of external resources
 
-Applies to schemas in Reference mode, imports in compiled schemas, and dependencies of `extref` values. A resource is identified by `(id, version)`; for schemas, `id` is the schema name.
+Applies to schemas in Reference mode, imports in compiled schemas, and dependencies of external references. A resource is identified by `(id, version)`; for schemas, `id` is the schema name.
 
 ### 10.1 Order
 
@@ -674,9 +677,8 @@ Total: 63 bytes, including the embedded schema.
 | 5 | U64 | 15 | Map |
 | 6 | S8 | 16 | Struct |
 | 7 | S16 | 17 | Ref |
-| 8 | S32 | 18 | ExtRef |
-| 9 | S64 | 19 | Any |
-| | | 20 | Alias (`TypeRef` only) |
+| 8 | S32 | 18 | Any |
+| 9 | S64 | 19 | Alias (`TypeRef` only) |
 
 ## Appendix B. Conformance checklist for readers
 

@@ -163,7 +163,7 @@ internal static class ValueParser
                 reader.Next();
                 return new LiteralNode(token);
             case TokenKind.Identifier:
-                if (token.Text is "list" or "map" or "ref" or "extref" && reader.PeekAt(1).Is('<'))
+                if (token.Text is "list" or "map" or "ref" && reader.PeekAt(1).Is('<'))
                 {
                     var type = SchemaParser.ParseTypeSyntax(reader);
                     return new TypedNode(token, type, ParseValue(reader));

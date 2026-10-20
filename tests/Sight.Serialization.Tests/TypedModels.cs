@@ -93,7 +93,7 @@ public class Player
     [SerializationReference]
     public Character? Leader { get; set; }
 
-    public ExternalRef<Texture>? Icon { get; set; }
+    public Link<Texture>? Icon { get; set; }
 
     [SerializationFixed]
     public ulong Hash { get; set; }
@@ -173,7 +173,18 @@ public class Library
 [SerializationType("lib.Sprite")]
 public class Sprite
 {
-    public ExternalRef<Texture> Texture { get; set; } = null!;
+    public Link<Texture> Texture { get; set; } = null!;
 
-    public ExternalRef<Library>? Library { get; set; }
+    public Link<Library>? Library { get; set; }
+}
+
+[SerializationType("lib.Atlas")]
+public class Atlas
+{
+    // Each item is local (written in place or shared) or external
+    public List<Link<Texture>> Links { get; set; } = new();
+
+    // Plain member at a reference position: external references are resolved while reading
+    [SerializationReference]
+    public Texture? Main { get; set; }
 }
