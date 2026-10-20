@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
+using Sight.Logging.Internal;
 using Sight.Logging.Logs;
 
 namespace Sight.Logging;
@@ -11,18 +9,27 @@ namespace Sight.Logging;
 /// <summary>
 /// Extension methods for <see cref="ILogger"/>
 /// </summary>
+/// <remarks>
+/// Messages accept parameters: <c>%e</c> / <c>%t</c> display the next parameter as an exception / a time span, <c>{0}</c> displays the
+/// parameter at an index and <c>{name}</c> the next parameter (both accept a format, <c>{0:N2}</c>). <c>%%</c>, <c>{{</c> and <c>}}</c> are
+/// literal characters. A message without parameter is written as is.
+/// </remarks>
 public static class LoggerExt
 {
-    private const int TypeColumnSize = 10;
-
-    private static readonly Regex StackTraceRegex = new Regex(@"(?<PATH>(?>[a-zA-Z]:)?(?>[\/\\][^\/\\:]+)+):line (?<LINE>\d+)", RegexOptions.Compiled);
+    /// <summary>
+    /// Log trace message (most detailed level)
+    /// </summary>
+    public static void LogTrace(this ILogger logger, string message, params object[] @params)
+    {
+        LogImpl(logger, LogKind.Trace, message, @params);
+    }
 
     /// <summary>
-    /// Log information message
+    /// Log debug message
     /// </summary>
     public static void LogDebug(this ILogger logger, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Information, LogIcons.Debug, "debug", LogColors.LowOpacity, message, @params);
+        LogImpl(logger, LogKind.Debug, message, @params);
     }
 
     /// <summary>
@@ -30,7 +37,7 @@ public static class LoggerExt
     /// </summary>
     public static void LogInformation(this ILogger logger, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Information, LogIcons.Information, "info", LogColors.Default, message, @params);
+        LogImpl(logger, LogKind.Information, message, @params);
     }
 
     /// <summary>
@@ -38,7 +45,7 @@ public static class LoggerExt
     /// </summary>
     public static void LogWarning(this ILogger logger, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Warning, LogIcons.Warning, "warning", LogColors.Warning, message, @params);
+        LogImpl(logger, LogKind.Warning, message, @params);
     }
 
     /// <summary>
@@ -46,7 +53,7 @@ public static class LoggerExt
     /// </summary>
     public static void LogError(this ILogger logger, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Error, LogIcons.Error, "error", LogColors.Error, message, @params);
+        LogImpl(logger, LogKind.Error, message, @params);
     }
 
     /// <summary>
@@ -54,7 +61,23 @@ public static class LoggerExt
     /// </summary>
     public static void LogError(this ILogger logger, Exception exception, string? message = null, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Error, LogIcons.Error, "error", LogColors.Error, string.IsNullOrEmpty(message) ? "%e" : $"{message}: %e", @params.Length > 0 ? @params.Append(exception).ToArray() : new object[] { exception });
+        LogException(logger, LogKind.Error, exception, message, @params);
+    }
+
+    /// <summary>
+    /// Log critical error message
+    /// </summary>
+    public static void LogCritical(this ILogger logger, string message, params object[] @params)
+    {
+        LogImpl(logger, LogKind.Critical, message, @params);
+    }
+
+    /// <summary>
+    /// Log critical exception message
+    /// </summary>
+    public static void LogCritical(this ILogger logger, Exception exception, string? message = null, params object[] @params)
+    {
+        LogException(logger, LogKind.Critical, exception, message, @params);
     }
 
     /// <summary>
@@ -62,7 +85,7 @@ public static class LoggerExt
     /// </summary>
     public static Stopwatch LogTimeStart(this ILogger logger, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Information, LogIcons.Start, "timer", LogColors.Highlight, message, @params);
+        LogImpl(logger, LogKind.TimeStart, message, @params);
         return Stopwatch.StartNew();
     }
 
@@ -71,90 +94,49 @@ public static class LoggerExt
     /// </summary>
     public static void LogTimeStop(this ILogger logger, Stopwatch stopwatch, string message, params object[] @params)
     {
-        LogImpl(logger, LogLevels.Information, LogIcons.Stop, "timer", LogColors.Highlight, $"{message}: %t", @params.Length > 0 ? @params.Append(stopwatch.Elapsed).ToArray() : new object[] { stopwatch.Elapsed });
+        if (logger.IsEnabled(LogKind.TimeStop.Level))
+            LogTimeStopImpl(logger, stopwatch, message, @params);
     }
 
-    private static void LogImpl(ILogger logger, LogLevels level, LogIcon icon, string type, LogColor typeColor, string message, params object[] @params)
+    private static void LogTimeStopImpl(ILogger logger, Stopwatch stopwatch, string message, object[] @params)
     {
-        var parts = new List<object>();
-        parts.Add(Log.ColoredLog(typeColor, Log.RichLog(icon, Log.TextLog($" {type}"))));
+        LogImpl(logger, LogKind.TimeStop, message, @params, suffixFactory: () => new[] { Log.TextLog(": "), MessageFormatter.TimePart(stopwatch.Elapsed) });
+    }
 
-        var availableSize = Math.Max(0, TypeColumnSize - type.Length);
-        parts.Add(Log.TextLog(new string(' ', availableSize + 2)));
+    private static void LogException(ILogger logger, LogKind kind, Exception exception, string? message, object[] @params)
+    {
+        if (logger.IsEnabled(kind.Level))
+            LogExceptionImpl(logger, kind, exception, message, @params);
+    }
 
+    private static void LogExceptionImpl(ILogger logger, LogKind kind, Exception exception, string? message, object[] @params)
+    {
+        LogImpl(logger, kind, message ?? string.Empty, @params, suffixFactory: () => string.IsNullOrEmpty(message)
+            ? new[] { MessageFormatter.ExceptionPart(exception) }
+            : new[] { Log.TextLog(": "), MessageFormatter.ExceptionPart(exception) });
+    }
+
+    private static void LogImpl(ILogger logger, LogKind kind, string message, object[] @params, Func<object[]>? suffixFactory = null)
+    {
+        // Filtered messages are not even built
+        if (!logger.IsEnabled(kind.Level))
+            return;
+
+        if (@params.Length == 0 && suffixFactory == null)
+        {
+            kind.Emit(logger, new object[] { message });
+            return;
+        }
+
+        var parts = new List<object>(1 + @params.Length * 2 + 2);
         if (@params.Length > 0)
-        {
-            var index = 0;
-            var bld = new StringBuilder();
-            var escape = false;
-            foreach (var c in message)
-            {
-                if (escape)
-                {
-                    if (c == '%')
-                    {
-                        bld.Append(c);
-                        continue;
-                    }
-
-                    parts.Add(Log.TextLog(bld.ToString()));
-                    bld.Clear();
-
-                    if (c == 'e')
-                    {
-                        if (@params[index] is Exception ex)
-                        {
-                            var exception = ex.ToString();
-                            var exceptionParts = new List<object>();
-                            var exceptionIndex = 0;
-                            foreach (var match in StackTraceRegex.Matches(exception).OfType<Match>())
-                            {
-                                if (exceptionIndex < match.Index)
-                                    exceptionParts.Add(exception.Substring(exceptionIndex, match.Index - exceptionIndex));
-
-                                exceptionParts.Add(Log.HyperlinkLog($"{match.Groups["PATH"].Value}#L{match.Groups["LINE"].Value}", match.Value));
-                                exceptionIndex = match.Index + match.Length;
-                            }
-
-                            if (exceptionIndex < exception.Length)
-                                exceptionParts.Add(exception.Substring(exceptionIndex));
-
-                            parts.Add(Log.ColoredLog(LogColors.LowOpacity, Log.RichLog(exceptionParts)));
-                        }
-                    }
-                    else if (c == 't')
-                    {
-                        if (@params[index] is TimeSpan time)
-                            parts.Add(Log.ColoredLog(LogColors.Highlight, Log.TimedLog(time, Log.Format(time))));
-                    }
-                    else
-                    {
-                        bld.Append(c);
-                        continue;
-                    }
-
-                    index++;
-                }
-                else if (c == '%' && index < @params.Length)
-                {
-                    escape = true;
-                }
-                else
-                {
-                    bld.Append(c);
-                }
-            }
-
-            if (bld.Length > 0)
-            {
-                parts.Add(Log.TextLog(bld.ToString()));
-            }
-        }
+            MessageFormatter.Parse(parts, message, @params);
         else
-        {
             parts.Add(Log.TextLog(message));
-        }
 
-        logger.Log(Log.LeveledLog(level, Log.RichLog(parts)));
+        if (suffixFactory != null)
+            parts.AddRange(suffixFactory());
+
+        kind.Emit(logger, parts);
     }
 }

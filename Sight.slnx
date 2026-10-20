@@ -15,6 +15,7 @@
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Sight.IoC.Benchmarks/Sight.IoC.Benchmarks.csproj" />
+    <Project Path="benchmarks/Sight.Logging.Benchmarks/Sight.Logging.Benchmarks.csproj" />
     <Project Path="benchmarks/Sight.Serialization.Benchmarks/Sight.Serialization.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/samples/">
@@ -26,6 +27,7 @@
     <Project Path="src/Sight.IoC.MsDI/Sight.IoC.MsDI.csproj" />
     <Project Path="src/Sight.IoC/Sight.IoC.csproj" />
     <Project Path="src/Sight.Linq/Sight.Linq.csproj" />
+    <Project Path="src/Sight.Logging.Extensions/Sight.Logging.Extensions.csproj" />
     <Project Path="src/Sight.Logging/Sight.Logging.csproj" />
     <Project Path="src/Sight.Serialization/Sight.Serialization.csproj" />
     <Project Path="src/Sight.Tokenize/Sight.Tokenize.csproj" />
@@ -34,6 +36,8 @@
     <Project Path="tests/Sight.Encoding.Tests/Sight.Encoding.Tests.csproj" />
     <Project Path="tests/Sight.IoC.Tests/Sight.IoC.Tests.csproj" />
     <Project Path="tests/Sight.Linq.Tests/Sight.Linq.Tests.csproj" />
+    <Project Path="tests/Sight.Logging.Extensions.Tests/Sight.Logging.Extensions.Tests.csproj" />
+    <Project Path="tests/Sight.Logging.Tests/Sight.Logging.Tests.csproj" />
     <Project Path="tests/Sight.Serialization.Tests/Sight.Serialization.Tests.csproj" />
     <Project Path="tests/Sight.Tokenize.Tests/Sight.Tokenize.Tests.csproj" />
   </Folder>
