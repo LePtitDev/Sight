@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBDL Text Cheatsheet</title>
+<meta name="description" content="Human-readable encoding of SBDL (Sight Bundle): schemas in .sgs files, data in .sbdt files, lossless conversion to and from binary .sbdl.">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1d2330; --muted: #5d6677; --rule: #dde2ea;
+  --code-bg: #f3f5f9; --accent: #2457c5; --accent-soft: #e8eefb;
+  --pg: #b4570c; --pg-soft: #fbefe3;
+  --k: #8a2bb9; --s: #187a3c; --n: #b4570c; --c: #8a93a3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181e; --fg: #dfe4ec; --muted: #9aa3b2; --rule: #2c323d;
+    --code-bg: #1d2129; --accent: #7aa2ff; --accent-soft: #1f2a44;
+    --pg: #f0a35e; --pg-soft: #3a2a1b;
+    --k: #d19af0; --s: #8fd19e; --n: #f0a35e; --c: #737c8c;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; padding: 20px 16px 40px; background: var(--bg); color: var(--fg);
+  font: 13px/1.4 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+main { max-width: 1500px; margin: 0 auto; }
+a { color: var(--accent); }
+header { margin-bottom: 10px; border-bottom: 3px solid var(--accent); padding-bottom: 6px; }
+header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+.lead { margin: 2px 0 0; color: var(--muted); }
+nav { margin: 6px 0 12px; font-size: 12px; }
+nav a { text-decoration: none; margin-right: 10px; white-space: nowrap; }
+.part {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr));
+  gap: 14px 18px; align-items: start;
+}
+.part + .part { margin-top: 18px; }
+.part-title {
+  grid-column: 1 / -1; column-span: all; margin: 0 0 8px; padding: 4px 10px; font-size: 17px;
+  color: var(--pg); background: var(--pg-soft); border-left: 5px solid var(--pg); border-radius: 3px;
+}
+section { margin: 0; min-width: 0; }
+pre, ul, p, tr { break-inside: avoid; page-break-inside: avoid; }
+thead { break-after: avoid; }
+h2 {
+  break-after: avoid; page-break-after: avoid;
+  margin: 0 0 4px; padding: 2px 6px; font-size: 13.5px; color: var(--accent);
+  background: var(--accent-soft); border-radius: 3px;
+}
+.part ~ .part h2 { color: var(--pg); background: var(--pg-soft); }
+p { margin: 3px 0; }
+ul { margin: 3px 0; padding-left: 16px; }
+li { margin: 1px 0; }
+code { font: 11.5px/1.35 "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace; }
+:not(pre) > code { background: var(--code-bg); padding: 0 3px; border-radius: 3px; }
+pre {
+  margin: 4px 0; padding: 5px 7px; background: var(--code-bg); border-radius: 4px;
+  overflow-x: auto; white-space: pre; border-left: 3px solid var(--rule);
+}
+pre code { font-size: 11px; }
+.k { color: var(--k); font-weight: 600; } .s { color: var(--s); } .n { color: var(--n); } .c { color: var(--c); font-style: italic; }
+table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 12px; }
+th, td { text-align: left; vertical-align: top; padding: 2px 5px; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; color: var(--muted); border-bottom: 1.5px solid var(--muted); }
+td:first-child { white-space: normal; }
+table.center-first td:first-child { text-align: center; font-weight: 600; color: var(--muted); width: 1%; white-space: nowrap; }
+
+@page { size: A4 landscape; margin: 8mm; }
+@media print {
+  :root, :root:not([data-theme="light"]) {
+    --bg: #fff; --fg: #111; --muted: #555; --rule: #d6d9df; --code-bg: #f2f4f7;
+    --accent: #1f4fb5; --accent-soft: #e6ecf9; --pg: #a24c08; --pg-soft: #fbeee1;
+    --k: #7a1fa8; --s: #146b33; --n: #a24c08; --c: #7d8594;
+  }
+  body { padding: 0; font-size: 7.6pt; line-height: 1.3; }
+  main { max-width: none; }
+  nav { display: none; }
+  header { margin-bottom: 5px; padding-bottom: 3px; border-bottom-width: 2px; }
+  header h1 { font-size: 13pt; }
+  .lead { font-size: 7.6pt; }
+  .part { display: block; column-count: 3; column-gap: 12px; column-rule: 1px solid var(--rule); }
+  .part + .part { margin-top: 0; break-before: page; page-break-before: always; }
+  .part-title { font-size: 11pt; padding: 2px 8px; margin-bottom: 5px; }
+  section { margin-bottom: 6px; }
+  h2 { font-size: 8.6pt; padding: 1px 5px; margin-bottom: 2px; }
+  code, pre code { font-size: 7pt; }
+  pre { padding: 3px 5px; margin: 2px 0; overflow: visible; white-space: pre-wrap; }
+  pre code { font-size: 6.9pt; line-height: 1.28; }
+  table { font-size: 7.3pt; margin: 2px 0; }
+  th, td { padding: 1px 3px; }
+  ul { padding-left: 12px; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<main>
+<header><h1>SBDL text cheatsheet</h1>
+<p class="lead">Human-readable encoding of SBDL (Sight Bundle): schemas in <code>.sgs</code> files, data in <code>.sbdt</code> files, lossless conversion to and from binary <code>.sbdl</code>. Full specification: <a href="../specs/sbdl-text.md">sbdl-text.md</a>, binary encoding: <a href="../specs/sbdl-binary.md">sbdl-binary.md</a>.</p></header>
+<nav><a href="#lexical-essentials">Lexical essentials</a> <a href="#literals">Literals</a> <a href="#types">Types</a> <a href="#schema-sgs">Schema (.sgs)</a> <a href="#schema-rules">Schema rules</a> <a href="#data-document-sbdt">Data document (.sbdt)</a> <a href="#directives">Directives</a> <a href="#values-by-expected-type">Values by expected type</a> <a href="#structs-type-prefixes">Structs &amp; type prefixes</a> <a href="#positional-values">Positional values</a> <a href="#references">References</a> <a href="#values-of-type-any">Values of type any</a> <a href="#canonical-output">Canonical output</a> <a href="#common-errors">Common errors</a> <a href="#c-api-sight-serialization">C# API (Sight.Serialization)</a> <a href="#read-write">Read &amp; write</a> <a href="#options">Options</a> <a href="#mapping-attributes">Mapping attributes</a> <a href="#clr-types">CLR types</a> <a href="#links-ref-t">Links (ref&lt;T&gt;)</a> <a href="#converters">Converters</a></nav>
+<div class="part">
+<section id="lexical-essentials"><h2>Lexical essentials</h2>
+<table class="noheader"><tbody><tr><td>Files</td><td><code>.sgs</code> schema · <code>.sbdt</code> text data · <code>.sbdl</code> binary (data or compiled schema)</td></tr><tr><td>Encoding</td><td>UTF-8 <strong>without BOM</strong>, <code>LF</code> or <code>CR LF</code> (a lone <code>CR</code> is an error)</td></tr><tr><td>Comments</td><td><code>// line</code>, <code>/* block */</code> (not nested)</td></tr><tr><td>Separators</td><td>comma <strong>or</strong> line break between items; trailing comma allowed; <code>[1 2]</code> is an error</td></tr><tr><td>Identifiers</td><td><code>[A-Za-z_][A-Za-z0-9_]*</code>, qualified names <code>a.b.c</code></td></tr><tr><td>Names</td><td>ordinal comparison (case-sensitive)</td></tr><tr><td>Same line</td><td>a type prefix and its <code>{</code> / <code>(</code>, an explicit type and its value</td></tr><tr><td>Directives</td><td><code>@name …</code> at the start of a line, before the content</td></tr></tbody></table>
+<p><strong>Reserved words</strong> (never identifiers): <code>null true false inf nan</code></p>
+<p><strong>Type keywords</strong> (never type names): <code>bool u8 u16 u32 u64 s8 s16 s32 s64 f32 f64 string bytes list map ref any</code></p>
+<p><strong>Contextual keywords</strong> (still valid field names): <code>enum struct abstract type</code></p>
+</section>
+<section id="literals"><h2>Literals</h2>
+<table class=""><thead><tr><th>Literal</th><th>Examples</th></tr></thead><tbody><tr><td>Integers</td><td><code>42</code>, <code>-7</code>, <code>007</code>, <code>1_000_000</code>, <code>0x2A</code>, <code>0xFF_FF</code>, <code>0b1010</code></td></tr><tr><td>Integer suffix</td><td><code>255u8</code>, <code>-3s16</code>, <code>0xFFu32</code> (<code>u8 … u64</code>, <code>s8 … s64</code>)</td></tr><tr><td>Floats</td><td><code>3.14</code>, <code>-1e-3</code>, <code>2E10</code>, <code>inf</code>, <code>-inf</code>, <code>nan</code> — digits on both sides of <code>.</code></td></tr><tr><td>Float suffix</td><td><code>1.5f32</code>, <code>2f32</code>, <code>nanf64</code></td></tr><tr><td>Booleans, null</td><td><code>true</code>, <code>false</code>, <code>null</code></td></tr><tr><td>Strings</td><td><code>&quot;tab\there&quot;</code> — escapes <code>\&quot; \\ \n \r \t \0 \u{1F600}</code></td></tr><tr><td>Multi-line</td><td><code>&quot;&quot;&quot;</code> + line break … closing <code>&quot;&quot;&quot;</code> alone on its line (its indentation is removed)</td></tr><tr><td>Base64</td><td><code>b64&quot;SGVsbG8=&quot;</code> — padding mandatory, whitespace ignored, only for <code>bytes</code></td></tr></tbody></table>
+<pre class="lang-sbdt"><code>text: <span class="s">&quot;&quot;&quot;</span>
+    First line
+      indented line
+    <span class="s">&quot;&quot;&quot;</span>                    <span class="c">// &quot;First line\n  indented line&quot;</span></code></pre>
+</section>
+<section id="types"><h2>Types</h2>
+<table class=""><thead><tr><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>bool</code></td><td><code>true</code> / <code>false</code></td></tr><tr><td><code>u8 u16 u32 u64</code> · <code>s8 … s64</code></td><td>varint encoded, raw with <code>@fixed</code> (16–64 bits)</td></tr><tr><td><code>f32</code> <code>f64</code></td><td>IEEE 754, bit-exact round trip</td></tr><tr><td><code>string</code></td><td>UTF-8</td></tr><tr><td><code>bytes</code></td><td>shorthand of <code>list&lt;u8&gt;</code>, Base64 in text</td></tr><tr><td><code>list&lt;T&gt;</code></td><td>ordered</td></tr><tr><td><code>map&lt;K, V&gt;</code></td><td><code>K</code>: <code>bool</code>, integer, <code>string</code> or enum; insertion order kept</td></tr><tr><td><code>ref&lt;T&gt;</code></td><td>struct <code>T</code>: in place, internal (<code>*a</code>) or external (<code>&lt;dep&gt;</code>)</td></tr><tr><td><code>any</code></td><td>value carrying its type</td></tr><tr><td><code>Name</code></td><td>enum, struct or type alias</td></tr><tr><td><code>T?</code></td><td>nullable — not on <code>any</code>, never <code>T??</code></td></tr></tbody></table>
+</section>
+<section id="schema-sgs"><h2>Schema (<code>.sgs</code>)</h2>
+<pre class="lang-sgs"><code><span class="k">@sgs</span> <span class="n">1</span>                         <span class="c">// first line, mandatory</span>
+<span class="k">@id</span> game                       <span class="c">// schema name, mandatory</span>
+<span class="k">@version</span> <span class="n">3</span>
+<span class="k">@meta</span> author = <span class="s">&quot;Arthur&quot;</span>
+<span class="k">@import</span> assets <span class="n">2</span>               <span class="c">// types usable as assets.X</span>
+<span class="k">@import</span> tex = assets.textures <span class="n">1</span>  <span class="c">// local alias: tex.X</span>
+
+<span class="k">enum</span> Class : <span class="k">u8</span> { Warrior, Mage = <span class="n">5</span>, Rogue }   <span class="c">// 0, 5, 6</span>
+
+<span class="k">type</span> Color = <span class="k">u32</span>               <span class="c">// alias: same encoding</span>
+<span class="k">type</span> Palette = <span class="k">list</span>&lt;Color&gt;
+
+<span class="k">struct</span> Vec3 <span class="k">@positional</span> { x: <span class="k">f32</span>, y: <span class="k">f32</span>, z: <span class="k">f32</span> }
+
+<span class="k">abstract</span> <span class="k">struct</span> Character {
+  name:  <span class="k">string</span>
+  level: <span class="k">u8</span> = <span class="n">1</span>                <span class="c">// default: not written</span>
+}
+
+<span class="k">struct</span> Warrior : Character { rage: <span class="k">u16</span> }
+<span class="k">struct</span> Mage : Character { mana: <span class="k">u32</span> }
+
+<span class="k">struct</span> Player {
+  party:  <span class="k">list</span>&lt;<span class="k">ref</span>&lt;Character&gt;&gt; <span class="c">// polymorphic</span>
+  tint:   Color = <span class="n">0xFFFFFFFF</span>
+  hash:   <span class="k">u64</span> <span class="k">@fixed</span>           <span class="c">// raw 8 bytes</span>
+  xp:     <span class="k">s32</span> <span class="k">@alias</span>(exp, experience)  <span class="c">// former names</span>
+  leader: <span class="k">ref</span>&lt;Character&gt;?
+  pos:    Vec3
+  icon:   <span class="k">ref</span>&lt;assets.Texture&gt;
+  avatar: <span class="k">bytes</span>?
+  extra:  <span class="k">any</span>
+}</code></pre>
+</section>
+<section id="schema-rules"><h2>Schema rules</h2>
+<ul><li>Types may be used before their declaration; type names are unique in a schema.</li><li>Defaults only on non-nullable <code>bool</code>, numbers, <code>string</code>, enums. <code>T? = v</code> is invalid: <code>null</code> is the default of <code>T?</code>.</li><li><code>@fixed</code> on <code>u16 … s64</code> fields (possibly through an alias), not on aliases themselves.</li><li><code>@alias(…)</code> gives former field names, used when reading data written with an older schema.</li><li><code>type A = T</code>: <code>T</code> not nullable, no cycles; an alias is never a <code>ref&lt;…&gt;</code> target nor a base.</li><li><code>@positional</code>: struct not abstract, only non-nullable scalar or enum fields (inherited ones included).</li><li>Single inheritance, no cycle; <code>abstract</code> structs are never instantiated.</li><li>Unqualified names: current schema, then direct imports (ambiguous → qualify).</li></ul>
+</section>
+<section id="data-document-sbdt"><h2>Data document (<code>.sbdt</code>)</h2>
+<pre class="lang-sbdt"><code><span class="k">@sbdl</span> <span class="n">1</span>                        <span class="c">// very first line</span>
+<span class="k">@id</span> <span class="s">&quot;level-01&quot;</span>
+<span class="k">@version</span> <span class="n">3</span>
+<span class="k">@meta</span> author = <span class="s">&quot;Arthur&quot;</span>
+<span class="k">@schema</span> game <span class="n">3</span>                 <span class="c">// or inline: @schema { … }</span>
+<span class="k">@dep</span> tex = assets.textures <span class="n">2</span>   <span class="c">// alias = id version</span>
+
+Player {                       <span class="c">// root: type prefix mandatory</span>
+  party: [
+    Warrior { name: <span class="s">&quot;Conan&quot;</span>, rage: <span class="n">12</span> }
+    &amp;hero Mage { name: <span class="s">&quot;Merlin&quot;</span>, level: <span class="n">7</span>, mana: <span class="n">300</span> }
+  ]
+  hash: <span class="n">0x9F3A_22C1_0000_0001</span>
+  xp: <span class="n">1200</span>
+  leader: *hero                <span class="c">// internal reference</span>
+  pos: (<span class="n">1.5</span>, <span class="n">0.0</span>, -<span class="n">3.0</span>)        <span class="c">// positional struct</span>
+  icon: &lt;tex#hero&gt;             <span class="c">// export of a dependency</span>
+  extra: <span class="n">42u8</span>                  <span class="c">// any: typed literal</span>
+}
+
+<span class="k">@export</span> captain = *hero        <span class="c">// after the root</span></code></pre>
+</section>
+<section id="directives"><h2>Directives</h2>
+<table class=""><thead><tr><th>Directive</th><th>Count</th><th>Meaning</th></tr></thead><tbody><tr><td><code>@sbdl 1</code></td><td>1, first line</td><td>text format version</td></tr><tr><td><code>@id name</code> / <code>@id &quot;any text&quot;</code></td><td>≤ 1</td><td>file id (indexed by search paths)</td></tr><tr><td><code>@version n</code></td><td>≤ 1</td><td>content version (default 0)</td></tr><tr><td><code>@meta key = &quot;value&quot;</code></td><td>any</td><td>metadata, unique keys</td></tr><tr><td><code>@schema name version [0xHASH]</code></td><td>1+</td><td>referenced schemas (hash checked if given)</td></tr><tr><td><code>@schema { … }</code></td><td>1+</td><td>inline schemas (no <code>@sgs</code> inside), not mixed with references</td></tr><tr><td>none</td><td></td><td>no <code>@schema</code>: schemas given by <code>SerializationOptions.Schemas</code></td></tr><tr><td><code>@dep alias = id version</code></td><td>any</td><td>dependency, <code>alias</code> local to the file</td></tr><tr><td><code>@export name = value</code></td><td>any, after root</td><td><code>*anchor</code> or prefixed struct</td></tr></tbody></table>
+</section>
+<section id="values-by-expected-type"><h2>Values by expected type</h2>
+<table class=""><thead><tr><th>Expected type</th><th>Accepted syntax</th></tr></thead><tbody><tr><td>integers</td><td>integer literal in range; suffix = the type, if any</td></tr><tr><td><code>f32</code> <code>f64</code></td><td>float or decimal integer (<code>2</code> → <code>2.0</code>)</td></tr><tr><td><code>string</code></td><td><code>&quot;…&quot;</code> or <code>&quot;&quot;&quot;…&quot;&quot;&quot;</code></td></tr><tr><td>enum <code>E</code></td><td><code>Mage</code>, <code>Class.Mage</code>, <code>game.Class.Mage</code></td></tr><tr><td><code>bytes</code></td><td><code>b64&quot;…&quot;</code> or <code>[1, 2, 3]</code></td></tr><tr><td><code>list&lt;T&gt;</code></td><td><code>[a, b, c]</code></td></tr><tr><td><code>map&lt;K, V&gt;</code></td><td><code>{ &quot;str&quot;: 1.5, &quot;dex&quot;: 8 }</code> — keys: <code>&quot;…&quot;</code>, integers, <code>true</code>/<code>false</code>, enum names</td></tr><tr><td>struct <code>T</code></td><td><code>{ field: value }</code> or <code>(a, b, c)</code>, optional <code>T</code> prefix</td></tr><tr><td><code>ref&lt;T&gt;</code></td><td>struct value, <code>&amp;a</code> + struct, <code>*a</code>, <code>&lt;dep&gt;</code> or <code>&lt;dep#export&gt;</code></td></tr><tr><td><code>T?</code></td><td><code>null</code> or a value of <code>T</code></td></tr><tr><td>alias</td><td>syntax of its target</td></tr></tbody></table>
+</section>
+<section id="structs-type-prefixes"><h2>Structs &amp; type prefixes</h2>
+<pre class="lang-sbdt"><code>inventory: [
+  { name: <span class="s">&quot;Potion&quot;</span>, count: <span class="n">3</span> }
+  { name: <span class="s">&quot;Torch&quot;</span> }            <span class="c">// count: default (1)</span>
+]
+party: [Warrior { name: <span class="s">&quot;Conan&quot;</span> }]   <span class="c">// prefix: real type</span></code></pre>
+<ul><li>Fields in any order, once each; unknown field → error with suggestion (<code>did you mean &#x27;level&#x27;?</code>).</li><li>Missing field: <code>null</code> if nullable, schema default otherwise, else error. No field aliases in text.</li><li>Prefix <strong>mandatory</strong>: root, exports, <code>any</code>, real type ≠ declared type, abstract declared type.</li><li>Prefix <strong>optional</strong> otherwise: the declared type or a derived one. An alias of a struct is accepted.</li></ul>
+</section>
+<section id="positional-values"><h2>Positional values</h2>
+<pre class="lang-sbdt"><code>pos:  (<span class="n">1.5</span>, <span class="n">0</span>, -<span class="n">3</span>)             <span class="c">// x: 1.5, y: 0.0, z: -3.0</span>
+path: [(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>), (<span class="n">1</span>, <span class="n">0</span>, <span class="n">0</span>)]
+size: Rect (<span class="n">0</span>, <span class="n">0</span>, <span class="n">1920</span>, <span class="n">1080</span>)  <span class="c">// with prefix</span></code></pre>
+<ul><li>Every field, in field sequence order (base fields first), defaults included.</li><li>Any struct with only non-nullable scalar / enum fields accepts it; writers use it only for <code>@positional</code> structs.</li><li>Always a struct, never a map.</li></ul>
+</section>
+<section id="references"><h2>References</h2>
+<pre class="lang-sbdt"><code><span class="k">@dep</span> tex = assets.textures <span class="n">2</span>
+
+textures: [
+  &amp;<span class="n">1</span> { path: <span class="s">&quot;local.png&quot;</span> }     <span class="c">// in place, anchored</span>
+  *<span class="n">1</span>                           <span class="c">// internal: same object</span>
+  &lt;tex&gt;                        <span class="c">// root of the dependency</span>
+  &lt;tex#hero&gt;                   <span class="c">// export &quot;hero&quot;</span>
+  &lt;tex#<span class="s">&quot;any name&quot;</span>&gt;             <span class="c">// quoted export name</span>
+]</code></pre>
+<ul><li>One <code>ref&lt;T&gt;</code> position accepts the three forms, value by value.</li><li>Anchors <code>&amp;name</code> / <code>&amp;12</code>: before a struct at a <code>ref&lt;T&gt;</code>, export or <code>any</code> position only.</li><li><code>*name</code> may come before its anchor (cycles allowed); it must resolve.</li><li>The target type must be <code>T</code> or derive from it.</li></ul>
+</section>
+<section id="values-of-type-any"><h2>Values of type <code>any</code></h2>
+<table class=""><thead><tr><th>Syntax</th><th>Type</th></tr></thead><tbody><tr><td><code>null</code> / <code>true</code></td><td>Null / <code>bool</code></td></tr><tr><td><code>42</code> / <code>42u16</code></td><td><code>s64</code> / suffix type</td></tr><tr><td><code>1.5</code> / <code>1.5f32</code></td><td><code>f64</code> / suffix type</td></tr><tr><td><code>&quot;text&quot;</code> / <code>b64&quot;…&quot;</code></td><td><code>string</code> / <code>bytes</code></td></tr><tr><td><code>Class.Mage</code></td><td>enum (qualified)</td></tr><tr><td><code>Item { … }</code> / <code>Vec3 (1, 2, 3)</code></td><td>struct (prefix mandatory)</td></tr><tr><td><code>[ … ]</code></td><td><code>list&lt;any&gt;</code></td></tr><tr><td><code>{ &quot;k&quot;: … }</code></td><td><code>map&lt;string, any&gt;</code></td></tr><tr><td><code>&amp;a Item { … }</code>, <code>*a</code></td><td><code>ref&lt;Item&gt;</code></td></tr><tr><td><code>Type value</code></td><td>explicit type: <code>list&lt;s32&gt; [1, 2]</code>, <code>map&lt;Class, u8&gt; { Mage: 1 }</code>, <code>ref&lt;Texture&gt; &lt;tex&gt;</code>, <code>Color 255</code></td></tr></tbody></table>
+<p>Aliases are resolved in <code>any</code>: <code>Color 255</code> is stored as <code>255u32</code>.</p>
+</section>
+<section id="canonical-output"><h2>Canonical output</h2>
+<ul><li><code>LF</code>, 2-space indent, final line break; directives in table order, then a blank line and the root.</li><li>Containers on one line if they fit in 80 columns: <code>[1, 2, 3]</code>, <code>{ name: &quot;Potion&quot;, count: 3 }</code>; otherwise one item per line, without commas.</li><li>Fields in schema order; nulls and defaults omitted (option <code>WriteDefaults</code>).</li><li>Prefixes only where mandatory; enum values unqualified outside <code>any</code>.</li><li>Integers in decimal; floats: shortest round-trip form (<code>1.0</code>, <code>1e21</code>, <code>1.5e-7</code>).</li><li><code>bytes</code> → Base64; <code>@positional</code> structs → <code>( … )</code>.</li><li>Anchors <code>&amp;1</code>, <code>&amp;2</code>… only on shared or exported objects; dependency alias = last segment of the id.</li></ul>
+</section>
+<section id="common-errors"><h2>Common errors</h2>
+<table class=""><thead><tr><th>Message</th><th>Cause</th></tr></thead><tbody><tr><td><code>Unknown field &#x27;levle&#x27; in &#x27;game.Player&#x27; (did you mean &#x27;level&#x27;?)</code></td><td>typo, or field of another type</td></tr><tr><td><code>Missing required field &#x27;name&#x27; in …</code></td><td>field without default nor <code>?</code></td></tr><tr><td><code>Expected &#x27;,&#x27; or a line break before …</code></td><td><code>[1 2]</code>, <code>{ a: 1 b: 2 }</code></td></tr><tr><td><code>A type prefix is mandatory here</code></td><td>root / export without <code>Type { … }</code></td></tr><tr><td><code>A type prefix is mandatory: &#x27;…&#x27; is abstract</code></td><td><code>{ … }</code> for an abstract declared type</td></tr><tr><td><code>Enum value &#x27;Mage&#x27; must be qualified with its type in &#x27;any&#x27;</code></td><td>write <code>Class.Mage</code></td></tr><tr><td><code>This value requires an explicit type in &#x27;any&#x27;</code></td><td><code>&lt;tex&gt;</code> in <code>any</code> → <code>ref&lt;T&gt; &lt;tex&gt;</code></td></tr><tr><td><code>Struct &#x27;…&#x27; has 3 fields, 2 values are given</code></td><td>positional value incomplete</td></tr><tr><td><code>Unresolved reference &#x27;*a&#x27;</code></td><td>no <code>&amp;a</code> anchor in the document</td></tr><tr><td><code>Undeclared dependency alias &#x27;tex&#x27;</code></td><td>missing <code>@dep tex = …</code></td></tr><tr><td><code>An anchor is only allowed at a reference position</code></td><td><code>&amp;a</code> on a plain struct field</td></tr><tr><td><code>Base64 literals are only valid for list&lt;u8&gt;</code></td><td><code>b64&quot;…&quot;</code> elsewhere</td></tr></tbody></table>
+</section>
+</div>
+<div class="part part-c"><h1 class="part-title" id="c-api-sight-serialization">C# API (<code>Sight.Serialization</code>)</h1>
+<section id="read-write"><h2>Read &amp; write</h2>
+<pre class="lang-csharp"><code><span class="c">// Typed (schema from the C# types, inline)</span>
+<span class="k">string</span> text = TextSerializer.Write(player);
+Player p = TextSerializer.Read&lt;Player&gt;(text);
+
+<span class="c">// Untyped</span>
+DataDocument doc = TextSerializer.Read(text, options);
+TextSerializer.Write(stream, doc, options);
+
+<span class="c">// Text &lt;-&gt; binary</span>
+<span class="k">var</span> data = TextSerializer.Read(text, options);
+<span class="k">byte</span>[] bin = BinarySerializer.Write(data, options);
+data = BinarySerializer.Read(bin, options);
+
+<span class="c">// Schemas</span>
+Schema s = Schema.Parse(sgsText, options);
+Schema t = Schema.FromType&lt;Player&gt;();
+<span class="k">string</span> sgs = s.ToText();
+Schema.Compile(sgsStream, sbdlStream);  <span class="c">// to .sbdl</span></code></pre>
+<p>All operations have <code>Async</code> variants (<code>ReadAsync</code>, <code>WriteAsync</code>, <code>ParseAsync</code>…) with a <code>CancellationToken</code>.</p>
+</section>
+<section id="options"><h2>Options</h2>
+<table class=""><thead><tr><th><code>SerializationOptions</code></th><th></th></tr></thead><tbody><tr><td><code>Schemas</code></td><td>schemas in memory (mandatory without <code>@schema</code>)</td></tr><tr><td><code>SearchPaths</code></td><td>folders indexed for <code>.sbdl</code>, <code>.sbdt</code>, <code>.sgs</code> (first wins)</td></tr><tr><td><code>Dependencies.Add(id, version[, value | Func&lt;Stream&gt;])</code></td><td>dependencies in memory or declared</td></tr><tr><td><code>Resolvers</code></td><td>custom <code>IResourceResolver</code> (archives, network…)</td></tr><tr><td><code>AllowNewerDependencies</code></td><td>accept a newer dependency version</td></tr><tr><td><code>Id</code>, <code>Version</code>, <code>Metadata</code>, <code>Exports</code></td><td>header and exports when writing</td></tr><tr><td><code>SchemaMode</code></td><td><code>Inline</code> (default), <code>Reference</code>, <code>None</code></td></tr><tr><td><code>Indent</code> / <code>MaxInlineWidth</code> / <code>WriteDefaults</code></td><td>text layout: <code>2</code> / <code>80</code> / <code>false</code></td></tr><tr><td><code>Limits</code></td><td>depth, collection, string and object limits</td></tr><tr><td><code>OnDiagnostic</code></td><td>warnings (shadowed files…)</td></tr></tbody></table>
+<p>Errors are <code>SerializationException</code> with <code>Line</code> and <code>Column</code> for text input.</p>
+</section>
+<section id="mapping-attributes"><h2>Mapping attributes</h2>
+<table class=""><thead><tr><th>Attribute</th><th>Effect</th></tr></thead><tbody><tr><td><code>[SerializationType(&quot;game.Player&quot;)]</code></td><td>type identity; <code>IsReference</code>, <code>IsPositional</code></td></tr><tr><td><code>[SerializationDerivedType(typeof(Mage))]</code></td><td>derived types known through the base</td></tr><tr><td><code>[assembly: SerializationSchema(&quot;game&quot;, 3)]</code></td><td>schema version</td></tr><tr><td><code>[SerializationField(&quot;lvl&quot;)]</code></td><td>field name (camelCase of the member by default)</td></tr><tr><td><code>[SerializationAlias(&quot;xp&quot;, &quot;exp&quot;)]</code></td><td>former names (<code>@alias</code>)</td></tr><tr><td><code>[SerializationIgnore]</code></td><td>not serialized</td></tr><tr><td><code>[SerializationFixed]</code></td><td><code>@fixed</code></td></tr><tr><td><code>[SerializationReference]</code></td><td>member as <code>ref&lt;T&gt;</code> (identity kept)</td></tr><tr><td><code>[DefaultValue(1)]</code></td><td>schema default, not written</td></tr><tr><td><code>[SerializationConverter(typeof(X), args…)]</code></td><td>surrogate conversion (member, type or assembly)</td></tr></tbody></table>
+</section>
+<section id="clr-types"><h2>CLR types</h2>
+<table class=""><thead><tr><th>C#</th><th>Schema</th></tr></thead><tbody><tr><td><code>bool</code>, <code>byte</code>…<code>ulong</code>, <code>sbyte</code>…<code>long</code>, <code>float</code>, <code>double</code>, <code>string</code></td><td>scalars</td></tr><tr><td><code>byte[]</code>, <code>ReadOnlyMemory&lt;byte&gt;</code>, <code>Memory&lt;byte&gt;</code>, <code>ArraySegment&lt;byte&gt;</code></td><td><code>bytes</code></td></tr><tr><td>arrays, <code>List&lt;T&gt;</code>, <code>IList&lt;T&gt;</code>, <code>HashSet&lt;T&gt;</code>…</td><td><code>list&lt;T&gt;</code></td></tr><tr><td><code>Dictionary&lt;K, V&gt;</code>, <code>IReadOnlyDictionary&lt;K, V&gt;</code>…</td><td><code>map&lt;K, V&gt;</code></td></tr><tr><td>enum, class / struct</td><td>enum, struct</td></tr><tr><td><code>Link&lt;T&gt;</code></td><td><code>ref&lt;T&gt;</code> (local or external)</td></tr><tr><td><code>object</code></td><td><code>any</code></td></tr><tr><td><code>T?</code>, nullable annotations</td><td><code>T?</code></td></tr></tbody></table>
+</section>
+<section id="links-ref-t"><h2>Links (<code>ref&lt;T&gt;</code>)</h2>
+<pre class="lang-csharp"><code><span class="k">public</span> List&lt;Link&lt;Texture&gt;&gt; Links { <span class="k">get</span>; <span class="k">set</span>; }
+
+atlas.Links.Add(texture);      <span class="c">// local (implicit)</span>
+atlas.Links.Add(texture);      <span class="c">// same object: shared</span>
+atlas.Links.Add(<span class="k">new</span> Link&lt;Texture&gt;(<span class="s">&quot;assets.lib&quot;</span>, <span class="s">&quot;hero&quot;</span>));
+
+Link&lt;Texture&gt; l = atlas.Links[<span class="n">2</span>];
+l.IsExternal; l.DependencyId; l.Key;
+Texture t = l.Resolve();       <span class="c">// loaded on demand, cached</span></code></pre>
+<ul><li><code>Link&lt;T&gt;</code> keeps external references unresolved; a plain <code>T</code> member at a <code>ref&lt;T&gt;</code> position resolves them while reading.</li><li>Writing an external link needs its dependency version (<code>Link</code> constructor or <code>Dependencies</code>).</li></ul>
+</section>
+<section id="converters"><h2>Converters</h2>
+<pre class="lang-csharp"><code><span class="c">// Named surrogate: type Color = u32</span>
+[SerializationType(<span class="s">&quot;game.Color&quot;</span>)]
+<span class="k">public</span> <span class="k">sealed</span> <span class="k">class</span> ColorConverter
+    : SerializationConverter&lt;Color, <span class="k">uint</span>&gt;
+{
+    <span class="k">public</span> <span class="k">override</span> <span class="k">uint</span> ToSurrogate(Color c) =&gt; c.Rgba;
+    <span class="k">public</span> <span class="k">override</span> Color FromSurrogate(<span class="k">uint</span> s) =&gt; <span class="k">new</span>(s);
+}
+
+<span class="c">// Every Color</span>
+[SerializationConverter(<span class="k">typeof</span>(ColorConverter))]
+<span class="k">public</span> <span class="k">readonly</span> <span class="k">struct</span> Color { … }
+
+<span class="c">// Third-party type</span>
+[<span class="k">assembly</span>: SerializationConverter(<span class="k">typeof</span>(Vec3Conv))]
+
+<span class="c">// One member, with a constructor argument: s32</span>
+[SerializationConverter(<span class="k">typeof</span>(FixedPoint), <span class="n">8</span>)]
+<span class="k">public</span> <span class="k">float</span> Speed { <span class="k">get</span>; <span class="k">set</span>; }</code></pre>
+<ul><li>The schema comes from the surrogate type only; arguments configure the conversion.</li><li>Converters never receive <code>null</code>; in <code>object</code> members the surrogate is stored.</li></ul>
+</section>
+</div>
+</main>
+</body>
+</html>
